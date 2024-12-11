@@ -1,4 +1,8 @@
-# EVM Indexer (EVMI)
+<p align="center">
+  <img src="public/EVMI_LOGO_WHITE_TRANSPARENT.png" width="300px" alt="EVMI"/>
+</p>
+
+# EVM Indexer
 
 EVMI is a powerful and flexible Ethereum Virtual Machine (EVM) log indexing service that helps you capture, store, and process blockchain events efficiently.
 
