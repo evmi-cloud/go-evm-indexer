@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'indexer'
+    static_configs:
+      - targets: ['indexer:9999']

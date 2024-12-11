@@ -1,0 +1,120 @@
+{
+    "cluster": {
+        "mode": "standalone",
+        "config": {
+            "proxy": ""
+        } 
+    },
+    "metrics": {
+        "enabled": true,
+        "port": 9999,
+        "path": "/metrics"
+    },
+    "storage": {
+        "type": "clover",
+        "config": {
+            "path": "/Users/bliiitz/Documents/workspaces/murphy-labs/strateg-protocol/backend/go-evm-indexer/datastore"
+        }
+    },
+    "indexer": {
+        "blockSlice": 4,
+        "maxBlockRange": 999,
+        "pullInterval": 2,
+        "rpcMaxBatchSize": 1000
+    },
+    "hooks": [],
+    "stores": [
+        {
+            "identifier": "basesep-staging",
+            "description": "Majora staging base sepolia",
+            "rpc": "",
+            "chainId": 84532,
+            "sources": [
+                {
+                    "name": "Majora static contracts",
+                    "type": "STATIC",
+                    "contracts": [
+                        { "address": "0xc66F0E39Cd57dA789BbAa16023A449BFD8b2c7De", "contractName": "MajoraAccessManager" },
+                        { "address": "0x987F7985102AB29aA1ce75abBec720986b1173CC", "contractName": "MajoraMainFeeCollector" },
+                        { "address": "0x117F6c4f999BA074204aF9C7e3330d7a34Ae4967", "contractName": "MajoraFeeDistributor" },
+                        { "address": "0xb531097309f5445f19330946a1CDC75FAfA45986", "contractName": "StkMAJLocked" },    
+                        { "address": "0x223264241d2724bcE0AC96FE0382BFB9A72b2e35", "contractName": "MajoraTokenVesting" }
+                    ],
+                    "startBlock": 16639000
+                }
+            ] 
+        },
+        {
+            "identifier": "gnosis-staging",
+            "description": "Majora staging Gnosis",
+            "rpc": "",
+            "chainId": 100,
+            "sources": [
+                {
+                    "name": "Majora static contracts",
+                    "type": "STATIC",
+                    "contracts": [
+                        { "address": "0x24c98fef12B39bFD61872ECe38308e35E70beE0f", "contractName": "MajoraAccessManager" },
+                        { "address": "0x18D06E78bcA3310d9A85bbE291759F816DF3128d", "contractName": "MajoraVaultFactory" },
+                        { "address": "0x814ee000D246FDb7602AEf6f9667a1f8FbC25813", "contractName": "MajoraBlockRegistry" },
+                        { "address": "0x79478bA71fB947De6D89357776884A1657609239", "contractName": "MajoraOperationsPaymentToken" },
+                        { "address": "0xc66F0E39Cd57dA789BbAa16023A449BFD8b2c7De", "contractName": "MajoraOperatorProxy" },
+                        { "address": "0xBf778c1ceF96a842fEAb87f6bbC44D6Fe615faA8", "contractName": "MajoraPositionManagerFactory" },
+                        { "address": "0xe6B4B000570505Fa7b3151b834384f6DE0Ea882E", "contractName": "MajoraPortal" }
+                    ],
+                    "startBlock": 36526000
+                },
+                {
+                    "name": "Majora MajoraVaultUpdate topic logs",
+                    "type": "TOPIC",
+                    "startBlock": 36526000,
+                    "topic": "e4f7d60666a53dccd26e8a5e37f1f0854a26aecc2297bb80c6cd45f0dfcf727e",
+                    "indexedTopics": []
+                },
+                {
+                    "name": "Majora MajoraERC3525Update topic logs",
+                    "type": "TOPIC",
+                    "startBlock": 36526000,
+                    "topic": "ec4add03d252c7f08195046c912d2d7b48f7c5b5ee5e195cfe79db96c5fd516e",
+                    "indexedTopics": []
+                }
+            ] 
+        },
+        {
+            "identifier": "polygon-staging",
+            "description": "Majora staging Polygon",
+            "rpc": "",
+            "chainId": 137,
+            "sources": [
+                {
+                    "name": "Majora static contracts",
+                    "type": "STATIC",
+                    "contracts": [
+                        { "address": "0xF9cE9622d9cb59EbB04F2c0a1d78098d1E7c26B8", "contractName": "MajoraAccessManager" },
+                        { "address": "0x22b63ED29D34DdD75167B439a0C640852f5DEBB5", "contractName": "MajoraVaultFactory" },
+                        { "address": "0x14F6A8c09f7346023c4f435dC587c3e72806Ec9a", "contractName": "MajoraBlockRegistry" },
+                        { "address": "0x2f0D344CcEEF1F318eaE8cb5D43F75520eD22b4F", "contractName": "MajoraOperationsPaymentToken" },
+                        { "address": "0x230ebA3dfbfeA636F5EE14637491fcc76001CDCe", "contractName": "MajoraOperatorProxy" },
+                        { "address": "0x9350747caE2D478c8bc656506E5d0255cE65f4aB", "contractName": "MajoraPositionManagerFactory" },
+                        { "address": "0xd7C8aDb4700E61AB2C252fFcb1855a41B450461E", "contractName": "MajoraPortal" }
+                    ],
+                    "startBlock": 63075000
+                },
+                {
+                    "name": "MajoraVaultUpdate topic",
+                    "type": "TOPIC",
+                    "startBlock": 63075000,
+                    "topic": "e4f7d60666a53dccd26e8a5e37f1f0854a26aecc2297bb80c6cd45f0dfcf727e",
+                    "indexedTopics": []
+                },
+                {
+                    "name": "MajoraERC3525Update topic",
+                    "type": "TOPIC",
+                    "startBlock": 63075000,
+                    "topic": "ec4add03d252c7f08195046c912d2d7b48f7c5b5ee5e195cfe79db96c5fd516e",
+                    "indexedTopics": []
+                }
+            ] 
+        }
+    ]
+}

@@ -1,0 +1,52 @@
+{
+    "cluster": {
+        "mode": "standalone",
+        "config": {
+            "proxy": ""
+        } 
+    },
+    "metrics": {
+        "enabled": true,
+        "port": 9999,
+        "path": "/metrics"
+    },
+    "storage": {
+        "type": "clover",
+        "config": {
+            "path": "/datastore"
+        }
+    },
+    "indexer": {
+        "blockSlice": 4,
+        "maxBlockRange": 999,
+        "pullInterval": 2,
+        "rpcMaxBatchSize": 1000
+    },
+    "hooks": [],
+    "stores": [
+        {
+            "identifier": "ambiant-scroll",
+            "description": "Ambiant logs",
+            "rpc": "<rpc>",
+            "chainId": 84532,
+            "sources": [
+                {
+                    "name": "Ambiant CrocSwapDex",
+                    "type": "STATIC",
+                    "contracts": [
+                        { "address": "0xaaaaAAAACB71BF2C8CaE522EA5fa455571A74106", "contractName": "CrocSwapDex" }
+                    ],
+                    "startBlock": 11309013
+                },
+                {
+                    "name": "Ambiant CrocSwapDex",
+                    "type": "STATIC",
+                    "contracts": [
+                        { "address": "0xaaaaAAAACB71BF2C8CaE522EA5fa455571A74106", "contractName": "CrocSwapDex" }
+                    ],
+                    "startBlock": 11309013
+                }
+            ] 
+        }
+    ]
+}

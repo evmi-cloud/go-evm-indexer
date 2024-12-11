@@ -1,0 +1,15 @@
+version: v2
+inputs:
+  - directory: internal/grpc/proto
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated
+plugins:
+  - local: protoc-gen-go
+    out: internal/grpc/generated
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: internal/grpc/generated
+    opt: paths=source_relative

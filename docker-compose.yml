@@ -1,0 +1,42 @@
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+services:
+  indexer:
+    image: evm-indexer:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: "/evm-indexer"
+    command: ['start', '-c', '/exemple.config.json', '-a', '/abis']
+    container_name: indexer
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    volumes:
+      - ./docker/exemple.config.json:/exemple.config.json
+      - ./datastore:/datastore
+      - ./cmd/evm-indexer/abis:/abis:ro
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+        
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 30000:3000
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
