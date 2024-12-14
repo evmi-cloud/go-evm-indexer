@@ -15,10 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/evmi-cloud/go-evm-indexer/internal/database"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/lmittmann/w3"
 	"github.com/lmittmann/w3/module/eth"
 	"github.com/lmittmann/w3/w3types"
@@ -34,10 +34,10 @@ type IndexationPipelineSubprocess struct {
 	chainId uint64
 	rpc     string
 	abiPath string
-	source  *models.LogSource
-	store   *models.LogStore
+	source  *types.LogSource
+	store   *types.LogStore
 	logger  *zerolog.Logger
-	config  models.IndexerConfig
+	config  types.IndexerConfig
 
 	abis map[string]abi.ABI
 
@@ -50,10 +50,10 @@ func NewPipelineSubrocess(
 	bus *bus.Bus,
 	metrics *metrics.MetricService,
 	rpc string,
-	source *models.LogSource,
-	store *models.LogStore,
+	source *types.LogSource,
+	store *types.LogStore,
 	abiPath string,
-	config models.IndexerConfig,
+	config types.IndexerConfig,
 ) *IndexationPipelineSubprocess {
 
 	logger := zerolog.New(
@@ -105,10 +105,10 @@ func (p *IndexationPipelineSubprocess) Serve(ctx context.Context) error {
 	}
 
 	p.logger.Info().Fields(logParams).Msg("starting subprocess")
-	if p.source.Type == models.StaticPipelineConfigType {
+	if p.source.Type == types.StaticPipelineConfigType {
 		return p.serveStaticIndexation()
 	}
-	if p.source.Type == models.TopicPipelineConfigType {
+	if p.source.Type == types.TopicPipelineConfigType {
 		return p.serveTopicIndexation()
 	}
 
@@ -124,7 +124,7 @@ func (p *IndexationPipelineSubprocess) IsEnded() bool {
 
 }
 
-func (p *IndexationPipelineSubprocess) GetLogMetadata(log types.Log) models.EvmMetadata {
+func (p *IndexationPipelineSubprocess) GetLogMetadata(log ethTypes.Log) types.EvmMetadata {
 	var contractName string = ""
 	address := strings.ToLower(log.Address.Hex())
 	for _, contract := range p.source.Contracts {
@@ -134,7 +134,7 @@ func (p *IndexationPipelineSubprocess) GetLogMetadata(log types.Log) models.EvmM
 	}
 
 	if contractName == "" {
-		return models.EvmMetadata{
+		return types.EvmMetadata{
 			ContractName: "Unknown",
 			Data:         map[string]string{},
 		}
@@ -142,7 +142,7 @@ func (p *IndexationPipelineSubprocess) GetLogMetadata(log types.Log) models.EvmM
 
 	contractAbi, ok := p.abis[contractName]
 	if !ok {
-		return models.EvmMetadata{
+		return types.EvmMetadata{
 			ContractName: contractName,
 			Data:         map[string]string{},
 		}
@@ -297,7 +297,7 @@ func (p *IndexationPipelineSubprocess) GetLogMetadata(log types.Log) models.EvmM
 		p.logger.Panic().Msg(reflect.TypeOf(v).String() + " type not found on getLogMetadata")
 	}
 
-	return models.EvmMetadata{
+	return types.EvmMetadata{
 		ContractName: contractName,
 		EventName:    eventName,
 		Data:         formatedEvent,
@@ -395,7 +395,7 @@ func (p *IndexationPipelineSubprocess) serveStaticIndexation() error {
 				p.logger.Info().Fields(logParams).Msg("Fetch logs")
 
 				var (
-					logs []types.Log
+					logs []ethTypes.Log
 				)
 
 				if err := client.Call(
@@ -546,7 +546,7 @@ func (p *IndexationPipelineSubprocess) serveTopicIndexation() error {
 				}
 
 				var (
-					logs []types.Log
+					logs []ethTypes.Log
 				)
 
 				if err := client.Call(
@@ -601,9 +601,9 @@ func (p *IndexationPipelineSubprocess) serveTopicIndexation() error {
 	}
 }
 
-func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs []types.Log) ([]models.EvmLog, []models.EvmTransaction, error) {
-	dbLogs := []models.EvmLog{}
-	dbTxs := []models.EvmTransaction{}
+func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs []ethTypes.Log) ([]types.EvmLog, []types.EvmTransaction, error) {
+	dbLogs := []types.EvmLog{}
+	dbTxs := []types.EvmTransaction{}
 
 	if len(logs) == 0 {
 		return dbLogs, dbTxs, nil
@@ -629,8 +629,8 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 
 	// build rpc calls
 	maxBatchRequest := p.config.RpcMaxBatchSize
-	transactions := make([]*types.Transaction, len(transactionToLoad))
-	blockHeaders := make([]*types.Header, len(blockHeaderToLoad))
+	transactions := make([]*ethTypes.Transaction, len(transactionToLoad))
+	blockHeaders := make([]*ethTypes.Header, len(blockHeaderToLoad))
 
 	var isEnded bool = false
 	var currentTransactionIndex uint64 = 0
@@ -687,8 +687,8 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 		p.logger.Info().Fields(logData).Msg("Log found")
 
 		var (
-			blockHeader *types.Header
-			transaction *types.Transaction
+			blockHeader *ethTypes.Header
+			transaction *ethTypes.Transaction
 		)
 
 		for _, header := range blockHeaders {
@@ -724,7 +724,7 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 			to = transaction.To().Hex()
 		}
 
-		evmTx := models.EvmTransaction{
+		evmTx := types.EvmTransaction{
 			StoreId:     p.source.LogStoreId,
 			SourceId:    p.source.Id,
 			BlockNumber: log.BlockNumber,
@@ -745,7 +745,7 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 			logTopics = append(logTopics, topic.Hex())
 		}
 
-		l := models.EvmLog{
+		l := types.EvmLog{
 			StoreId:          p.source.LogStoreId,
 			SourceId:         p.source.Id,
 			Address:          log.Address.Hex(),
@@ -767,8 +767,8 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 	return dbLogs, dbTxs, nil
 }
 
-func getTxSender(chainId *big.Int, tx *types.Transaction) (string, error) {
-	sender, err := types.Sender(types.NewLondonSigner(chainId), tx)
+func getTxSender(chainId *big.Int, tx *ethTypes.Transaction) (string, error) {
+	sender, err := ethTypes.Sender(ethTypes.NewLondonSigner(chainId), tx)
 	if err != nil {
 		return "", err
 	}

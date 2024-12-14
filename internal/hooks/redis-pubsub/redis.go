@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -15,7 +15,7 @@ type RedisPubsubHook struct {
 	channel string
 }
 
-func (h RedisPubsubHook) Init(config models.Config, index uint64) error {
+func (h RedisPubsubHook) Init(config types.Config, index uint64) error {
 
 	conf := config.Hooks[index]
 	if conf.Type != "redis-pubsub" {
@@ -37,7 +37,7 @@ func (h RedisPubsubHook) Init(config models.Config, index uint64) error {
 	return nil
 }
 
-func (h RedisPubsubHook) PublishNewLogs(logs []models.EvmLog) error {
+func (h RedisPubsubHook) PublishNewLogs(logs []types.EvmLog) error {
 
 	jsonPayload, err := json.Marshal(logs)
 	if err != nil {

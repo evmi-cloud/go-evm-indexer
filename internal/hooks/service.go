@@ -3,8 +3,8 @@ package hooks
 import (
 	"context"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	redispubsub "github.com/evmi-cloud/go-evm-indexer/internal/hooks/redis-pubsub"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/google/uuid"
 	"github.com/mustafaturan/bus/v3"
 	"github.com/rs/zerolog"
@@ -21,7 +21,7 @@ func (h *HookService) Start() {
 	handlerId := uuid.New()
 	h.bus.RegisterHandler(handlerId.String(), bus.Handler{
 		Handle: func(ctx context.Context, e bus.Event) {
-			logs := e.Data.([]models.EvmLog)
+			logs := e.Data.([]types.EvmLog)
 
 			for _, hook := range h.hooks {
 				hook.PublishNewLogs(logs)
@@ -33,7 +33,7 @@ func (h *HookService) Start() {
 	h.logger.Info().Msg("Hook service started")
 }
 
-func NewHookService(bus *bus.Bus, config models.Config, logger zerolog.Logger) (*HookService, error) {
+func NewHookService(bus *bus.Bus, config types.Config, logger zerolog.Logger) (*HookService, error) {
 
 	service := &HookService{
 		bus: bus,

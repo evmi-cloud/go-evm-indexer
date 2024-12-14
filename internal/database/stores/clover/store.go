@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	uuid "github.com/google/uuid"
 	"github.com/ostafen/clover/v2"
 	"github.com/ostafen/clover/v2/document"
@@ -69,7 +69,7 @@ func (db *CloverStore) GetStoreGlobalLatestBlock(storeId string) (uint64, error)
 	return globalLatestBlock, nil
 }
 
-func (db *CloverStore) Init(config models.Config) error {
+func (db *CloverStore) Init(config types.Config) error {
 
 	store, err := clover.Open(db.path)
 	if err != nil {
@@ -183,7 +183,7 @@ func (db *CloverStore) Init(config models.Config) error {
 	return nil
 }
 
-func (db *CloverStore) InsertLogs(logs []models.EvmLog) error {
+func (db *CloverStore) InsertLogs(logs []types.EvmLog) error {
 
 	var logsToInsert []*document.Document
 	for _, log := range logs {
@@ -221,7 +221,7 @@ func (db *CloverStore) InsertLogs(logs []models.EvmLog) error {
 	return nil
 }
 
-func (db *CloverStore) InsertTransactions(txs []models.EvmTransaction) error {
+func (db *CloverStore) InsertTransactions(txs []types.EvmTransaction) error {
 
 	var txsToInsert []*document.Document
 	for _, tx := range txs {
@@ -294,27 +294,27 @@ func (db *CloverStore) GetLogsCount() (uint64, error) {
 	return uint64(count), nil
 }
 
-func (db *CloverStore) GetStoreById(storeId string) (models.LogStore, error) {
+func (db *CloverStore) GetStoreById(storeId string) (types.LogStore, error) {
 
 	doc, err := db.store.FindById(StoreCollectionName, storeId)
 	if err != nil {
-		return models.LogStore{}, err
+		return types.LogStore{}, err
 	}
 	if doc == nil {
-		return models.LogStore{}, errors.New("no store found")
+		return types.LogStore{}, errors.New("no store found")
 	}
 
 	store := &CloverLogStore{}
 	err = doc.Unmarshal(store)
 	if err != nil {
-		return models.LogStore{}, err
+		return types.LogStore{}, err
 	}
 
-	return models.LogStore{
+	return types.LogStore{
 		Id:          store.Id,
 		Identifier:  store.Identifier,
 		Description: store.Description,
-		Status:      models.PipelineStatus(store.Status),
+		Status:      types.PipelineStatus(store.Status),
 		ChainId:     store.ChainId,
 		Rpc:         store.Rpc,
 
@@ -322,30 +322,30 @@ func (db *CloverStore) GetStoreById(storeId string) (models.LogStore, error) {
 	}, nil
 }
 
-func (db *CloverStore) GetStores() ([]models.LogStore, error) {
+func (db *CloverStore) GetStores() ([]types.LogStore, error) {
 
 	docs, err := db.store.FindAll(query.NewQuery(StoreCollectionName))
 	if err != nil {
-		return []models.LogStore{}, err
+		return []types.LogStore{}, err
 	}
 
 	if len(docs) == 0 {
-		return []models.LogStore{}, errors.New("no store found")
+		return []types.LogStore{}, errors.New("no store found")
 	}
 
-	stores := []models.LogStore{}
+	stores := []types.LogStore{}
 	for _, doc := range docs {
 		store := &CloverLogStore{}
 		err = doc.Unmarshal(store)
 		if err != nil {
-			return []models.LogStore{}, err
+			return []types.LogStore{}, err
 		}
 
-		stores = append(stores, models.LogStore{
+		stores = append(stores, types.LogStore{
 			Id:          store.Id,
 			Identifier:  store.Identifier,
 			Description: store.Description,
-			Status:      models.PipelineStatus(store.Status),
+			Status:      types.PipelineStatus(store.Status),
 			ChainId:     store.ChainId,
 			Rpc:         store.Rpc,
 
@@ -356,36 +356,36 @@ func (db *CloverStore) GetStores() ([]models.LogStore, error) {
 	return stores, nil
 }
 
-func (db *CloverStore) GetSources(storeId string) ([]models.LogSource, error) {
+func (db *CloverStore) GetSources(storeId string) ([]types.LogSource, error) {
 
 	docs, err := db.store.FindAll(query.NewQuery(SourceCollectionName).Where(query.Field("storeId").Eq(storeId)))
 	if err != nil {
-		return []models.LogSource{}, err
+		return []types.LogSource{}, err
 	}
 
 	otherdocs, err := db.store.FindAll(query.NewQuery(SourceCollectionName))
 	if err != nil {
-		return []models.LogSource{}, err
+		return []types.LogSource{}, err
 	}
 
 	for _, doc := range otherdocs {
 		source := &CloverLogSource{}
 		err = doc.Unmarshal(source)
 		if err != nil {
-			return []models.LogSource{}, err
+			return []types.LogSource{}, err
 		}
 	}
 
 	if len(docs) == 0 {
-		return []models.LogSource{}, errors.New("no source found")
+		return []types.LogSource{}, errors.New("no source found")
 	}
 
-	sources := []models.LogSource{}
+	sources := []types.LogSource{}
 	for _, doc := range docs {
 		source := &CloverLogSource{}
 		err = doc.Unmarshal(source)
 		if err != nil {
-			return []models.LogSource{}, err
+			return []types.LogSource{}, err
 		}
 
 		contracts := []struct {
@@ -403,11 +403,11 @@ func (db *CloverStore) GetSources(storeId string) ([]models.LogSource, error) {
 			})
 		}
 
-		sources = append(sources, models.LogSource{
+		sources = append(sources, types.LogSource{
 			Id:            source.Id,
 			LogStoreId:    source.LogStoreId,
 			Name:          source.Name,
-			Type:          models.PipelineConfigType(source.Type),
+			Type:          types.PipelineConfigType(source.Type),
 			Contracts:     contracts,
 			Topic:         source.Topic,
 			IndexedTopics: source.IndexedTopics,
@@ -421,7 +421,7 @@ func (db *CloverStore) GetSources(storeId string) ([]models.LogSource, error) {
 	return sources, nil
 }
 
-func (db *CloverStore) GetLogs(storeId string, fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]models.EvmLog, error) {
+func (db *CloverStore) GetLogs(storeId string, fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]types.EvmLog, error) {
 
 	docs, err := db.store.FindAll(
 		query.NewQuery(LogCollectionName).Where(
@@ -434,18 +434,18 @@ func (db *CloverStore) GetLogs(storeId string, fromBlock uint64, toBlock uint64,
 	)
 
 	if err != nil {
-		return []models.EvmLog{}, err
+		return []types.EvmLog{}, err
 	}
 
-	logs := []models.EvmLog{}
+	logs := []types.EvmLog{}
 	for _, doc := range docs {
 		log := CloverEvmLog{}
 		err = doc.Unmarshal(log)
 		if err != nil {
-			return []models.EvmLog{}, err
+			return []types.EvmLog{}, err
 		}
 
-		logs = append(logs, models.EvmLog{
+		logs = append(logs, types.EvmLog{
 			Id:               log.Id,
 			StoreId:          log.StoreId,
 			SourceId:         log.SourceId,
@@ -460,7 +460,7 @@ func (db *CloverStore) GetLogs(storeId string, fromBlock uint64, toBlock uint64,
 			Removed:          log.Removed,
 			MintedAt:         log.MintedAt,
 
-			Metadata: models.EvmMetadata{
+			Metadata: types.EvmMetadata{
 				ContractName: log.Metadata.ContractName,
 				EventName:    log.Metadata.EventName,
 				FunctionName: log.Metadata.FunctionName,
@@ -473,7 +473,7 @@ func (db *CloverStore) GetLogs(storeId string, fromBlock uint64, toBlock uint64,
 }
 
 // GetLatestLogs implements stores.EvmIndexerStorage.
-func (db *CloverStore) GetLatestLogs(storeId string, limit uint64) ([]models.EvmLog, error) {
+func (db *CloverStore) GetLatestLogs(storeId string, limit uint64) ([]types.EvmLog, error) {
 
 	docs, err := db.store.FindAll(query.NewQuery(LogCollectionName).
 		Where(query.Field("storeId").Eq(storeId)).
@@ -481,18 +481,18 @@ func (db *CloverStore) GetLatestLogs(storeId string, limit uint64) ([]models.Evm
 		Limit(int(limit)))
 
 	if err != nil {
-		return []models.EvmLog{}, err
+		return []types.EvmLog{}, err
 	}
 
-	logs := []models.EvmLog{}
+	logs := []types.EvmLog{}
 	for _, doc := range docs {
 		log := &CloverEvmLog{}
 		err = doc.Unmarshal(log)
 		if err != nil {
-			return []models.EvmLog{}, err
+			return []types.EvmLog{}, err
 		}
 
-		logs = append(logs, models.EvmLog{
+		logs = append(logs, types.EvmLog{
 			Id:               log.Id,
 			StoreId:          log.StoreId,
 			SourceId:         log.SourceId,
@@ -507,7 +507,7 @@ func (db *CloverStore) GetLatestLogs(storeId string, limit uint64) ([]models.Evm
 			Removed:          log.Removed,
 			MintedAt:         log.MintedAt,
 
-			Metadata: models.EvmMetadata{
+			Metadata: types.EvmMetadata{
 				ContractName: log.Metadata.ContractName,
 				EventName:    log.Metadata.EventName,
 				FunctionName: log.Metadata.FunctionName,
@@ -519,7 +519,7 @@ func (db *CloverStore) GetLatestLogs(storeId string, limit uint64) ([]models.Evm
 	return logs, nil
 }
 
-func (db *CloverStore) GetTransactions(storeId string, fromBlock uint64, toBlock uint64) ([]models.EvmTransaction, error) {
+func (db *CloverStore) GetTransactions(storeId string, fromBlock uint64, toBlock uint64) ([]types.EvmTransaction, error) {
 
 	docs, err := db.store.FindAll(query.NewQuery(TransactionCollectionName).Where(
 		query.Field("storeId").Eq(storeId).
@@ -528,18 +528,18 @@ func (db *CloverStore) GetTransactions(storeId string, fromBlock uint64, toBlock
 	))
 
 	if err != nil {
-		return []models.EvmTransaction{}, err
+		return []types.EvmTransaction{}, err
 	}
 
-	txs := []models.EvmTransaction{}
+	txs := []types.EvmTransaction{}
 	for _, doc := range docs {
 		tx := &CloverEvmTransaction{}
 		err = doc.Unmarshal(tx)
 		if err != nil {
-			return []models.EvmTransaction{}, err
+			return []types.EvmTransaction{}, err
 		}
 
-		txs = append(txs, models.EvmTransaction{
+		txs = append(txs, types.EvmTransaction{
 			Id:          tx.Id,
 			StoreId:     tx.StoreId,
 			SourceId:    tx.SourceId,
@@ -553,7 +553,7 @@ func (db *CloverStore) GetTransactions(storeId string, fromBlock uint64, toBlock
 			Hash:        tx.Hash,
 			MintedAt:    tx.MintedAt,
 
-			Metadata: models.EvmMetadata{
+			Metadata: types.EvmMetadata{
 				ContractName: tx.Metadata.ContractName,
 				EventName:    tx.Metadata.EventName,
 				FunctionName: tx.Metadata.FunctionName,

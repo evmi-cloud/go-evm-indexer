@@ -1,8 +1,8 @@
 package hooks
 
-import "github.com/evmi-cloud/go-evm-indexer/internal/database/models"
+import "github.com/evmi-cloud/go-evm-indexer/internal/types"
 
 type EvmIndexerHook interface {
-	Init(config models.Config, index uint64) error
-	PublishNewLogs(logs []models.EvmLog) error
+	Init(config types.Config, index uint64) error
+	PublishNewLogs(logs []types.EvmLog) error
 }

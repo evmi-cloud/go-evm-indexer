@@ -1,4 +1,4 @@
-package models
+package types
 
 type PipelineStatus string
 type PipelineConfigType string
@@ -37,13 +37,4 @@ type LogSource struct {
 	BlockRange    uint64
 
 	LatestBlockIndexed uint64
-}
-
-type LogStorePartition struct {
-	Id         string
-	PipelineId string
-	Path       string
-	ReadOnly   bool
-	FromBlock  uint64
-	ToBlock    uint64
 }

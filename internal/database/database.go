@@ -3,9 +3,9 @@ package database
 import (
 	"os"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	"github.com/evmi-cloud/go-evm-indexer/internal/database/stores"
 	"github.com/evmi-cloud/go-evm-indexer/internal/database/stores/clover"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/rs/zerolog"
 )
 
@@ -17,7 +17,7 @@ func (db *IndexerDatabase) GetStoreDatabase() (stores.EvmIndexerStorage, error) 
 	return db.store, nil
 }
 
-func LoadDatabase(config models.Config, logger zerolog.Logger) (*IndexerDatabase, error) {
+func LoadDatabase(config types.Config, logger zerolog.Logger) (*IndexerDatabase, error) {
 
 	db := &IndexerDatabase{}
 

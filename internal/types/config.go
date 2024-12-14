@@ -1,4 +1,4 @@
-package models
+package types
 
 type Config struct {
 	Stores  []ConfigLogStore `json:"stores"`
@@ -13,6 +13,13 @@ type Config struct {
 		Type   string            `json:"type"`
 		Config map[string]string `json:"config"`
 	} `json:"hooks"`
+
+	Backup struct {
+		Storage  string            `json:"storage"`
+		Exporter string            `json:"exporter"`
+		Crontab  string            `json:"crontab"`
+		Config   map[string]string `json:"config"`
+	} `json:"backup"`
 
 	Metrics struct {
 		Enabled bool   `json:"enabled"`

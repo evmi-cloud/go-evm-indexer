@@ -1,8 +1,7 @@
 package jsonexporter
 
 import (
-	"github.com/evmi-cloud/go-evm-indexer/internal/backup"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 )
 
 type EvmIndexerBackupStateJSON struct {
@@ -60,7 +59,7 @@ type EvmTransactionJSON struct {
 	Metadata EvmMetadataJSON `json:"metadata"`
 }
 
-func fromLogsModels(data []models.EvmLog) []EvmLogJSON {
+func fromLogsTypes(data []types.EvmLog) []EvmLogJSON {
 	var result []EvmLogJSON
 	for _, v := range data {
 		result = append(result, EvmLogJSON{
@@ -90,10 +89,10 @@ func fromLogsModels(data []models.EvmLog) []EvmLogJSON {
 	return result
 }
 
-func toLogsModels(data []EvmLogJSON) []models.EvmLog {
-	var result []models.EvmLog
+func toLogsTypes(data []EvmLogJSON) []types.EvmLog {
+	var result []types.EvmLog
 	for _, v := range data {
-		result = append(result, models.EvmLog{
+		result = append(result, types.EvmLog{
 			Id:               v.Id,
 			StoreId:          v.StoreId,
 			SourceId:         v.SourceId,
@@ -108,7 +107,7 @@ func toLogsModels(data []EvmLogJSON) []models.EvmLog {
 			Removed:          v.Removed,
 			MintedAt:         v.MintedAt,
 
-			Metadata: models.EvmMetadata{
+			Metadata: types.EvmMetadata{
 				ContractName: v.Metadata.ContractName,
 				EventName:    v.Metadata.EventName,
 				FunctionName: v.Metadata.FunctionName,
@@ -120,7 +119,7 @@ func toLogsModels(data []EvmLogJSON) []models.EvmLog {
 	return result
 }
 
-func fromTransactionsModels(data []models.EvmTransaction) []EvmTransactionJSON {
+func fromTransactionsTypes(data []types.EvmTransaction) []EvmTransactionJSON {
 	var result []EvmTransactionJSON
 	for _, v := range data {
 		result = append(result, EvmTransactionJSON{
@@ -149,10 +148,10 @@ func fromTransactionsModels(data []models.EvmTransaction) []EvmTransactionJSON {
 	return result
 }
 
-func toTransactionsModels(data []EvmTransactionJSON) []models.EvmTransaction {
-	var result []models.EvmTransaction
+func toTransactionsTypes(data []EvmTransactionJSON) []types.EvmTransaction {
+	var result []types.EvmTransaction
 	for _, v := range data {
-		result = append(result, models.EvmTransaction{
+		result = append(result, types.EvmTransaction{
 			Id:          v.Id,
 			StoreId:     v.StoreId,
 			SourceId:    v.SourceId,
@@ -166,7 +165,7 @@ func toTransactionsModels(data []EvmTransactionJSON) []models.EvmTransaction {
 			Hash:        v.Hash,
 			MintedAt:    v.MintedAt,
 
-			Metadata: models.EvmMetadata{
+			Metadata: types.EvmMetadata{
 				ContractName: v.Metadata.ContractName,
 				EventName:    v.Metadata.EventName,
 				FunctionName: v.Metadata.FunctionName,
@@ -178,7 +177,7 @@ func toTransactionsModels(data []EvmTransactionJSON) []models.EvmTransaction {
 	return result
 }
 
-func fromBackupStateModels(data backup.EvmIndexerBackupState) EvmIndexerBackupStateJSON {
+func fromBackupStateTypes(data types.EvmIndexerBackupState) EvmIndexerBackupStateJSON {
 	var files []EvmIndexerBackupFileJSON
 	for _, f := range data.FileList {
 		files = append(files, EvmIndexerBackupFileJSON{
@@ -197,17 +196,17 @@ func fromBackupStateModels(data backup.EvmIndexerBackupState) EvmIndexerBackupSt
 	return result
 }
 
-func toBackupStateModels(data EvmIndexerBackupStateJSON) backup.EvmIndexerBackupState {
-	var files []backup.EvmIndexerBackupFile
+func toBackupStateTypes(data EvmIndexerBackupStateJSON) types.EvmIndexerBackupState {
+	var files []types.EvmIndexerBackupFile
 	for _, f := range data.FileList {
-		files = append(files, backup.EvmIndexerBackupFile{
+		files = append(files, types.EvmIndexerBackupFile{
 			Identifier: f.Identifier,
 			FromBlock:  f.FromBlock,
 			ToBlock:    f.ToBlock,
 		})
 	}
 
-	result := backup.EvmIndexerBackupState{
+	result := types.EvmIndexerBackupState{
 		FileList:  files,
 		FromBlock: data.FromBlock,
 		ToBlock:   data.ToBlock,

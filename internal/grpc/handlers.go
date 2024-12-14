@@ -7,8 +7,8 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/evmi-cloud/go-evm-indexer/internal/database"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	evm_indexerv1 "github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/google/uuid"
 	"github.com/mustafaturan/bus/v3"
 	"github.com/rs/zerolog"
@@ -250,7 +250,7 @@ func (e *EvmIndexerServer) GetStoreLogStream(ctx context.Context, req *connect.R
 	handlerId := uuid.New()
 	e.bus.RegisterHandler(handlerId.String(), bus.Handler{
 		Handle: func(ctx context.Context, e bus.Event) {
-			logs := e.Data.([]models.EvmLog)
+			logs := e.Data.([]types.EvmLog)
 			stream.Send(&evm_indexerv1.GetStoreLogsStreamResponse{Logs: toGrpcLogs(logs)})
 		},
 		Matcher: "logs.new",
@@ -278,7 +278,7 @@ func (e *EvmIndexerServer) StopPipeline(context.Context, *connect.Request[evm_in
 	panic("unimplemented")
 }
 
-func toGrpcLogs(logs []models.EvmLog) []*evm_indexerv1.EvmLog {
+func toGrpcLogs(logs []types.EvmLog) []*evm_indexerv1.EvmLog {
 	var result []*evm_indexerv1.EvmLog
 	for _, log := range logs {
 		result = append(result, &evm_indexerv1.EvmLog{

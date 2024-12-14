@@ -30,15 +30,6 @@ type CloverLogSourceContract struct {
 	Address      string `clover:"address"`
 }
 
-type LogStorePartition struct {
-	Id         string `clover:"_id"`
-	PipelineId string `clover:"pipelineId"`
-	Path       string `clover:"path"`
-	ReadOnly   bool   `clover:"readOnly"`
-	FromBlock  uint64 `clover:"fromBlock"`
-	ToBlock    uint64 `clover:"toBlock"`
-}
-
 type CloverEvmMetadata struct {
 	ContractName string            `clover:"contractName"`
 	EventName    string            `clover:"eventName"`

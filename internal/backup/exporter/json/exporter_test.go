@@ -5,12 +5,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/backup"
 	jsonexporter "github.com/evmi-cloud/go-evm-indexer/internal/backup/exporter/json"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 )
 
-var testLogs []models.EvmLog = []models.EvmLog{
+var testLogs []types.EvmLog = []types.EvmLog{
 	{
 		Id:               "id",
 		StoreId:          "storeId",
@@ -26,7 +25,7 @@ var testLogs []models.EvmLog = []models.EvmLog{
 		Removed:          false,
 		MintedAt:         5,
 
-		Metadata: models.EvmMetadata{
+		Metadata: types.EvmMetadata{
 			ContractName: "TestContract",
 			EventName:    "TestEvent",
 			FunctionName: "Test Function",
@@ -35,7 +34,7 @@ var testLogs []models.EvmLog = []models.EvmLog{
 	},
 }
 
-var testTransaction []models.EvmTransaction = []models.EvmTransaction{
+var testTransaction []types.EvmTransaction = []types.EvmTransaction{
 	{
 		Id:          "id",
 		StoreId:     "storeId",
@@ -50,7 +49,7 @@ var testTransaction []models.EvmTransaction = []models.EvmTransaction{
 		Hash:        "hash",
 		MintedAt:    5,
 
-		Metadata: models.EvmMetadata{
+		Metadata: types.EvmMetadata{
 			ContractName: "TestContract",
 			EventName:    "TestEvent",
 			FunctionName: "Test Function",
@@ -59,10 +58,10 @@ var testTransaction []models.EvmTransaction = []models.EvmTransaction{
 	},
 }
 
-var testState backup.EvmIndexerBackupState = backup.EvmIndexerBackupState{
+var testState types.EvmIndexerBackupState = types.EvmIndexerBackupState{
 	FromBlock: 1,
 	ToBlock:   10,
-	FileList: []backup.EvmIndexerBackupFile{
+	FileList: []types.EvmIndexerBackupFile{
 		{FromBlock: 1, ToBlock: 10, Identifier: "identifier"},
 	},
 }

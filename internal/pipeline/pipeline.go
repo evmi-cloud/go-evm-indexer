@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/evmi-cloud/go-evm-indexer/internal/database"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/mustafaturan/bus/v3"
-	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 	"github.com/thejerf/suture/v4"
 )
@@ -20,7 +19,6 @@ type IndexationPipeline struct {
 	db      *database.IndexerDatabase
 	bus     *bus.Bus
 	metrics *metrics.MetricService
-	cron    *cron.Cron
 
 	rpc string
 
@@ -33,11 +31,11 @@ type IndexationPipeline struct {
 	logger zerolog.Logger
 
 	storeId string
-	config  models.IndexerConfig
+	config  types.IndexerConfig
 	running bool
 }
 
-func NewPipeline(db *database.IndexerDatabase, bus *bus.Bus, metrics *metrics.MetricService, storeId string, abiPath string, config models.IndexerConfig) *IndexationPipeline {
+func NewPipeline(db *database.IndexerDatabase, bus *bus.Bus, metrics *metrics.MetricService, storeId string, abiPath string, config types.IndexerConfig) *IndexationPipeline {
 
 	logger := zerolog.New(
 		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
@@ -49,7 +47,6 @@ func NewPipeline(db *database.IndexerDatabase, bus *bus.Bus, metrics *metrics.Me
 		db:         db,
 		bus:        bus,
 		metrics:    metrics,
-		cron:       cron.New(),
 		logger:     logger,
 		running:    false,
 		supervisor: supervisor,
@@ -68,28 +65,6 @@ func (p *IndexationPipeline) Serve(ctx context.Context) error {
 			p.logger.Error().Msg(err.Error())
 			return err
 		}
-
-		db, err := p.db.GetStoreDatabase()
-		if err != nil {
-			p.logger.Error().Msg(err.Error())
-			return err
-		}
-
-		dbSize, err := db.GetDatabaseDiskSize()
-		if err != nil {
-			p.logger.Error().Msg(err.Error())
-			return err
-		}
-
-		p.metrics.StoreDiskSizeMetricsSet(dbSize)
-
-		p.cron.AddFunc("0 * * * * *", func() {
-			db, _ := p.db.GetStoreDatabase()
-			dbSize, _ := db.GetDatabaseDiskSize()
-			p.metrics.StoreDiskSizeMetricsSet(dbSize)
-		})
-
-		p.cron.Start()
 
 		p.logger.Info().Msg("database loaded for pipeline " + p.storeId)
 

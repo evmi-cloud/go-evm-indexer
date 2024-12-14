@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"github.com/evmi-cloud/go-evm-indexer/internal/database"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/mustafaturan/bus/v3"
+	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 	"github.com/thejerf/suture/v4"
 )
@@ -23,7 +24,8 @@ type PipelineService struct {
 	pipelines             map[string]*IndexationPipeline
 
 	logger zerolog.Logger
-	config models.IndexerConfig
+	config types.IndexerConfig
+	cron   *cron.Cron
 }
 
 func (s *PipelineService) Start() error {
@@ -48,6 +50,22 @@ func (s *PipelineService) Start() error {
 		s.pipelineIdToServiceId[store.Id] = serviceToken
 	}
 
+	dbSize, err := db.GetDatabaseDiskSize()
+	if err != nil {
+		s.logger.Error().Msg(err.Error())
+		return err
+	}
+
+	s.metrics.StoreDiskSizeMetricsSet(dbSize)
+
+	s.cron.AddFunc("0 * * * * *", func() {
+		db, _ := s.db.GetStoreDatabase()
+		dbSize, _ := db.GetDatabaseDiskSize()
+		s.metrics.StoreDiskSizeMetricsSet(dbSize)
+	})
+
+	s.cron.Start()
+
 	s.supervisor.ServeBackground(context.Background())
 	return nil
 }
@@ -68,7 +86,7 @@ func NewPipelineService(
 	metrics *metrics.MetricService,
 	abiPath string,
 	logger zerolog.Logger,
-	config models.IndexerConfig,
+	config types.IndexerConfig,
 ) *PipelineService {
 
 	/**
