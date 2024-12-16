@@ -58,6 +58,7 @@ func (s *PipelineService) Start() error {
 
 	s.metrics.StoreDiskSizeMetricsSet(dbSize)
 
+	s.cron = cron.New()
 	s.cron.AddFunc("0 * * * * *", func() {
 		db, _ := s.db.GetStoreDatabase()
 		dbSize, _ := db.GetDatabaseDiskSize()

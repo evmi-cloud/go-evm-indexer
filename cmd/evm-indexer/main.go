@@ -7,13 +7,14 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/evmi-cloud/go-evm-indexer/internal/backup"
 	"github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	"github.com/evmi-cloud/go-evm-indexer/internal/database"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/models"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc"
 	"github.com/evmi-cloud/go-evm-indexer/internal/hooks"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
 	"github.com/evmi-cloud/go-evm-indexer/internal/pipeline"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -54,7 +55,7 @@ func main() {
 						logger.Fatal().Msg(err.Error())
 					}
 
-					var data models.Config
+					var data types.Config
 					err = json.Unmarshal(configFile, &data)
 					if err != nil {
 						logger.Fatal().Msg(err.Error())
@@ -72,6 +73,15 @@ func main() {
 					if err != nil {
 						return err
 					}
+
+					logger.Info().Msg("Mount backup service")
+					backups, err := backup.NewBackupService(database, data, logger)
+					if err != nil {
+						return err
+					}
+
+					logger.Info().Msg("Starting backup service")
+					backups.Start()
 
 					logger.Info().Msg("Mount hooks service")
 					hooks, err := hooks.NewHookService(internalBus, data, logger)

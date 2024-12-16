@@ -15,6 +15,6 @@ type EvmIndexerStorage interface {
 	GetLogsByStoreCount(storeId string) (uint64, error)
 	GetLogs(storeId string, fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]types.EvmLog, error)
 	GetLatestLogs(storeId string, limit uint64) ([]types.EvmLog, error)
-	GetTransactions(storeId string, fromBlock uint64, toBlock uint64) ([]types.EvmTransaction, error)
+	GetTransactions(storeId string, fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]types.EvmTransaction, error)
 	GetDatabaseDiskSize() (uint64, error)
 }

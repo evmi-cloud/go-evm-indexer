@@ -32,26 +32,30 @@ func (b GoogleCloudStorageBackupService) Init() error {
 	return nil
 }
 
-func (b GoogleCloudStorageBackupService) LoadFile(path string) ([]byte, error) {
+func (b GoogleCloudStorageBackupService) LoadFile(path string) ([]byte, bool, error) {
 	bkt := b.client.Bucket(b.bucket)
 	obj := bkt.Object(b.path + path)
 
 	r, err := obj.NewReader(context.Background())
 	if err != nil {
-		return nil, err
+		if err == storage.ErrObjectNotExist {
+			return nil, false, nil
+		} else {
+			return nil, false, err
+		}
 	}
 
 	defer r.Close()
 
 	content, err := io.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
 
-	return content, nil
+	return content, true, nil
 }
 
-func (b GoogleCloudStorageBackupService) DownloadFile(remotePath string, localPath string) error {
+func (b GoogleCloudStorageBackupService) DownloadFile(remotePath string, localPath string, overwrite bool) error {
 	bkt := b.client.Bucket(b.bucket)
 	obj := bkt.Object(b.path + remotePath)
 
@@ -116,16 +120,14 @@ func (b GoogleCloudStorageBackupService) UploadFile(localPath string, remotePath
 func NewGoogleCloudStorageBackupService(
 	logger zerolog.Logger,
 	config types.Config,
-	bucket string,
-	path string,
-) (GoogleCloudStorageBackupService, error) {
+) GoogleCloudStorageBackupService {
 
 	service := GoogleCloudStorageBackupService{
 		logger: logger,
 		config: config,
-		bucket: bucket,
-		path:   path,
+		bucket: config.Backup.Config["gcs-bucket"],
+		path:   config.Backup.Config["gcs-bucket-path"],
 	}
 
-	return service, nil
+	return service
 }

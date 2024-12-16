@@ -519,13 +519,16 @@ func (db *CloverStore) GetLatestLogs(storeId string, limit uint64) ([]types.EvmL
 	return logs, nil
 }
 
-func (db *CloverStore) GetTransactions(storeId string, fromBlock uint64, toBlock uint64) ([]types.EvmTransaction, error) {
+func (db *CloverStore) GetTransactions(storeId string, fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]types.EvmTransaction, error) {
 
 	docs, err := db.store.FindAll(query.NewQuery(TransactionCollectionName).Where(
 		query.Field("storeId").Eq(storeId).
 			And(query.Field("blockNumber").GtEq(fromBlock)).
 			And(query.Field("blockNumber").LtEq(toBlock)),
-	))
+	).Sort(query.SortOption{Field: "blockNumber", Direction: 1}).
+		Skip(int(offset)).
+		Limit(int(limit)),
+	)
 
 	if err != nil {
 		return []types.EvmTransaction{}, err

@@ -7,4 +7,6 @@ type EvmIndexerBackupExporter interface {
 	ImportTransactionsFromFile(localPath string) ([]EvmTransaction, error)
 	ExportStateToFile(localPath string, data EvmIndexerBackupState) error
 	ImportStateFromFile(localPath string) (EvmIndexerBackupState, error)
+	ExportStateToBytes(data EvmIndexerBackupState) ([]byte, error)
+	ImportStateFromBytes(content []byte) (EvmIndexerBackupState, error)
 }

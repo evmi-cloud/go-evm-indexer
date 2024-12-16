@@ -15,6 +15,7 @@ type Config struct {
 	} `json:"hooks"`
 
 	Backup struct {
+		Enabled  bool              `json:"enabled"`
 		Storage  string            `json:"storage"`
 		Exporter string            `json:"exporter"`
 		Crontab  string            `json:"crontab"`

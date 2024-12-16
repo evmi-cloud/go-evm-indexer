@@ -132,6 +132,20 @@ func (e EvmJSONBackupExporter) ImportStateFromFile(localPath string) (types.EvmI
 	return toBackupStateTypes(data), nil
 }
 
+func (e EvmJSONBackupExporter) ExportStateToBytes(data types.EvmIndexerBackupState) ([]byte, error) {
+	return json.Marshal(data)
+}
+
+func (e EvmJSONBackupExporter) ImportStateFromBytes(content []byte) (types.EvmIndexerBackupState, error) {
+	var state types.EvmIndexerBackupState
+	err := json.Unmarshal(content, &state)
+	if err != nil {
+		return types.EvmIndexerBackupState{}, err
+	}
+
+	return state, nil
+}
+
 func NewEvmJSONBackupExporter() EvmJSONBackupExporter {
 	return EvmJSONBackupExporter{}
 }
