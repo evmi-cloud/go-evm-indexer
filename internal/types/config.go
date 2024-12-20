@@ -42,11 +42,11 @@ type IndexerConfig struct {
 }
 
 type ConfigLogStore struct {
-	Identifier  string      `json:"identifier"`
-	Description string      `json:"description"`
-	ChainId     uint64      `json:"chainId"`
-	Rpc         string      `json:"rpc"`
-	Sources     []LogSource `json:"sources"`
+	Identifier  string            `json:"identifier"`
+	Description string            `json:"description"`
+	ChainId     uint64            `json:"chainId"`
+	Rpc         string            `json:"rpc"`
+	Sources     []ConfigLogSource `json:"sources"`
 }
 
 type ConfigLogSource struct {
@@ -56,8 +56,9 @@ type ConfigLogSource struct {
 		ContractName string `json:"contractName"`
 		Address      string `json:"address"`
 	} `json:"contracts,omitempty"`
-	Topic         string `json:"topic,omitempty"`
-	IndexedTopics string `json:"indexedTopics,omitempty"`
-	StartBlock    uint64 `json:"startBlock"`
-	BlockRange    uint64 `json:"blockRange"`
+	Topic         string   `json:"topic,omitempty"`
+	IndexedTopics []string `json:"indexedTopics,omitempty"`
+
+	StartBlock uint64 `json:"startBlock"`
+	BlockRange uint64 `json:"blockRange"`
 }
