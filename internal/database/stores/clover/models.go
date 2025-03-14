@@ -1,4 +1,4 @@
-package clover
+package clover_store
 
 type CloverLogStore struct {
 	Id          string `clover:"_id"`

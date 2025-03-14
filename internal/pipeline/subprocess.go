@@ -687,8 +687,9 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 		p.logger.Info().Fields(logData).Msg("Log found")
 
 		var (
-			blockHeader *ethTypes.Header
-			transaction *ethTypes.Transaction
+			blockHeader      *ethTypes.Header
+			transaction      *ethTypes.Transaction
+			transactionIndex int
 		)
 
 		for _, header := range blockHeaders {
@@ -697,9 +698,10 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 			}
 		}
 
-		for _, tx := range transactions {
+		for index, tx := range transactions {
 			if tx.Hash().Hex() == log.TxHash.Hex() {
 				transaction = tx
+				transactionIndex = index
 			}
 		}
 
@@ -725,17 +727,18 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 		}
 
 		evmTx := types.EvmTransaction{
-			StoreId:     p.source.LogStoreId,
-			SourceId:    p.source.Id,
-			BlockNumber: log.BlockNumber,
-			ChainId:     transaction.ChainId().Uint64(),
-			From:        sender,
-			Data:        common.Bytes2Hex(transaction.Data()),
-			Value:       transaction.Value().String(),
-			Nonce:       transaction.Nonce(),
-			To:          to,
-			Hash:        log.TxHash.Hex(),
-			MintedAt:    blockHeader.Time,
+			StoreId:          p.source.LogStoreId,
+			SourceId:         p.source.Id,
+			BlockNumber:      log.BlockNumber,
+			ChainId:          transaction.ChainId().Uint64(),
+			From:             sender,
+			Data:             common.Bytes2Hex(transaction.Data()),
+			Value:            transaction.Value().String(),
+			TransactionIndex: uint64(transactionIndex),
+			Nonce:            transaction.Nonce(),
+			To:               to,
+			Hash:             log.TxHash.Hex(),
+			MintedAt:         blockHeader.Time,
 		}
 
 		dbTxs = append(dbTxs, evmTx)
@@ -753,6 +756,7 @@ func (p *IndexationPipelineSubprocess) computeLogsAndTxs(client *w3.Client, logs
 			Data:             common.Bytes2Hex(log.Data),
 			BlockNumber:      log.BlockNumber,
 			TransactionHash:  log.TxHash.Hex(),
+			TransactionFrom:  sender,
 			TransactionIndex: uint64(log.TxIndex),
 			BlockHash:        log.BlockHash.Hex(),
 			LogIndex:         uint64(log.Index),

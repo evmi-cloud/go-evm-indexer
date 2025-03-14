@@ -74,14 +74,16 @@ func main() {
 						return err
 					}
 
-					logger.Info().Msg("Mount backup service")
-					backups, err := backup.NewBackupService(database, data, logger)
-					if err != nil {
-						return err
-					}
+					if data.Backup.Enabled {
+						logger.Info().Msg("Mount backup service")
+						backups, err := backup.NewBackupService(database, data, logger)
+						if err != nil {
+							return err
+						}
 
-					logger.Info().Msg("Starting backup service")
-					backups.Start()
+						logger.Info().Msg("Starting backup service")
+						backups.Start()
+					}
 
 					logger.Info().Msg("Mount hooks service")
 					hooks, err := hooks.NewHookService(internalBus, data, logger)

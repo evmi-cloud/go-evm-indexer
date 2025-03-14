@@ -18,8 +18,6 @@ type LogStore struct {
 	Status      PipelineStatus
 	ChainId     uint64
 	Rpc         string
-
-	LatestChainBlock uint64
 }
 
 type LogSource struct {

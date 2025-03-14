@@ -15,6 +15,7 @@ type EvmLog struct {
 	Topics           []string
 	Data             string
 	BlockNumber      uint64
+	TransactionFrom  string
 	TransactionHash  string
 	TransactionIndex uint64
 	BlockHash        string

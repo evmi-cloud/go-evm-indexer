@@ -1,4 +1,4 @@
-package clover
+package clover_store
 
 import (
 	"errors"
@@ -317,8 +317,6 @@ func (db *CloverStore) GetStoreById(storeId string) (types.LogStore, error) {
 		Status:      types.PipelineStatus(store.Status),
 		ChainId:     store.ChainId,
 		Rpc:         store.Rpc,
-
-		LatestChainBlock: store.LatestChainBlock,
 	}, nil
 }
 
@@ -348,8 +346,6 @@ func (db *CloverStore) GetStores() ([]types.LogStore, error) {
 			Status:      types.PipelineStatus(store.Status),
 			ChainId:     store.ChainId,
 			Rpc:         store.Rpc,
-
-			LatestChainBlock: store.LatestChainBlock,
 		})
 	}
 

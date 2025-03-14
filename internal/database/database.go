@@ -4,7 +4,8 @@ import (
 	"os"
 
 	"github.com/evmi-cloud/go-evm-indexer/internal/database/stores"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database/stores/clover"
+	clickhouse_store "github.com/evmi-cloud/go-evm-indexer/internal/database/stores/clickhouse"
+	clover_store "github.com/evmi-cloud/go-evm-indexer/internal/database/stores/clover"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/rs/zerolog"
 )
@@ -26,7 +27,20 @@ func LoadDatabase(config types.Config, logger zerolog.Logger) (*IndexerDatabase,
 			logger.Fatal().Msg(err.Error())
 		}
 
-		store, err := clover.NewCloverStore(config.Storage.Config["path"], logger)
+		store, err := clover_store.NewCloverStore(config.Storage.Config["path"], logger)
+		if err != nil {
+			return nil, err
+		}
+
+		db.store = store
+		err = db.store.Init(config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if config.Storage.Type == "clickhouse" {
+		store, err := clickhouse_store.NewClickHouseStore(logger)
 		if err != nil {
 			return nil, err
 		}
