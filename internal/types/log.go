@@ -9,8 +9,8 @@ type EvmMetadata struct {
 
 type EvmLog struct {
 	Id               string
-	StoreId          string
-	SourceId         string
+	StoreId          uint
+	SourceId         uint
 	Address          string
 	Topics           []string
 	Data             string

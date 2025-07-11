@@ -9,12 +9,18 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/database"
+	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1/evm_indexerv1connect"
 )
 
+type EvmIndexerServer struct {
+	db     *evmi_database.EvmiDatabase
+	bus    *bus.Bus
+	logger zerolog.Logger
+}
+
 func StartGrpcServer(
-	db *database.IndexerDatabase,
+	db *evmi_database.EvmiDatabase,
 	bus *bus.Bus,
 	logger zerolog.Logger,
 ) {

@@ -33,45 +33,178 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// EvmIndexerServiceGetStoresProcedure is the fully-qualified name of the EvmIndexerService's
-	// GetStores RPC.
-	EvmIndexerServiceGetStoresProcedure = "/evm_indexer.v1.EvmIndexerService/GetStores"
+	// EvmIndexerServiceGetEvmiInstanceProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetEvmiInstance RPC.
+	EvmIndexerServiceGetEvmiInstanceProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmiInstance"
+	// EvmIndexerServiceListEvmiInstancesProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmiInstances RPC.
+	EvmIndexerServiceListEvmiInstancesProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmiInstances"
+	// EvmIndexerServiceCreateEvmBlockchainProcedure is the fully-qualified name of the
+	// EvmIndexerService's CreateEvmBlockchain RPC.
+	EvmIndexerServiceCreateEvmBlockchainProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmBlockchain"
+	// EvmIndexerServiceGetEvmBlockchainProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetEvmBlockchain RPC.
+	EvmIndexerServiceGetEvmBlockchainProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmBlockchain"
+	// EvmIndexerServiceUpdateEvmBlockchainProcedure is the fully-qualified name of the
+	// EvmIndexerService's UpdateEvmBlockchain RPC.
+	EvmIndexerServiceUpdateEvmBlockchainProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateEvmBlockchain"
+	// EvmIndexerServiceListEvmBlockchainsProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmBlockchains RPC.
+	EvmIndexerServiceListEvmBlockchainsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmBlockchains"
+	// EvmIndexerServiceDeleteEvmBlockchainProcedure is the fully-qualified name of the
+	// EvmIndexerService's DeleteEvmBlockchain RPC.
+	EvmIndexerServiceDeleteEvmBlockchainProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmBlockchain"
+	// EvmIndexerServiceCreateEvmJsonAbiProcedure is the fully-qualified name of the EvmIndexerService's
+	// CreateEvmJsonAbi RPC.
+	EvmIndexerServiceCreateEvmJsonAbiProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmJsonAbi"
+	// EvmIndexerServiceGetEvmJsonAbiProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetEvmJsonAbi RPC.
+	EvmIndexerServiceGetEvmJsonAbiProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmJsonAbi"
+	// EvmIndexerServiceUpdateEvmJsonAbiProcedure is the fully-qualified name of the EvmIndexerService's
+	// UpdateEvmJsonAbi RPC.
+	EvmIndexerServiceUpdateEvmJsonAbiProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateEvmJsonAbi"
+	// EvmIndexerServiceListEvmJsonAbisProcedure is the fully-qualified name of the EvmIndexerService's
+	// ListEvmJsonAbis RPC.
+	EvmIndexerServiceListEvmJsonAbisProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmJsonAbis"
+	// EvmIndexerServiceDeleteEvmJsonAbiProcedure is the fully-qualified name of the EvmIndexerService's
+	// DeleteEvmJsonAbi RPC.
+	EvmIndexerServiceDeleteEvmJsonAbiProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmJsonAbi"
+	// EvmIndexerServiceCreateEvmLogStoreProcedure is the fully-qualified name of the
+	// EvmIndexerService's CreateEvmLogStore RPC.
+	EvmIndexerServiceCreateEvmLogStoreProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmLogStore"
+	// EvmIndexerServiceGetEvmLogStoreProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetEvmLogStore RPC.
+	EvmIndexerServiceGetEvmLogStoreProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmLogStore"
+	// EvmIndexerServiceUpdateEvmLogStoreProcedure is the fully-qualified name of the
+	// EvmIndexerService's UpdateEvmLogStore RPC.
+	EvmIndexerServiceUpdateEvmLogStoreProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateEvmLogStore"
+	// EvmIndexerServiceListEvmLogStoresProcedure is the fully-qualified name of the EvmIndexerService's
+	// ListEvmLogStores RPC.
+	EvmIndexerServiceListEvmLogStoresProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmLogStores"
+	// EvmIndexerServiceDeleteEvmLogStoreProcedure is the fully-qualified name of the
+	// EvmIndexerService's DeleteEvmLogStore RPC.
+	EvmIndexerServiceDeleteEvmLogStoreProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmLogStore"
+	// EvmIndexerServiceCreateEvmLogPipelineProcedure is the fully-qualified name of the
+	// EvmIndexerService's CreateEvmLogPipeline RPC.
+	EvmIndexerServiceCreateEvmLogPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmLogPipeline"
+	// EvmIndexerServiceGetEvmLogPipelineProcedure is the fully-qualified name of the
+	// EvmIndexerService's GetEvmLogPipeline RPC.
+	EvmIndexerServiceGetEvmLogPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmLogPipeline"
+	// EvmIndexerServiceUpdateEvmLogPipelineProcedure is the fully-qualified name of the
+	// EvmIndexerService's UpdateEvmLogPipeline RPC.
+	EvmIndexerServiceUpdateEvmLogPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateEvmLogPipeline"
+	// EvmIndexerServiceListEvmLogPipelinesProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmLogPipelines RPC.
+	EvmIndexerServiceListEvmLogPipelinesProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmLogPipelines"
+	// EvmIndexerServiceDeleteEvmLogPipelineProcedure is the fully-qualified name of the
+	// EvmIndexerService's DeleteEvmLogPipeline RPC.
+	EvmIndexerServiceDeleteEvmLogPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmLogPipeline"
 	// EvmIndexerServiceStartPipelineProcedure is the fully-qualified name of the EvmIndexerService's
 	// StartPipeline RPC.
 	EvmIndexerServiceStartPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/StartPipeline"
 	// EvmIndexerServiceStopPipelineProcedure is the fully-qualified name of the EvmIndexerService's
 	// StopPipeline RPC.
 	EvmIndexerServiceStopPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/StopPipeline"
-	// EvmIndexerServiceGetStoreLogsProcedure is the fully-qualified name of the EvmIndexerService's
-	// GetStoreLogs RPC.
-	EvmIndexerServiceGetStoreLogsProcedure = "/evm_indexer.v1.EvmIndexerService/GetStoreLogs"
-	// EvmIndexerServiceGetLatestsStoreLogsProcedure is the fully-qualified name of the
-	// EvmIndexerService's GetLatestsStoreLogs RPC.
-	EvmIndexerServiceGetLatestsStoreLogsProcedure = "/evm_indexer.v1.EvmIndexerService/GetLatestsStoreLogs"
-	// EvmIndexerServiceGetStoreLogStreamProcedure is the fully-qualified name of the
-	// EvmIndexerService's GetStoreLogStream RPC.
-	EvmIndexerServiceGetStoreLogStreamProcedure = "/evm_indexer.v1.EvmIndexerService/GetStoreLogStream"
+	// EvmIndexerServiceCreateEvmLogSourceProcedure is the fully-qualified name of the
+	// EvmIndexerService's CreateEvmLogSource RPC.
+	EvmIndexerServiceCreateEvmLogSourceProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmLogSource"
+	// EvmIndexerServiceGetEvmLogSourceProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetEvmLogSource RPC.
+	EvmIndexerServiceGetEvmLogSourceProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmLogSource"
+	// EvmIndexerServiceUpdateEvmLogSourceProcedure is the fully-qualified name of the
+	// EvmIndexerService's UpdateEvmLogSource RPC.
+	EvmIndexerServiceUpdateEvmLogSourceProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateEvmLogSource"
+	// EvmIndexerServiceListEvmLogSourcesProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmLogSources RPC.
+	EvmIndexerServiceListEvmLogSourcesProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmLogSources"
+	// EvmIndexerServiceDeleteEvmLogSourceProcedure is the fully-qualified name of the
+	// EvmIndexerService's DeleteEvmLogSource RPC.
+	EvmIndexerServiceDeleteEvmLogSourceProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmLogSource"
+	// EvmIndexerServiceListEvmLogsProcedure is the fully-qualified name of the EvmIndexerService's
+	// ListEvmLogs RPC.
+	EvmIndexerServiceListEvmLogsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmLogs"
+	// EvmIndexerServiceListEvmTransactionsProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmTransactions RPC.
+	EvmIndexerServiceListEvmTransactionsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmTransactions"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	evmIndexerServiceServiceDescriptor                   = v1.File_evm_indexer_v1_evm_indexer_proto.Services().ByName("EvmIndexerService")
-	evmIndexerServiceGetStoresMethodDescriptor           = evmIndexerServiceServiceDescriptor.Methods().ByName("GetStores")
-	evmIndexerServiceStartPipelineMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("StartPipeline")
-	evmIndexerServiceStopPipelineMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("StopPipeline")
-	evmIndexerServiceGetStoreLogsMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("GetStoreLogs")
-	evmIndexerServiceGetLatestsStoreLogsMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("GetLatestsStoreLogs")
-	evmIndexerServiceGetStoreLogStreamMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("GetStoreLogStream")
+	evmIndexerServiceServiceDescriptor                    = v1.File_evm_indexer_v1_evm_indexer_proto.Services().ByName("EvmIndexerService")
+	evmIndexerServiceGetEvmiInstanceMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmiInstance")
+	evmIndexerServiceListEvmiInstancesMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmiInstances")
+	evmIndexerServiceCreateEvmBlockchainMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmBlockchain")
+	evmIndexerServiceGetEvmBlockchainMethodDescriptor     = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmBlockchain")
+	evmIndexerServiceUpdateEvmBlockchainMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmBlockchain")
+	evmIndexerServiceListEvmBlockchainsMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmBlockchains")
+	evmIndexerServiceDeleteEvmBlockchainMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmBlockchain")
+	evmIndexerServiceCreateEvmJsonAbiMethodDescriptor     = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmJsonAbi")
+	evmIndexerServiceGetEvmJsonAbiMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmJsonAbi")
+	evmIndexerServiceUpdateEvmJsonAbiMethodDescriptor     = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmJsonAbi")
+	evmIndexerServiceListEvmJsonAbisMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmJsonAbis")
+	evmIndexerServiceDeleteEvmJsonAbiMethodDescriptor     = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmJsonAbi")
+	evmIndexerServiceCreateEvmLogStoreMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogStore")
+	evmIndexerServiceGetEvmLogStoreMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogStore")
+	evmIndexerServiceUpdateEvmLogStoreMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogStore")
+	evmIndexerServiceListEvmLogStoresMethodDescriptor     = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogStores")
+	evmIndexerServiceDeleteEvmLogStoreMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogStore")
+	evmIndexerServiceCreateEvmLogPipelineMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogPipeline")
+	evmIndexerServiceGetEvmLogPipelineMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogPipeline")
+	evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogPipeline")
+	evmIndexerServiceListEvmLogPipelinesMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogPipelines")
+	evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogPipeline")
+	evmIndexerServiceStartPipelineMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("StartPipeline")
+	evmIndexerServiceStopPipelineMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("StopPipeline")
+	evmIndexerServiceCreateEvmLogSourceMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogSource")
+	evmIndexerServiceGetEvmLogSourceMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogSource")
+	evmIndexerServiceUpdateEvmLogSourceMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogSource")
+	evmIndexerServiceListEvmLogSourcesMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogSources")
+	evmIndexerServiceDeleteEvmLogSourceMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogSource")
+	evmIndexerServiceListEvmLogsMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogs")
+	evmIndexerServiceListEvmTransactionsMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmTransactions")
 )
 
 // EvmIndexerServiceClient is a client for the evm_indexer.v1.EvmIndexerService service.
 type EvmIndexerServiceClient interface {
-	GetStores(context.Context, *connect.Request[v1.GetStoresRequest]) (*connect.Response[v1.GetStoresResponse], error)
+	// EvmiInstance
+	GetEvmiInstance(context.Context, *connect.Request[v1.GetEvmiInstanceRequest]) (*connect.Response[v1.GetEvmiInstanceResponse], error)
+	ListEvmiInstances(context.Context, *connect.Request[v1.ListEvmiInstancesRequest]) (*connect.Response[v1.ListEvmiInstancesResponse], error)
+	// EvmBlockchain
+	CreateEvmBlockchain(context.Context, *connect.Request[v1.CreateEvmBlockchainRequest]) (*connect.Response[v1.CreateEvmBlockchainResponse], error)
+	GetEvmBlockchain(context.Context, *connect.Request[v1.GetEvmBlockchainRequest]) (*connect.Response[v1.GetEvmBlockchainResponse], error)
+	UpdateEvmBlockchain(context.Context, *connect.Request[v1.UpdateEvmBlockchainRequest]) (*connect.Response[v1.UpdateEvmBlockchainResponse], error)
+	ListEvmBlockchains(context.Context, *connect.Request[v1.ListEvmBlockchainsRequest]) (*connect.Response[v1.ListEvmBlockchainsResponse], error)
+	DeleteEvmBlockchain(context.Context, *connect.Request[v1.DeleteEvmBlockchainRequest]) (*connect.Response[v1.DeleteEvmBlockchainResponse], error)
+	// EvmJsonAbi
+	CreateEvmJsonAbi(context.Context, *connect.Request[v1.CreateEvmJsonAbiRequest]) (*connect.Response[v1.CreateEvmJsonAbiResponse], error)
+	GetEvmJsonAbi(context.Context, *connect.Request[v1.GetEvmJsonAbiRequest]) (*connect.Response[v1.GetEvmJsonAbiResponse], error)
+	UpdateEvmJsonAbi(context.Context, *connect.Request[v1.UpdateEvmJsonAbiRequest]) (*connect.Response[v1.UpdateEvmJsonAbiResponse], error)
+	ListEvmJsonAbis(context.Context, *connect.Request[v1.ListEvmJsonAbisRequest]) (*connect.Response[v1.ListEvmJsonAbisResponse], error)
+	DeleteEvmJsonAbi(context.Context, *connect.Request[v1.DeleteEvmJsonAbiRequest]) (*connect.Response[v1.DeleteEvmJsonAbiResponse], error)
+	// EvmLogStore
+	CreateEvmLogStore(context.Context, *connect.Request[v1.CreateEvmLogStoreRequest]) (*connect.Response[v1.CreateEvmLogStoreResponse], error)
+	GetEvmLogStore(context.Context, *connect.Request[v1.GetEvmLogStoreRequest]) (*connect.Response[v1.GetEvmLogStoreResponse], error)
+	UpdateEvmLogStore(context.Context, *connect.Request[v1.UpdateEvmLogStoreRequest]) (*connect.Response[v1.UpdateEvmLogStoreResponse], error)
+	ListEvmLogStores(context.Context, *connect.Request[v1.ListEvmLogStoresRequest]) (*connect.Response[v1.ListEvmLogStoresResponse], error)
+	DeleteEvmLogStore(context.Context, *connect.Request[v1.DeleteEvmLogStoreRequest]) (*connect.Response[v1.DeleteEvmLogStoreResponse], error)
+	// EvmLogPipeline
+	CreateEvmLogPipeline(context.Context, *connect.Request[v1.CreateEvmLogPipelineRequest]) (*connect.Response[v1.CreateEvmLogPipelineResponse], error)
+	GetEvmLogPipeline(context.Context, *connect.Request[v1.GetEvmLogPipelineRequest]) (*connect.Response[v1.GetEvmLogPipelineResponse], error)
+	UpdateEvmLogPipeline(context.Context, *connect.Request[v1.UpdateEvmLogPipelineRequest]) (*connect.Response[v1.UpdateEvmLogPipelineResponse], error)
+	ListEvmLogPipelines(context.Context, *connect.Request[v1.ListEvmLogPipelinesRequest]) (*connect.Response[v1.ListEvmLogPipelinesResponse], error)
+	DeleteEvmLogPipeline(context.Context, *connect.Request[v1.DeleteEvmLogPipelineRequest]) (*connect.Response[v1.DeleteEvmLogPipelineResponse], error)
 	StartPipeline(context.Context, *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error)
 	StopPipeline(context.Context, *connect.Request[v1.StopPipelineRequest]) (*connect.Response[v1.StopPipelineResponse], error)
-	GetStoreLogs(context.Context, *connect.Request[v1.GetStoreLogsRequest]) (*connect.Response[v1.GetStoreLogsResponse], error)
-	GetLatestsStoreLogs(context.Context, *connect.Request[v1.GetLatestStoreLogsRequest]) (*connect.Response[v1.GetLatestStoreLogsResponse], error)
-	GetStoreLogStream(context.Context, *connect.Request[v1.GetStoreLogsStreamRequest]) (*connect.ServerStreamForClient[v1.GetStoreLogsStreamResponse], error)
+	// EvmLogSource
+	CreateEvmLogSource(context.Context, *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error)
+	GetEvmLogSource(context.Context, *connect.Request[v1.GetEvmLogSourceRequest]) (*connect.Response[v1.GetEvmLogSourceResponse], error)
+	UpdateEvmLogSource(context.Context, *connect.Request[v1.UpdateEvmLogSourceRequest]) (*connect.Response[v1.UpdateEvmLogSourceResponse], error)
+	ListEvmLogSources(context.Context, *connect.Request[v1.ListEvmLogSourcesRequest]) (*connect.Response[v1.ListEvmLogSourcesResponse], error)
+	DeleteEvmLogSource(context.Context, *connect.Request[v1.DeleteEvmLogSourceRequest]) (*connect.Response[v1.DeleteEvmLogSourceResponse], error)
+	// EvmLog
+	ListEvmLogs(context.Context, *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error)
+	// EvmTransaction
+	ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error)
 }
 
 // NewEvmIndexerServiceClient constructs a client for the evm_indexer.v1.EvmIndexerService service.
@@ -84,10 +217,136 @@ type EvmIndexerServiceClient interface {
 func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) EvmIndexerServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &evmIndexerServiceClient{
-		getStores: connect.NewClient[v1.GetStoresRequest, v1.GetStoresResponse](
+		getEvmiInstance: connect.NewClient[v1.GetEvmiInstanceRequest, v1.GetEvmiInstanceResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceGetStoresProcedure,
-			connect.WithSchema(evmIndexerServiceGetStoresMethodDescriptor),
+			baseURL+EvmIndexerServiceGetEvmiInstanceProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmiInstanceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmiInstances: connect.NewClient[v1.ListEvmiInstancesRequest, v1.ListEvmiInstancesResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmiInstancesProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmiInstancesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createEvmBlockchain: connect.NewClient[v1.CreateEvmBlockchainRequest, v1.CreateEvmBlockchainResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreateEvmBlockchainProcedure,
+			connect.WithSchema(evmIndexerServiceCreateEvmBlockchainMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getEvmBlockchain: connect.NewClient[v1.GetEvmBlockchainRequest, v1.GetEvmBlockchainResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceGetEvmBlockchainProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmBlockchainMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateEvmBlockchain: connect.NewClient[v1.UpdateEvmBlockchainRequest, v1.UpdateEvmBlockchainResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateEvmBlockchainProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateEvmBlockchainMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmBlockchains: connect.NewClient[v1.ListEvmBlockchainsRequest, v1.ListEvmBlockchainsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmBlockchainsProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmBlockchainsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEvmBlockchain: connect.NewClient[v1.DeleteEvmBlockchainRequest, v1.DeleteEvmBlockchainResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteEvmBlockchainProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteEvmBlockchainMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createEvmJsonAbi: connect.NewClient[v1.CreateEvmJsonAbiRequest, v1.CreateEvmJsonAbiResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreateEvmJsonAbiProcedure,
+			connect.WithSchema(evmIndexerServiceCreateEvmJsonAbiMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getEvmJsonAbi: connect.NewClient[v1.GetEvmJsonAbiRequest, v1.GetEvmJsonAbiResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceGetEvmJsonAbiProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmJsonAbiMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateEvmJsonAbi: connect.NewClient[v1.UpdateEvmJsonAbiRequest, v1.UpdateEvmJsonAbiResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateEvmJsonAbiProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateEvmJsonAbiMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmJsonAbis: connect.NewClient[v1.ListEvmJsonAbisRequest, v1.ListEvmJsonAbisResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmJsonAbisProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmJsonAbisMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEvmJsonAbi: connect.NewClient[v1.DeleteEvmJsonAbiRequest, v1.DeleteEvmJsonAbiResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteEvmJsonAbiProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteEvmJsonAbiMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createEvmLogStore: connect.NewClient[v1.CreateEvmLogStoreRequest, v1.CreateEvmLogStoreResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreateEvmLogStoreProcedure,
+			connect.WithSchema(evmIndexerServiceCreateEvmLogStoreMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getEvmLogStore: connect.NewClient[v1.GetEvmLogStoreRequest, v1.GetEvmLogStoreResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceGetEvmLogStoreProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmLogStoreMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateEvmLogStore: connect.NewClient[v1.UpdateEvmLogStoreRequest, v1.UpdateEvmLogStoreResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateEvmLogStoreProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateEvmLogStoreMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmLogStores: connect.NewClient[v1.ListEvmLogStoresRequest, v1.ListEvmLogStoresResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmLogStoresProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmLogStoresMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEvmLogStore: connect.NewClient[v1.DeleteEvmLogStoreRequest, v1.DeleteEvmLogStoreResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteEvmLogStoreProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteEvmLogStoreMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createEvmLogPipeline: connect.NewClient[v1.CreateEvmLogPipelineRequest, v1.CreateEvmLogPipelineResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreateEvmLogPipelineProcedure,
+			connect.WithSchema(evmIndexerServiceCreateEvmLogPipelineMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getEvmLogPipeline: connect.NewClient[v1.GetEvmLogPipelineRequest, v1.GetEvmLogPipelineResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceGetEvmLogPipelineProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmLogPipelineMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateEvmLogPipeline: connect.NewClient[v1.UpdateEvmLogPipelineRequest, v1.UpdateEvmLogPipelineResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateEvmLogPipelineProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmLogPipelines: connect.NewClient[v1.ListEvmLogPipelinesRequest, v1.ListEvmLogPipelinesResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmLogPipelinesProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmLogPipelinesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEvmLogPipeline: connect.NewClient[v1.DeleteEvmLogPipelineRequest, v1.DeleteEvmLogPipelineResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteEvmLogPipelineProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		startPipeline: connect.NewClient[v1.StartPipelineRequest, v1.StartPipelineResponse](
@@ -102,22 +361,46 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceStopPipelineMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		getStoreLogs: connect.NewClient[v1.GetStoreLogsRequest, v1.GetStoreLogsResponse](
+		createEvmLogSource: connect.NewClient[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceGetStoreLogsProcedure,
-			connect.WithSchema(evmIndexerServiceGetStoreLogsMethodDescriptor),
+			baseURL+EvmIndexerServiceCreateEvmLogSourceProcedure,
+			connect.WithSchema(evmIndexerServiceCreateEvmLogSourceMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		getLatestsStoreLogs: connect.NewClient[v1.GetLatestStoreLogsRequest, v1.GetLatestStoreLogsResponse](
+		getEvmLogSource: connect.NewClient[v1.GetEvmLogSourceRequest, v1.GetEvmLogSourceResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceGetLatestsStoreLogsProcedure,
-			connect.WithSchema(evmIndexerServiceGetLatestsStoreLogsMethodDescriptor),
+			baseURL+EvmIndexerServiceGetEvmLogSourceProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmLogSourceMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		getStoreLogStream: connect.NewClient[v1.GetStoreLogsStreamRequest, v1.GetStoreLogsStreamResponse](
+		updateEvmLogSource: connect.NewClient[v1.UpdateEvmLogSourceRequest, v1.UpdateEvmLogSourceResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceGetStoreLogStreamProcedure,
-			connect.WithSchema(evmIndexerServiceGetStoreLogStreamMethodDescriptor),
+			baseURL+EvmIndexerServiceUpdateEvmLogSourceProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateEvmLogSourceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmLogSources: connect.NewClient[v1.ListEvmLogSourcesRequest, v1.ListEvmLogSourcesResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmLogSourcesProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmLogSourcesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEvmLogSource: connect.NewClient[v1.DeleteEvmLogSourceRequest, v1.DeleteEvmLogSourceResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteEvmLogSourceProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteEvmLogSourceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmLogs: connect.NewClient[v1.ListEvmLogsRequest, v1.ListEvmLogsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmLogsProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmLogsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmTransactions: connect.NewClient[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmTransactionsProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmTransactionsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -125,17 +408,147 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 
 // evmIndexerServiceClient implements EvmIndexerServiceClient.
 type evmIndexerServiceClient struct {
-	getStores           *connect.Client[v1.GetStoresRequest, v1.GetStoresResponse]
-	startPipeline       *connect.Client[v1.StartPipelineRequest, v1.StartPipelineResponse]
-	stopPipeline        *connect.Client[v1.StopPipelineRequest, v1.StopPipelineResponse]
-	getStoreLogs        *connect.Client[v1.GetStoreLogsRequest, v1.GetStoreLogsResponse]
-	getLatestsStoreLogs *connect.Client[v1.GetLatestStoreLogsRequest, v1.GetLatestStoreLogsResponse]
-	getStoreLogStream   *connect.Client[v1.GetStoreLogsStreamRequest, v1.GetStoreLogsStreamResponse]
+	getEvmiInstance      *connect.Client[v1.GetEvmiInstanceRequest, v1.GetEvmiInstanceResponse]
+	listEvmiInstances    *connect.Client[v1.ListEvmiInstancesRequest, v1.ListEvmiInstancesResponse]
+	createEvmBlockchain  *connect.Client[v1.CreateEvmBlockchainRequest, v1.CreateEvmBlockchainResponse]
+	getEvmBlockchain     *connect.Client[v1.GetEvmBlockchainRequest, v1.GetEvmBlockchainResponse]
+	updateEvmBlockchain  *connect.Client[v1.UpdateEvmBlockchainRequest, v1.UpdateEvmBlockchainResponse]
+	listEvmBlockchains   *connect.Client[v1.ListEvmBlockchainsRequest, v1.ListEvmBlockchainsResponse]
+	deleteEvmBlockchain  *connect.Client[v1.DeleteEvmBlockchainRequest, v1.DeleteEvmBlockchainResponse]
+	createEvmJsonAbi     *connect.Client[v1.CreateEvmJsonAbiRequest, v1.CreateEvmJsonAbiResponse]
+	getEvmJsonAbi        *connect.Client[v1.GetEvmJsonAbiRequest, v1.GetEvmJsonAbiResponse]
+	updateEvmJsonAbi     *connect.Client[v1.UpdateEvmJsonAbiRequest, v1.UpdateEvmJsonAbiResponse]
+	listEvmJsonAbis      *connect.Client[v1.ListEvmJsonAbisRequest, v1.ListEvmJsonAbisResponse]
+	deleteEvmJsonAbi     *connect.Client[v1.DeleteEvmJsonAbiRequest, v1.DeleteEvmJsonAbiResponse]
+	createEvmLogStore    *connect.Client[v1.CreateEvmLogStoreRequest, v1.CreateEvmLogStoreResponse]
+	getEvmLogStore       *connect.Client[v1.GetEvmLogStoreRequest, v1.GetEvmLogStoreResponse]
+	updateEvmLogStore    *connect.Client[v1.UpdateEvmLogStoreRequest, v1.UpdateEvmLogStoreResponse]
+	listEvmLogStores     *connect.Client[v1.ListEvmLogStoresRequest, v1.ListEvmLogStoresResponse]
+	deleteEvmLogStore    *connect.Client[v1.DeleteEvmLogStoreRequest, v1.DeleteEvmLogStoreResponse]
+	createEvmLogPipeline *connect.Client[v1.CreateEvmLogPipelineRequest, v1.CreateEvmLogPipelineResponse]
+	getEvmLogPipeline    *connect.Client[v1.GetEvmLogPipelineRequest, v1.GetEvmLogPipelineResponse]
+	updateEvmLogPipeline *connect.Client[v1.UpdateEvmLogPipelineRequest, v1.UpdateEvmLogPipelineResponse]
+	listEvmLogPipelines  *connect.Client[v1.ListEvmLogPipelinesRequest, v1.ListEvmLogPipelinesResponse]
+	deleteEvmLogPipeline *connect.Client[v1.DeleteEvmLogPipelineRequest, v1.DeleteEvmLogPipelineResponse]
+	startPipeline        *connect.Client[v1.StartPipelineRequest, v1.StartPipelineResponse]
+	stopPipeline         *connect.Client[v1.StopPipelineRequest, v1.StopPipelineResponse]
+	createEvmLogSource   *connect.Client[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse]
+	getEvmLogSource      *connect.Client[v1.GetEvmLogSourceRequest, v1.GetEvmLogSourceResponse]
+	updateEvmLogSource   *connect.Client[v1.UpdateEvmLogSourceRequest, v1.UpdateEvmLogSourceResponse]
+	listEvmLogSources    *connect.Client[v1.ListEvmLogSourcesRequest, v1.ListEvmLogSourcesResponse]
+	deleteEvmLogSource   *connect.Client[v1.DeleteEvmLogSourceRequest, v1.DeleteEvmLogSourceResponse]
+	listEvmLogs          *connect.Client[v1.ListEvmLogsRequest, v1.ListEvmLogsResponse]
+	listEvmTransactions  *connect.Client[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse]
 }
 
-// GetStores calls evm_indexer.v1.EvmIndexerService.GetStores.
-func (c *evmIndexerServiceClient) GetStores(ctx context.Context, req *connect.Request[v1.GetStoresRequest]) (*connect.Response[v1.GetStoresResponse], error) {
-	return c.getStores.CallUnary(ctx, req)
+// GetEvmiInstance calls evm_indexer.v1.EvmIndexerService.GetEvmiInstance.
+func (c *evmIndexerServiceClient) GetEvmiInstance(ctx context.Context, req *connect.Request[v1.GetEvmiInstanceRequest]) (*connect.Response[v1.GetEvmiInstanceResponse], error) {
+	return c.getEvmiInstance.CallUnary(ctx, req)
+}
+
+// ListEvmiInstances calls evm_indexer.v1.EvmIndexerService.ListEvmiInstances.
+func (c *evmIndexerServiceClient) ListEvmiInstances(ctx context.Context, req *connect.Request[v1.ListEvmiInstancesRequest]) (*connect.Response[v1.ListEvmiInstancesResponse], error) {
+	return c.listEvmiInstances.CallUnary(ctx, req)
+}
+
+// CreateEvmBlockchain calls evm_indexer.v1.EvmIndexerService.CreateEvmBlockchain.
+func (c *evmIndexerServiceClient) CreateEvmBlockchain(ctx context.Context, req *connect.Request[v1.CreateEvmBlockchainRequest]) (*connect.Response[v1.CreateEvmBlockchainResponse], error) {
+	return c.createEvmBlockchain.CallUnary(ctx, req)
+}
+
+// GetEvmBlockchain calls evm_indexer.v1.EvmIndexerService.GetEvmBlockchain.
+func (c *evmIndexerServiceClient) GetEvmBlockchain(ctx context.Context, req *connect.Request[v1.GetEvmBlockchainRequest]) (*connect.Response[v1.GetEvmBlockchainResponse], error) {
+	return c.getEvmBlockchain.CallUnary(ctx, req)
+}
+
+// UpdateEvmBlockchain calls evm_indexer.v1.EvmIndexerService.UpdateEvmBlockchain.
+func (c *evmIndexerServiceClient) UpdateEvmBlockchain(ctx context.Context, req *connect.Request[v1.UpdateEvmBlockchainRequest]) (*connect.Response[v1.UpdateEvmBlockchainResponse], error) {
+	return c.updateEvmBlockchain.CallUnary(ctx, req)
+}
+
+// ListEvmBlockchains calls evm_indexer.v1.EvmIndexerService.ListEvmBlockchains.
+func (c *evmIndexerServiceClient) ListEvmBlockchains(ctx context.Context, req *connect.Request[v1.ListEvmBlockchainsRequest]) (*connect.Response[v1.ListEvmBlockchainsResponse], error) {
+	return c.listEvmBlockchains.CallUnary(ctx, req)
+}
+
+// DeleteEvmBlockchain calls evm_indexer.v1.EvmIndexerService.DeleteEvmBlockchain.
+func (c *evmIndexerServiceClient) DeleteEvmBlockchain(ctx context.Context, req *connect.Request[v1.DeleteEvmBlockchainRequest]) (*connect.Response[v1.DeleteEvmBlockchainResponse], error) {
+	return c.deleteEvmBlockchain.CallUnary(ctx, req)
+}
+
+// CreateEvmJsonAbi calls evm_indexer.v1.EvmIndexerService.CreateEvmJsonAbi.
+func (c *evmIndexerServiceClient) CreateEvmJsonAbi(ctx context.Context, req *connect.Request[v1.CreateEvmJsonAbiRequest]) (*connect.Response[v1.CreateEvmJsonAbiResponse], error) {
+	return c.createEvmJsonAbi.CallUnary(ctx, req)
+}
+
+// GetEvmJsonAbi calls evm_indexer.v1.EvmIndexerService.GetEvmJsonAbi.
+func (c *evmIndexerServiceClient) GetEvmJsonAbi(ctx context.Context, req *connect.Request[v1.GetEvmJsonAbiRequest]) (*connect.Response[v1.GetEvmJsonAbiResponse], error) {
+	return c.getEvmJsonAbi.CallUnary(ctx, req)
+}
+
+// UpdateEvmJsonAbi calls evm_indexer.v1.EvmIndexerService.UpdateEvmJsonAbi.
+func (c *evmIndexerServiceClient) UpdateEvmJsonAbi(ctx context.Context, req *connect.Request[v1.UpdateEvmJsonAbiRequest]) (*connect.Response[v1.UpdateEvmJsonAbiResponse], error) {
+	return c.updateEvmJsonAbi.CallUnary(ctx, req)
+}
+
+// ListEvmJsonAbis calls evm_indexer.v1.EvmIndexerService.ListEvmJsonAbis.
+func (c *evmIndexerServiceClient) ListEvmJsonAbis(ctx context.Context, req *connect.Request[v1.ListEvmJsonAbisRequest]) (*connect.Response[v1.ListEvmJsonAbisResponse], error) {
+	return c.listEvmJsonAbis.CallUnary(ctx, req)
+}
+
+// DeleteEvmJsonAbi calls evm_indexer.v1.EvmIndexerService.DeleteEvmJsonAbi.
+func (c *evmIndexerServiceClient) DeleteEvmJsonAbi(ctx context.Context, req *connect.Request[v1.DeleteEvmJsonAbiRequest]) (*connect.Response[v1.DeleteEvmJsonAbiResponse], error) {
+	return c.deleteEvmJsonAbi.CallUnary(ctx, req)
+}
+
+// CreateEvmLogStore calls evm_indexer.v1.EvmIndexerService.CreateEvmLogStore.
+func (c *evmIndexerServiceClient) CreateEvmLogStore(ctx context.Context, req *connect.Request[v1.CreateEvmLogStoreRequest]) (*connect.Response[v1.CreateEvmLogStoreResponse], error) {
+	return c.createEvmLogStore.CallUnary(ctx, req)
+}
+
+// GetEvmLogStore calls evm_indexer.v1.EvmIndexerService.GetEvmLogStore.
+func (c *evmIndexerServiceClient) GetEvmLogStore(ctx context.Context, req *connect.Request[v1.GetEvmLogStoreRequest]) (*connect.Response[v1.GetEvmLogStoreResponse], error) {
+	return c.getEvmLogStore.CallUnary(ctx, req)
+}
+
+// UpdateEvmLogStore calls evm_indexer.v1.EvmIndexerService.UpdateEvmLogStore.
+func (c *evmIndexerServiceClient) UpdateEvmLogStore(ctx context.Context, req *connect.Request[v1.UpdateEvmLogStoreRequest]) (*connect.Response[v1.UpdateEvmLogStoreResponse], error) {
+	return c.updateEvmLogStore.CallUnary(ctx, req)
+}
+
+// ListEvmLogStores calls evm_indexer.v1.EvmIndexerService.ListEvmLogStores.
+func (c *evmIndexerServiceClient) ListEvmLogStores(ctx context.Context, req *connect.Request[v1.ListEvmLogStoresRequest]) (*connect.Response[v1.ListEvmLogStoresResponse], error) {
+	return c.listEvmLogStores.CallUnary(ctx, req)
+}
+
+// DeleteEvmLogStore calls evm_indexer.v1.EvmIndexerService.DeleteEvmLogStore.
+func (c *evmIndexerServiceClient) DeleteEvmLogStore(ctx context.Context, req *connect.Request[v1.DeleteEvmLogStoreRequest]) (*connect.Response[v1.DeleteEvmLogStoreResponse], error) {
+	return c.deleteEvmLogStore.CallUnary(ctx, req)
+}
+
+// CreateEvmLogPipeline calls evm_indexer.v1.EvmIndexerService.CreateEvmLogPipeline.
+func (c *evmIndexerServiceClient) CreateEvmLogPipeline(ctx context.Context, req *connect.Request[v1.CreateEvmLogPipelineRequest]) (*connect.Response[v1.CreateEvmLogPipelineResponse], error) {
+	return c.createEvmLogPipeline.CallUnary(ctx, req)
+}
+
+// GetEvmLogPipeline calls evm_indexer.v1.EvmIndexerService.GetEvmLogPipeline.
+func (c *evmIndexerServiceClient) GetEvmLogPipeline(ctx context.Context, req *connect.Request[v1.GetEvmLogPipelineRequest]) (*connect.Response[v1.GetEvmLogPipelineResponse], error) {
+	return c.getEvmLogPipeline.CallUnary(ctx, req)
+}
+
+// UpdateEvmLogPipeline calls evm_indexer.v1.EvmIndexerService.UpdateEvmLogPipeline.
+func (c *evmIndexerServiceClient) UpdateEvmLogPipeline(ctx context.Context, req *connect.Request[v1.UpdateEvmLogPipelineRequest]) (*connect.Response[v1.UpdateEvmLogPipelineResponse], error) {
+	return c.updateEvmLogPipeline.CallUnary(ctx, req)
+}
+
+// ListEvmLogPipelines calls evm_indexer.v1.EvmIndexerService.ListEvmLogPipelines.
+func (c *evmIndexerServiceClient) ListEvmLogPipelines(ctx context.Context, req *connect.Request[v1.ListEvmLogPipelinesRequest]) (*connect.Response[v1.ListEvmLogPipelinesResponse], error) {
+	return c.listEvmLogPipelines.CallUnary(ctx, req)
+}
+
+// DeleteEvmLogPipeline calls evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline.
+func (c *evmIndexerServiceClient) DeleteEvmLogPipeline(ctx context.Context, req *connect.Request[v1.DeleteEvmLogPipelineRequest]) (*connect.Response[v1.DeleteEvmLogPipelineResponse], error) {
+	return c.deleteEvmLogPipeline.CallUnary(ctx, req)
 }
 
 // StartPipeline calls evm_indexer.v1.EvmIndexerService.StartPipeline.
@@ -148,29 +561,82 @@ func (c *evmIndexerServiceClient) StopPipeline(ctx context.Context, req *connect
 	return c.stopPipeline.CallUnary(ctx, req)
 }
 
-// GetStoreLogs calls evm_indexer.v1.EvmIndexerService.GetStoreLogs.
-func (c *evmIndexerServiceClient) GetStoreLogs(ctx context.Context, req *connect.Request[v1.GetStoreLogsRequest]) (*connect.Response[v1.GetStoreLogsResponse], error) {
-	return c.getStoreLogs.CallUnary(ctx, req)
+// CreateEvmLogSource calls evm_indexer.v1.EvmIndexerService.CreateEvmLogSource.
+func (c *evmIndexerServiceClient) CreateEvmLogSource(ctx context.Context, req *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error) {
+	return c.createEvmLogSource.CallUnary(ctx, req)
 }
 
-// GetLatestsStoreLogs calls evm_indexer.v1.EvmIndexerService.GetLatestsStoreLogs.
-func (c *evmIndexerServiceClient) GetLatestsStoreLogs(ctx context.Context, req *connect.Request[v1.GetLatestStoreLogsRequest]) (*connect.Response[v1.GetLatestStoreLogsResponse], error) {
-	return c.getLatestsStoreLogs.CallUnary(ctx, req)
+// GetEvmLogSource calls evm_indexer.v1.EvmIndexerService.GetEvmLogSource.
+func (c *evmIndexerServiceClient) GetEvmLogSource(ctx context.Context, req *connect.Request[v1.GetEvmLogSourceRequest]) (*connect.Response[v1.GetEvmLogSourceResponse], error) {
+	return c.getEvmLogSource.CallUnary(ctx, req)
 }
 
-// GetStoreLogStream calls evm_indexer.v1.EvmIndexerService.GetStoreLogStream.
-func (c *evmIndexerServiceClient) GetStoreLogStream(ctx context.Context, req *connect.Request[v1.GetStoreLogsStreamRequest]) (*connect.ServerStreamForClient[v1.GetStoreLogsStreamResponse], error) {
-	return c.getStoreLogStream.CallServerStream(ctx, req)
+// UpdateEvmLogSource calls evm_indexer.v1.EvmIndexerService.UpdateEvmLogSource.
+func (c *evmIndexerServiceClient) UpdateEvmLogSource(ctx context.Context, req *connect.Request[v1.UpdateEvmLogSourceRequest]) (*connect.Response[v1.UpdateEvmLogSourceResponse], error) {
+	return c.updateEvmLogSource.CallUnary(ctx, req)
+}
+
+// ListEvmLogSources calls evm_indexer.v1.EvmIndexerService.ListEvmLogSources.
+func (c *evmIndexerServiceClient) ListEvmLogSources(ctx context.Context, req *connect.Request[v1.ListEvmLogSourcesRequest]) (*connect.Response[v1.ListEvmLogSourcesResponse], error) {
+	return c.listEvmLogSources.CallUnary(ctx, req)
+}
+
+// DeleteEvmLogSource calls evm_indexer.v1.EvmIndexerService.DeleteEvmLogSource.
+func (c *evmIndexerServiceClient) DeleteEvmLogSource(ctx context.Context, req *connect.Request[v1.DeleteEvmLogSourceRequest]) (*connect.Response[v1.DeleteEvmLogSourceResponse], error) {
+	return c.deleteEvmLogSource.CallUnary(ctx, req)
+}
+
+// ListEvmLogs calls evm_indexer.v1.EvmIndexerService.ListEvmLogs.
+func (c *evmIndexerServiceClient) ListEvmLogs(ctx context.Context, req *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error) {
+	return c.listEvmLogs.CallUnary(ctx, req)
+}
+
+// ListEvmTransactions calls evm_indexer.v1.EvmIndexerService.ListEvmTransactions.
+func (c *evmIndexerServiceClient) ListEvmTransactions(ctx context.Context, req *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error) {
+	return c.listEvmTransactions.CallUnary(ctx, req)
 }
 
 // EvmIndexerServiceHandler is an implementation of the evm_indexer.v1.EvmIndexerService service.
 type EvmIndexerServiceHandler interface {
-	GetStores(context.Context, *connect.Request[v1.GetStoresRequest]) (*connect.Response[v1.GetStoresResponse], error)
+	// EvmiInstance
+	GetEvmiInstance(context.Context, *connect.Request[v1.GetEvmiInstanceRequest]) (*connect.Response[v1.GetEvmiInstanceResponse], error)
+	ListEvmiInstances(context.Context, *connect.Request[v1.ListEvmiInstancesRequest]) (*connect.Response[v1.ListEvmiInstancesResponse], error)
+	// EvmBlockchain
+	CreateEvmBlockchain(context.Context, *connect.Request[v1.CreateEvmBlockchainRequest]) (*connect.Response[v1.CreateEvmBlockchainResponse], error)
+	GetEvmBlockchain(context.Context, *connect.Request[v1.GetEvmBlockchainRequest]) (*connect.Response[v1.GetEvmBlockchainResponse], error)
+	UpdateEvmBlockchain(context.Context, *connect.Request[v1.UpdateEvmBlockchainRequest]) (*connect.Response[v1.UpdateEvmBlockchainResponse], error)
+	ListEvmBlockchains(context.Context, *connect.Request[v1.ListEvmBlockchainsRequest]) (*connect.Response[v1.ListEvmBlockchainsResponse], error)
+	DeleteEvmBlockchain(context.Context, *connect.Request[v1.DeleteEvmBlockchainRequest]) (*connect.Response[v1.DeleteEvmBlockchainResponse], error)
+	// EvmJsonAbi
+	CreateEvmJsonAbi(context.Context, *connect.Request[v1.CreateEvmJsonAbiRequest]) (*connect.Response[v1.CreateEvmJsonAbiResponse], error)
+	GetEvmJsonAbi(context.Context, *connect.Request[v1.GetEvmJsonAbiRequest]) (*connect.Response[v1.GetEvmJsonAbiResponse], error)
+	UpdateEvmJsonAbi(context.Context, *connect.Request[v1.UpdateEvmJsonAbiRequest]) (*connect.Response[v1.UpdateEvmJsonAbiResponse], error)
+	ListEvmJsonAbis(context.Context, *connect.Request[v1.ListEvmJsonAbisRequest]) (*connect.Response[v1.ListEvmJsonAbisResponse], error)
+	DeleteEvmJsonAbi(context.Context, *connect.Request[v1.DeleteEvmJsonAbiRequest]) (*connect.Response[v1.DeleteEvmJsonAbiResponse], error)
+	// EvmLogStore
+	CreateEvmLogStore(context.Context, *connect.Request[v1.CreateEvmLogStoreRequest]) (*connect.Response[v1.CreateEvmLogStoreResponse], error)
+	GetEvmLogStore(context.Context, *connect.Request[v1.GetEvmLogStoreRequest]) (*connect.Response[v1.GetEvmLogStoreResponse], error)
+	UpdateEvmLogStore(context.Context, *connect.Request[v1.UpdateEvmLogStoreRequest]) (*connect.Response[v1.UpdateEvmLogStoreResponse], error)
+	ListEvmLogStores(context.Context, *connect.Request[v1.ListEvmLogStoresRequest]) (*connect.Response[v1.ListEvmLogStoresResponse], error)
+	DeleteEvmLogStore(context.Context, *connect.Request[v1.DeleteEvmLogStoreRequest]) (*connect.Response[v1.DeleteEvmLogStoreResponse], error)
+	// EvmLogPipeline
+	CreateEvmLogPipeline(context.Context, *connect.Request[v1.CreateEvmLogPipelineRequest]) (*connect.Response[v1.CreateEvmLogPipelineResponse], error)
+	GetEvmLogPipeline(context.Context, *connect.Request[v1.GetEvmLogPipelineRequest]) (*connect.Response[v1.GetEvmLogPipelineResponse], error)
+	UpdateEvmLogPipeline(context.Context, *connect.Request[v1.UpdateEvmLogPipelineRequest]) (*connect.Response[v1.UpdateEvmLogPipelineResponse], error)
+	ListEvmLogPipelines(context.Context, *connect.Request[v1.ListEvmLogPipelinesRequest]) (*connect.Response[v1.ListEvmLogPipelinesResponse], error)
+	DeleteEvmLogPipeline(context.Context, *connect.Request[v1.DeleteEvmLogPipelineRequest]) (*connect.Response[v1.DeleteEvmLogPipelineResponse], error)
 	StartPipeline(context.Context, *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error)
 	StopPipeline(context.Context, *connect.Request[v1.StopPipelineRequest]) (*connect.Response[v1.StopPipelineResponse], error)
-	GetStoreLogs(context.Context, *connect.Request[v1.GetStoreLogsRequest]) (*connect.Response[v1.GetStoreLogsResponse], error)
-	GetLatestsStoreLogs(context.Context, *connect.Request[v1.GetLatestStoreLogsRequest]) (*connect.Response[v1.GetLatestStoreLogsResponse], error)
-	GetStoreLogStream(context.Context, *connect.Request[v1.GetStoreLogsStreamRequest], *connect.ServerStream[v1.GetStoreLogsStreamResponse]) error
+	// EvmLogSource
+	CreateEvmLogSource(context.Context, *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error)
+	GetEvmLogSource(context.Context, *connect.Request[v1.GetEvmLogSourceRequest]) (*connect.Response[v1.GetEvmLogSourceResponse], error)
+	UpdateEvmLogSource(context.Context, *connect.Request[v1.UpdateEvmLogSourceRequest]) (*connect.Response[v1.UpdateEvmLogSourceResponse], error)
+	ListEvmLogSources(context.Context, *connect.Request[v1.ListEvmLogSourcesRequest]) (*connect.Response[v1.ListEvmLogSourcesResponse], error)
+	DeleteEvmLogSource(context.Context, *connect.Request[v1.DeleteEvmLogSourceRequest]) (*connect.Response[v1.DeleteEvmLogSourceResponse], error)
+	// EvmLog
+	ListEvmLogs(context.Context, *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error)
+	// EvmTransaction
+	ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error)
 }
 
 // NewEvmIndexerServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -179,10 +645,136 @@ type EvmIndexerServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	evmIndexerServiceGetStoresHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceGetStoresProcedure,
-		svc.GetStores,
-		connect.WithSchema(evmIndexerServiceGetStoresMethodDescriptor),
+	evmIndexerServiceGetEvmiInstanceHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmiInstanceProcedure,
+		svc.GetEvmiInstance,
+		connect.WithSchema(evmIndexerServiceGetEvmiInstanceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmiInstancesHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmiInstancesProcedure,
+		svc.ListEvmiInstances,
+		connect.WithSchema(evmIndexerServiceListEvmiInstancesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceCreateEvmBlockchainHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateEvmBlockchainProcedure,
+		svc.CreateEvmBlockchain,
+		connect.WithSchema(evmIndexerServiceCreateEvmBlockchainMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceGetEvmBlockchainHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmBlockchainProcedure,
+		svc.GetEvmBlockchain,
+		connect.WithSchema(evmIndexerServiceGetEvmBlockchainMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateEvmBlockchainHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateEvmBlockchainProcedure,
+		svc.UpdateEvmBlockchain,
+		connect.WithSchema(evmIndexerServiceUpdateEvmBlockchainMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmBlockchainsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmBlockchainsProcedure,
+		svc.ListEvmBlockchains,
+		connect.WithSchema(evmIndexerServiceListEvmBlockchainsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteEvmBlockchainHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteEvmBlockchainProcedure,
+		svc.DeleteEvmBlockchain,
+		connect.WithSchema(evmIndexerServiceDeleteEvmBlockchainMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceCreateEvmJsonAbiHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateEvmJsonAbiProcedure,
+		svc.CreateEvmJsonAbi,
+		connect.WithSchema(evmIndexerServiceCreateEvmJsonAbiMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceGetEvmJsonAbiHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmJsonAbiProcedure,
+		svc.GetEvmJsonAbi,
+		connect.WithSchema(evmIndexerServiceGetEvmJsonAbiMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateEvmJsonAbiHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateEvmJsonAbiProcedure,
+		svc.UpdateEvmJsonAbi,
+		connect.WithSchema(evmIndexerServiceUpdateEvmJsonAbiMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmJsonAbisHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmJsonAbisProcedure,
+		svc.ListEvmJsonAbis,
+		connect.WithSchema(evmIndexerServiceListEvmJsonAbisMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteEvmJsonAbiHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteEvmJsonAbiProcedure,
+		svc.DeleteEvmJsonAbi,
+		connect.WithSchema(evmIndexerServiceDeleteEvmJsonAbiMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceCreateEvmLogStoreHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateEvmLogStoreProcedure,
+		svc.CreateEvmLogStore,
+		connect.WithSchema(evmIndexerServiceCreateEvmLogStoreMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceGetEvmLogStoreHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmLogStoreProcedure,
+		svc.GetEvmLogStore,
+		connect.WithSchema(evmIndexerServiceGetEvmLogStoreMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateEvmLogStoreHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateEvmLogStoreProcedure,
+		svc.UpdateEvmLogStore,
+		connect.WithSchema(evmIndexerServiceUpdateEvmLogStoreMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmLogStoresHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmLogStoresProcedure,
+		svc.ListEvmLogStores,
+		connect.WithSchema(evmIndexerServiceListEvmLogStoresMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteEvmLogStoreHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteEvmLogStoreProcedure,
+		svc.DeleteEvmLogStore,
+		connect.WithSchema(evmIndexerServiceDeleteEvmLogStoreMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceCreateEvmLogPipelineHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateEvmLogPipelineProcedure,
+		svc.CreateEvmLogPipeline,
+		connect.WithSchema(evmIndexerServiceCreateEvmLogPipelineMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceGetEvmLogPipelineHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmLogPipelineProcedure,
+		svc.GetEvmLogPipeline,
+		connect.WithSchema(evmIndexerServiceGetEvmLogPipelineMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateEvmLogPipelineHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateEvmLogPipelineProcedure,
+		svc.UpdateEvmLogPipeline,
+		connect.WithSchema(evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmLogPipelinesHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmLogPipelinesProcedure,
+		svc.ListEvmLogPipelines,
+		connect.WithSchema(evmIndexerServiceListEvmLogPipelinesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteEvmLogPipelineHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteEvmLogPipelineProcedure,
+		svc.DeleteEvmLogPipeline,
+		connect.WithSchema(evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStartPipelineHandler := connect.NewUnaryHandler(
@@ -197,38 +789,112 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceStopPipelineMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceGetStoreLogsHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceGetStoreLogsProcedure,
-		svc.GetStoreLogs,
-		connect.WithSchema(evmIndexerServiceGetStoreLogsMethodDescriptor),
+	evmIndexerServiceCreateEvmLogSourceHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateEvmLogSourceProcedure,
+		svc.CreateEvmLogSource,
+		connect.WithSchema(evmIndexerServiceCreateEvmLogSourceMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceGetLatestsStoreLogsHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceGetLatestsStoreLogsProcedure,
-		svc.GetLatestsStoreLogs,
-		connect.WithSchema(evmIndexerServiceGetLatestsStoreLogsMethodDescriptor),
+	evmIndexerServiceGetEvmLogSourceHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmLogSourceProcedure,
+		svc.GetEvmLogSource,
+		connect.WithSchema(evmIndexerServiceGetEvmLogSourceMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceGetStoreLogStreamHandler := connect.NewServerStreamHandler(
-		EvmIndexerServiceGetStoreLogStreamProcedure,
-		svc.GetStoreLogStream,
-		connect.WithSchema(evmIndexerServiceGetStoreLogStreamMethodDescriptor),
+	evmIndexerServiceUpdateEvmLogSourceHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateEvmLogSourceProcedure,
+		svc.UpdateEvmLogSource,
+		connect.WithSchema(evmIndexerServiceUpdateEvmLogSourceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmLogSourcesHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmLogSourcesProcedure,
+		svc.ListEvmLogSources,
+		connect.WithSchema(evmIndexerServiceListEvmLogSourcesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteEvmLogSourceHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteEvmLogSourceProcedure,
+		svc.DeleteEvmLogSource,
+		connect.WithSchema(evmIndexerServiceDeleteEvmLogSourceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmLogsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmLogsProcedure,
+		svc.ListEvmLogs,
+		connect.WithSchema(evmIndexerServiceListEvmLogsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmTransactionsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmTransactionsProcedure,
+		svc.ListEvmTransactions,
+		connect.WithSchema(evmIndexerServiceListEvmTransactionsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/evm_indexer.v1.EvmIndexerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case EvmIndexerServiceGetStoresProcedure:
-			evmIndexerServiceGetStoresHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmiInstanceProcedure:
+			evmIndexerServiceGetEvmiInstanceHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmiInstancesProcedure:
+			evmIndexerServiceListEvmiInstancesHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateEvmBlockchainProcedure:
+			evmIndexerServiceCreateEvmBlockchainHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmBlockchainProcedure:
+			evmIndexerServiceGetEvmBlockchainHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateEvmBlockchainProcedure:
+			evmIndexerServiceUpdateEvmBlockchainHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmBlockchainsProcedure:
+			evmIndexerServiceListEvmBlockchainsHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteEvmBlockchainProcedure:
+			evmIndexerServiceDeleteEvmBlockchainHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateEvmJsonAbiProcedure:
+			evmIndexerServiceCreateEvmJsonAbiHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmJsonAbiProcedure:
+			evmIndexerServiceGetEvmJsonAbiHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateEvmJsonAbiProcedure:
+			evmIndexerServiceUpdateEvmJsonAbiHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmJsonAbisProcedure:
+			evmIndexerServiceListEvmJsonAbisHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteEvmJsonAbiProcedure:
+			evmIndexerServiceDeleteEvmJsonAbiHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateEvmLogStoreProcedure:
+			evmIndexerServiceCreateEvmLogStoreHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmLogStoreProcedure:
+			evmIndexerServiceGetEvmLogStoreHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateEvmLogStoreProcedure:
+			evmIndexerServiceUpdateEvmLogStoreHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmLogStoresProcedure:
+			evmIndexerServiceListEvmLogStoresHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteEvmLogStoreProcedure:
+			evmIndexerServiceDeleteEvmLogStoreHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateEvmLogPipelineProcedure:
+			evmIndexerServiceCreateEvmLogPipelineHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmLogPipelineProcedure:
+			evmIndexerServiceGetEvmLogPipelineHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateEvmLogPipelineProcedure:
+			evmIndexerServiceUpdateEvmLogPipelineHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmLogPipelinesProcedure:
+			evmIndexerServiceListEvmLogPipelinesHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteEvmLogPipelineProcedure:
+			evmIndexerServiceDeleteEvmLogPipelineHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceStartPipelineProcedure:
 			evmIndexerServiceStartPipelineHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceStopPipelineProcedure:
 			evmIndexerServiceStopPipelineHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceGetStoreLogsProcedure:
-			evmIndexerServiceGetStoreLogsHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceGetLatestsStoreLogsProcedure:
-			evmIndexerServiceGetLatestsStoreLogsHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceGetStoreLogStreamProcedure:
-			evmIndexerServiceGetStoreLogStreamHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateEvmLogSourceProcedure:
+			evmIndexerServiceCreateEvmLogSourceHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmLogSourceProcedure:
+			evmIndexerServiceGetEvmLogSourceHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateEvmLogSourceProcedure:
+			evmIndexerServiceUpdateEvmLogSourceHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmLogSourcesProcedure:
+			evmIndexerServiceListEvmLogSourcesHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteEvmLogSourceProcedure:
+			evmIndexerServiceDeleteEvmLogSourceHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmLogsProcedure:
+			evmIndexerServiceListEvmLogsHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmTransactionsProcedure:
+			evmIndexerServiceListEvmTransactionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -238,8 +904,92 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 // UnimplementedEvmIndexerServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedEvmIndexerServiceHandler struct{}
 
-func (UnimplementedEvmIndexerServiceHandler) GetStores(context.Context, *connect.Request[v1.GetStoresRequest]) (*connect.Response[v1.GetStoresResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetStores is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) GetEvmiInstance(context.Context, *connect.Request[v1.GetEvmiInstanceRequest]) (*connect.Response[v1.GetEvmiInstanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmiInstance is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmiInstances(context.Context, *connect.Request[v1.ListEvmiInstancesRequest]) (*connect.Response[v1.ListEvmiInstancesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmiInstances is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreateEvmBlockchain(context.Context, *connect.Request[v1.CreateEvmBlockchainRequest]) (*connect.Response[v1.CreateEvmBlockchainResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateEvmBlockchain is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) GetEvmBlockchain(context.Context, *connect.Request[v1.GetEvmBlockchainRequest]) (*connect.Response[v1.GetEvmBlockchainResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmBlockchain is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateEvmBlockchain(context.Context, *connect.Request[v1.UpdateEvmBlockchainRequest]) (*connect.Response[v1.UpdateEvmBlockchainResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateEvmBlockchain is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmBlockchains(context.Context, *connect.Request[v1.ListEvmBlockchainsRequest]) (*connect.Response[v1.ListEvmBlockchainsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmBlockchains is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteEvmBlockchain(context.Context, *connect.Request[v1.DeleteEvmBlockchainRequest]) (*connect.Response[v1.DeleteEvmBlockchainResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmBlockchain is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreateEvmJsonAbi(context.Context, *connect.Request[v1.CreateEvmJsonAbiRequest]) (*connect.Response[v1.CreateEvmJsonAbiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateEvmJsonAbi is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) GetEvmJsonAbi(context.Context, *connect.Request[v1.GetEvmJsonAbiRequest]) (*connect.Response[v1.GetEvmJsonAbiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmJsonAbi is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateEvmJsonAbi(context.Context, *connect.Request[v1.UpdateEvmJsonAbiRequest]) (*connect.Response[v1.UpdateEvmJsonAbiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateEvmJsonAbi is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmJsonAbis(context.Context, *connect.Request[v1.ListEvmJsonAbisRequest]) (*connect.Response[v1.ListEvmJsonAbisResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmJsonAbis is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteEvmJsonAbi(context.Context, *connect.Request[v1.DeleteEvmJsonAbiRequest]) (*connect.Response[v1.DeleteEvmJsonAbiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmJsonAbi is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreateEvmLogStore(context.Context, *connect.Request[v1.CreateEvmLogStoreRequest]) (*connect.Response[v1.CreateEvmLogStoreResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateEvmLogStore is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) GetEvmLogStore(context.Context, *connect.Request[v1.GetEvmLogStoreRequest]) (*connect.Response[v1.GetEvmLogStoreResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmLogStore is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateEvmLogStore(context.Context, *connect.Request[v1.UpdateEvmLogStoreRequest]) (*connect.Response[v1.UpdateEvmLogStoreResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateEvmLogStore is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmLogStores(context.Context, *connect.Request[v1.ListEvmLogStoresRequest]) (*connect.Response[v1.ListEvmLogStoresResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmLogStores is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteEvmLogStore(context.Context, *connect.Request[v1.DeleteEvmLogStoreRequest]) (*connect.Response[v1.DeleteEvmLogStoreResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmLogStore is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreateEvmLogPipeline(context.Context, *connect.Request[v1.CreateEvmLogPipelineRequest]) (*connect.Response[v1.CreateEvmLogPipelineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateEvmLogPipeline is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) GetEvmLogPipeline(context.Context, *connect.Request[v1.GetEvmLogPipelineRequest]) (*connect.Response[v1.GetEvmLogPipelineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmLogPipeline is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateEvmLogPipeline(context.Context, *connect.Request[v1.UpdateEvmLogPipelineRequest]) (*connect.Response[v1.UpdateEvmLogPipelineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateEvmLogPipeline is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmLogPipelines(context.Context, *connect.Request[v1.ListEvmLogPipelinesRequest]) (*connect.Response[v1.ListEvmLogPipelinesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmLogPipelines is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteEvmLogPipeline(context.Context, *connect.Request[v1.DeleteEvmLogPipelineRequest]) (*connect.Response[v1.DeleteEvmLogPipelineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline is not implemented"))
 }
 
 func (UnimplementedEvmIndexerServiceHandler) StartPipeline(context.Context, *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error) {
@@ -250,14 +1000,30 @@ func (UnimplementedEvmIndexerServiceHandler) StopPipeline(context.Context, *conn
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StopPipeline is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) GetStoreLogs(context.Context, *connect.Request[v1.GetStoreLogsRequest]) (*connect.Response[v1.GetStoreLogsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetStoreLogs is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) CreateEvmLogSource(context.Context, *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateEvmLogSource is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) GetLatestsStoreLogs(context.Context, *connect.Request[v1.GetLatestStoreLogsRequest]) (*connect.Response[v1.GetLatestStoreLogsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetLatestsStoreLogs is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) GetEvmLogSource(context.Context, *connect.Request[v1.GetEvmLogSourceRequest]) (*connect.Response[v1.GetEvmLogSourceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmLogSource is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) GetStoreLogStream(context.Context, *connect.Request[v1.GetStoreLogsStreamRequest], *connect.ServerStream[v1.GetStoreLogsStreamResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetStoreLogStream is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) UpdateEvmLogSource(context.Context, *connect.Request[v1.UpdateEvmLogSourceRequest]) (*connect.Response[v1.UpdateEvmLogSourceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateEvmLogSource is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmLogSources(context.Context, *connect.Request[v1.ListEvmLogSourcesRequest]) (*connect.Response[v1.ListEvmLogSourcesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmLogSources is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteEvmLogSource(context.Context, *connect.Request[v1.DeleteEvmLogSourceRequest]) (*connect.Response[v1.DeleteEvmLogSourceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmLogSource is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmLogs(context.Context, *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmLogs is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmTransactions is not implemented"))
 }

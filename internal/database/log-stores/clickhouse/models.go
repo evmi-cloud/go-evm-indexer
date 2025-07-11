@@ -49,8 +49,8 @@ type ClickHouseEvmMetadata struct {
 
 type ClickHouseEvmLog struct {
 	Id               string    `ch:"id"`
-	StoreId          string    `ch:"store_id"`
-	SourceId         string    `ch:"source_id"`
+	StoreId          uint      `ch:"store_id"`
+	SourceId         uint      `ch:"source_id"`
 	Address          string    `ch:"address"`
 	Topics           []string  `ch:"topics"`
 	Data             string    `ch:"data"`
@@ -68,8 +68,8 @@ type ClickHouseEvmLog struct {
 
 type ClickHouseEvmTransaction struct {
 	Id               string    `ch:"id"`
-	StoreId          string    `ch:"store_id"`
-	SourceId         string    `ch:"source_id"`
+	StoreId          uint      `ch:"store_id"`
+	SourceId         uint      `ch:"source_id"`
 	BlockNumber      uint64    `ch:"block_number"`
 	TransactionIndex uint64    `ch:"transaction_index"`
 	ChainId          uint64    `ch:"chain_id"`

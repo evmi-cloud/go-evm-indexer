@@ -7,11 +7,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/backup"
 	"github.com/evmi-cloud/go-evm-indexer/internal/bus"
-	"github.com/evmi-cloud/go-evm-indexer/internal/database"
+	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc"
-	"github.com/evmi-cloud/go-evm-indexer/internal/hooks"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
 	"github.com/evmi-cloud/go-evm-indexer/internal/pipeline"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
@@ -29,16 +27,18 @@ func main() {
 				Usage: "Start EVM indexer",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:    "config",
-						Aliases: []string{"c"},
-						Value:   "/tmp/evm-indexer/config.json",
+						Name:    "instance",
+						Aliases: []string{"i"},
+						EnvVars: []string{"EVMI_INSTANCE_ID"},
+						Value:   "EVMI_INSTANCE_1",
 						Usage:   "Database location location",
 					},
 					&cli.StringFlag{
-						Name:    "abi",
-						Aliases: []string{"a"},
-						Value:   "./abis",
-						Usage:   "ABIs location",
+						Name:    "config",
+						Aliases: []string{"c"},
+						EnvVars: []string{"CONFIG_FILE_PATH"},
+						Value:   "/tmp/evm-indexer/config.json",
+						Usage:   "Database location location",
 					},
 				},
 				Action: func(cCtx *cli.Context) error {
@@ -48,15 +48,15 @@ func main() {
 					).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
 
 					configPath := cCtx.String("config")
-					abiPath := cCtx.String("abi")
+					instanceId := cCtx.String("instance")
 
 					configFile, err := os.ReadFile(configPath)
 					if err != nil {
 						logger.Fatal().Msg(err.Error())
 					}
 
-					var data types.Config
-					err = json.Unmarshal(configFile, &data)
+					var config types.Config
+					err = json.Unmarshal(configFile, &config)
 					if err != nil {
 						logger.Fatal().Msg(err.Error())
 					}
@@ -65,37 +65,42 @@ func main() {
 					internalBus := bus.InitializeBus()
 
 					logger.Info().Msg("Initialize Metrics")
-					metrics := metrics.NewMetricService(data.Metrics.Enabled, data.Metrics.Path, data.Metrics.Port)
+					metrics := metrics.NewMetricService(config.Metrics.Enabled, config.Metrics.Path, config.Metrics.Port)
 					metrics.Start()
 
 					logger.Info().Msg("Mount database")
-					database, err := database.LoadDatabase(data, logger)
+					database, err := evmi_database.LoadDatabase(
+						evmi_database.DatabaseType(config.Database.Type),
+						config.Database.Config,
+						logger,
+					)
+
 					if err != nil {
 						return err
 					}
 
-					if data.Backup.Enabled {
-						logger.Info().Msg("Mount backup service")
-						backups, err := backup.NewBackupService(database, data, logger)
-						if err != nil {
-							return err
-						}
+					// if data.Backup.Enabled {
+					// 	logger.Info().Msg("Mount backup service")
+					// 	backups, err := backup.NewBackupService(database, data, logger)
+					// 	if err != nil {
+					// 		return err
+					// 	}
 
-						logger.Info().Msg("Starting backup service")
-						backups.Start()
-					}
+					// 	logger.Info().Msg("Starting backup service")
+					// 	backups.Start()
+					// }
 
-					logger.Info().Msg("Mount hooks service")
-					hooks, err := hooks.NewHookService(internalBus, data, logger)
-					if err != nil {
-						return err
-					}
+					// logger.Info().Msg("Mount hooks service")
+					// hooks, err := hooks.NewHookService(internalBus, data, logger)
+					// if err != nil {
+					// 	return err
+					// }
 
-					logger.Info().Msg("Starting hooks service")
-					hooks.Start()
+					// logger.Info().Msg("Starting hooks service")
+					// hooks.Start()
 
 					logger.Info().Msg("Mount pipeline service")
-					pipelineService := pipeline.NewPipelineService(database, internalBus, metrics, abiPath, logger, data.Indexer)
+					pipelineService := pipeline.NewPipelineService(instanceId, database, internalBus, metrics, logger)
 
 					logger.Info().Msg("Start pipeline service")
 					err = pipelineService.Start()

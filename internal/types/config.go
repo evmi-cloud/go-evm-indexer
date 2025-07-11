@@ -1,37 +1,16 @@
 package types
 
 type Config struct {
-	Stores  []ConfigLogStore `json:"stores"`
-	Indexer IndexerConfig    `json:"indexer"`
-
-	Storage struct {
+	Database struct {
 		Type   string            `json:"type"`
 		Config map[string]string `json:"config"`
-	} `json:"storage"`
-
-	Hooks []struct {
-		Type   string            `json:"type"`
-		Config map[string]string `json:"config"`
-	} `json:"hooks"`
-
-	Backup struct {
-		Enabled  bool              `json:"enabled"`
-		Storage  string            `json:"storage"`
-		Exporter string            `json:"exporter"`
-		Crontab  string            `json:"crontab"`
-		Config   map[string]string `json:"config"`
-	} `json:"backup"`
+	} `json:"database"`
 
 	Metrics struct {
 		Enabled bool   `json:"enabled"`
 		Path    string `json:"path"`
 		Port    uint64 `json:"port"`
 	} `json:"metrics"`
-
-	Cluster struct {
-		Mode  string `json:"mode"`
-		Proxy string `json:"proxy"`
-	} `json:"cluster"`
 }
 
 type IndexerConfig struct {

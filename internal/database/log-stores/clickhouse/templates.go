@@ -1,40 +1,10 @@
 package clickhouse_store
 
-var createStoresTableTemplate = `
-create table if not exists stores (
-    id UUID,
-    identifier String,
-    description String,
-    status String,
-    chain_id UInt64,
-    rpc String    
-)
-engine = ReplacingMergeTree
-order by id
-`
-
-var createSourcesTableTemplate = `
-create table if not exists sources (
-    id UUID,
- 	store_id UUID,
-	name String,    
-	type String,         
-	contracts Array(Tuple(name String, address String)),
-	topic String,
-	indexed_topics Array(String), 
-	start_block UInt64,
-	block_range UInt64,
-    latest_block_indexed UInt64
-)
-engine = ReplacingMergeTree
-order by id
-`
-
 var createLogsTableTemplate = `
-create table if not exists logs (
+CREATE TABLE IF NOT EXISTS %s (
     id UUID CODEC(ZSTD),
-    store_id UUID CODEC(ZSTD),
-    source_id UUID CODEC(ZSTD),
+    store_id UInt32 CODEC(ZSTD),
+    source_id UInt32 CODEC(ZSTD),
     minted_at DateTime64(3, 'UTC') CODEC(ZSTD),
     block_hash String CODEC(ZSTD),
     block_number UInt64 CODEC(ZSTD),
@@ -64,10 +34,10 @@ order by (block_number, log_index)
 `
 
 var createTransactionsTableTemplate = `
-create table if not exists transactions (
+CREATE TABLE IF NOT EXISTS %s (
     id UUID CODEC(ZSTD),
-    store_id UUID CODEC(ZSTD),
-    source_id UUID CODEC(ZSTD),
+    store_id UInt32 CODEC(ZSTD),
+    source_id UInt32 CODEC(ZSTD),
     minted_at DateTime64(3, 'UTC') CODEC(ZSTD),
     
     block_number UInt64 CODEC(ZSTD),

@@ -2,8 +2,8 @@ package types
 
 type EvmTransaction struct {
 	Id               string
-	StoreId          string
-	SourceId         string
+	StoreId          uint
+	SourceId         uint
 	BlockNumber      uint64
 	TransactionIndex uint64
 	ChainId          uint64

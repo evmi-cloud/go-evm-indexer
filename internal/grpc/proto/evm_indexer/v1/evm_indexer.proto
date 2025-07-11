@@ -4,143 +4,389 @@ package evm_indexer.v1;
 
 option go_package = "github.com/evmi-cloud/go-evm-indexer/gen/evm-indexer/v1;evm_indexer";
 
-message LogSource {
-    string name = 1;
-    string type = 2;
-    repeated LogSourceContract contracts = 3;
-    string topic = 4;
-    uint64 start_block = 5;
-    uint64 latest_block_indexed = 6;
+message EvmiInstance {
+    optional uint32 id = 1;        
+    uint64 instance_id = 2;
+    string ipv4 = 3;
+    string status = 4;
+    optional uint32 created_at = 5; 
+    optional uint32 updated_at = 6; 
+    optional uint32 deleted_at = 7; 
 }
 
-message LogSourceContract {
-    string address = 1;
-    string contract_name = 2;
+message EvmBlockchain {
+  optional uint32 id = 1;   
+  uint64 chain_id = 2;
+  string name = 3;
+  string rpc_url = 4;
+  uint64 block_range = 5;
+  uint64 block_slice = 6;
+  uint64 pull_interval = 7;
+  uint64 rpc_max_batch_size = 8;
+  optional uint32 created_at = 9; 
+  optional uint32 updated_at = 10; 
+  optional uint32 deleted_at = 11; 
 }
 
-message LogStoreStatus {
-    string status = 1;
-    uint64 latest_block_indexed = 2;
+message EvmJsonAbi {
+  uint32 id = 1;   
+  string contract_name = 2;
+  string content = 3;
+  uint32 created_at = 4; 
+  uint32 updated_at = 5; 
+  optional uint32 deleted_at = 6; 
 }
+
+message EvmLogStore {
+  uint32 id = 1;   
+  string identifier = 2;
+  string description = 3;
+  string store_type = 4;
+  string store_config_json = 5;
+  uint32 created_at = 6; 
+  uint32 updated_at = 7; 
+  optional uint32 deleted_at = 8; 
+}
+
+message EvmLogPipeline {
+  uint32 id = 1;   
+
+  string name = 2;
+  string type = 3;
+
+  uint32 evmi_instance_id = 4;
+  uint32 evm_blockchain_id = 5;
+  uint32 evm_log_store_id = 6;
+
+  uint32 created_at = 7; 
+  uint32 updated_at = 8; 
+  optional uint32 deleted_at = 9; 
+}
+
+message EvmLogSource {
+  uint32 id = 1; 
+
+  string type = 2;
+
+  uint64 start_block = 3;
+  uint64 sync_block = 4;
+
+  // Nullable fields
+  optional string address = 5;
+
+  optional string topic0 = 6;
+  repeated string topic_filters = 7;
+
+  optional int32 factory_child_evm_json_abi = 8;
+  optional string factory_creation_function_name = 9;
+  optional string factory_creation_address_log_arg = 10;
+
+  uint32 evm_log_pipeline_id = 11;
+  uint32 evm_json_abi_id = 12;
+
+  uint32 created_at = 13; 
+  uint32 updated_at = 14; 
+  optional uint32 deleted_at = 15; 
+}
+
 
 message EvmMetadata {
-    string contract_name = 1;
-    string event_name = 2;
-    string function_name = 3;
+    optional string contract_name = 1;
+    optional string event_name = 2;
+    optional string function_name = 3;
     map<string, string> data = 4;
 }
 
 message EvmLog {
-    string address = 1;
-    repeated string topics = 2;
-    string data = 3;
-    uint64 block_number = 4;
-    string transaction_hash = 5;
-    uint64 transaction_index = 6;
-    string block_hash = 7;
-    uint64 log_index = 8;
-    bool removed = 9;
-    uint64 minted_at = 10;
-
-    optional EvmMetadata metadata = 11;
-}
-
-message LogStore {
   string id = 1;
-  string identifier = 2;
-  string description = 3;
-  string rpc_url = 5;
-  string status = 6;
-  uint64 chainId = 7;
+  uint32 store_id = 2;
+  uint32 source_id = 3;
+  string address = 4;
+  repeated string topics = 5;
+  string data = 6;
 
-  repeated LogSource sources = 8;
+  uint64 block_number = 7;
+  string transaction_from = 8;
+  string transaction_hash = 9;
+  uint64 transaction_index = 10;
+  string block_hash = 11;
+  uint64 log_index = 12;
+
+  bool removed = 13;
+  uint32 minted_at = 14;
+
+  EvmMetadata metadata = 15;
 }
 
-message GetStoresRequest {
+message EvmTransaction {
+  string id = 1;
+  uint32 store_id = 2;
+  uint32 source_id = 3;
+  uint64 block_number = 4;
+  uint64 transaction_index = 5;
+  uint64 chain_id = 6;
+  string from = 7;
+  string data = 8;
+
+  string value = 9;
+
+  uint64 nonce = 10;
+  string to = 11;
+  string hash = 12;
+
+  uint32 minted_at = 13;
+
+  EvmMetadata metadata = 14;
 }
 
-message GetStoresResponse {
-  bool success = 1;
-  string error = 2;
-  repeated LogStore stores = 3;
+// Pagination
+message Pagination {
+  uint32 limit = 1;
+  uint32 offset = 2;
 }
 
+// ==================== CRUD MESSAGES ===================== //
+
+// EvmiInstance
+message GetEvmiInstanceRequest {
+  uint32 id = 1;
+}
+message GetEvmiInstanceResponse {
+  EvmiInstance instance = 1;
+}
+message ListEvmiInstancesRequest {
+  Pagination pagination = 1;
+}
+message ListEvmiInstancesResponse {
+  repeated EvmiInstance instances = 1;
+}
+
+// EvmBlockchain
+message CreateEvmBlockchainRequest {
+  EvmBlockchain blockchain = 1;
+}
+message CreateEvmBlockchainResponse {
+  uint32 id = 1;
+}
+message GetEvmBlockchainRequest {
+  uint32 id = 1;
+}
+message GetEvmBlockchainResponse {
+  EvmBlockchain blockchain = 1;
+}
+message UpdateEvmBlockchainRequest {
+  EvmBlockchain blockchain = 1;
+}
+message UpdateEvmBlockchainResponse {
+}
+message ListEvmBlockchainsRequest {
+  Pagination pagination = 1;
+}
+message ListEvmBlockchainsResponse {
+  repeated EvmBlockchain blockchains = 1;
+}
+message DeleteEvmBlockchainRequest {
+  uint32 id = 1;
+}
+message DeleteEvmBlockchainResponse {
+}
+
+// EvmJsonAbi
+message CreateEvmJsonAbiRequest {
+  EvmJsonAbi abi = 1;
+}
+message CreateEvmJsonAbiResponse {
+  uint32 id = 1;
+}
+message GetEvmJsonAbiRequest {
+  uint32 id = 1;
+}
+message GetEvmJsonAbiResponse {
+  EvmJsonAbi abi = 1;
+}
+message UpdateEvmJsonAbiRequest {
+  EvmJsonAbi abi = 1;
+}
+message UpdateEvmJsonAbiResponse {
+}
+message ListEvmJsonAbisRequest {
+  Pagination pagination = 1;
+}
+message ListEvmJsonAbisResponse {
+  repeated EvmJsonAbi abis = 1;
+}
+message DeleteEvmJsonAbiRequest {
+  uint32 id = 1;
+}
+message DeleteEvmJsonAbiResponse {
+}
+
+// EvmLogStore
+message CreateEvmLogStoreRequest {
+  EvmLogStore store = 1;
+}
+message CreateEvmLogStoreResponse {
+  uint32 id = 1;
+}
+message GetEvmLogStoreRequest {
+  uint32 id = 1;
+}
+message GetEvmLogStoreResponse {
+  EvmLogStore store = 1;
+}
+message UpdateEvmLogStoreRequest {
+  EvmLogStore store = 1;
+}
+message UpdateEvmLogStoreResponse {
+}
+message ListEvmLogStoresRequest {
+  Pagination pagination = 1;
+}
+message ListEvmLogStoresResponse {
+  repeated EvmLogStore stores = 1;
+}
+message DeleteEvmLogStoreRequest {
+  uint32 id = 1;
+}
+message DeleteEvmLogStoreResponse {
+}
+
+// EvmLogPipeline
+message CreateEvmLogPipelineRequest {
+  EvmLogPipeline pipeline = 1;
+}
+message CreateEvmLogPipelineResponse {
+  uint32 id = 1;
+}
+message GetEvmLogPipelineRequest {
+  uint32 id = 1;
+}
+message GetEvmLogPipelineResponse {
+  EvmLogPipeline pipeline = 1;
+}
+message UpdateEvmLogPipelineRequest {
+  EvmLogPipeline pipeline = 1;
+}
+message UpdateEvmLogPipelineResponse {
+}
+message ListEvmLogPipelinesRequest {
+  Pagination pagination = 1;
+}
+message ListEvmLogPipelinesResponse {
+  repeated EvmLogPipeline pipelines = 1;
+}
+message DeleteEvmLogPipelineRequest {
+  uint32 id = 1;
+}
+message DeleteEvmLogPipelineResponse {
+}
 message StartPipelineRequest {
-    string id = 1;
+  uint32 id = 1;
 }
-
 message StartPipelineResponse {
   bool success = 1;
   string error = 2;
 }
-
 message StopPipelineRequest {
-    string id = 1;
+  uint32 id = 1;
 }
-
 message StopPipelineResponse {
   bool success = 1;
   string error = 2;
 }
 
-message GetStoreLogsRequest {
-    string id = 1;
-
-    uint64 from_block = 2;
-    uint64 to_block = 3;
-    uint64 limit = 4;
-    uint64 offset = 5;
+// EvmLogSource
+message CreateEvmLogSourceRequest {
+  EvmLogSource source = 1;
+}
+message CreateEvmLogSourceResponse {
+  uint32 id = 1;
+}
+message GetEvmLogSourceRequest {
+  uint32 id = 1;
+}
+message GetEvmLogSourceResponse {
+  EvmLogSource source = 1;
+}
+message UpdateEvmLogSourceRequest {
+  EvmLogSource source = 1;
+}
+message UpdateEvmLogSourceResponse {
+}
+message ListEvmLogSourcesRequest {
+  Pagination pagination = 1;
+}
+message ListEvmLogSourcesResponse {
+  repeated EvmLogSource sources = 1;
+}
+message DeleteEvmLogSourceRequest {
+  uint32 id = 1;
+}
+message DeleteEvmLogSourceResponse {
 }
 
-message GetStoreLogsResponse {
-  bool success = 1;
-  string error = 2;
-  repeated EvmLog logs= 3;
+// EvmLog
+message ListEvmLogsRequest {
+  Pagination pagination = 1;
+}
+message ListEvmLogsResponse {
+  repeated EvmLog logs = 1;
 }
 
-message GetLatestStoreLogsRequest {
-    string id = 1;
-
-    uint64 limit = 2;
+// EvmTransaction
+message ListEvmTransactionsRequest {
+  Pagination pagination = 1;
+}
+message ListEvmTransactionsResponse {
+  repeated EvmTransaction transactions = 1;
 }
 
-message GetLatestStoreLogsResponse {
-  bool success = 1;
-  string error = 2;
-  repeated EvmLog logs= 3;
-}
-
-message GetStoreLogsStreamRequest {
-    string id = 1;
-
-    uint64 from_block = 2;
-    bool to_latest = 3;
-    uint64 to_block = 4;
-    uint64 batch_size = 5;
-}
-
-message GetStoreLogsStreamResponse {
-  repeated EvmLog logs = 3;
-}
-
-message RefetchPipelineBlockRangeRequest {
-    string id = 1;
-
-    uint64 from_block = 2;
-}
-
-message RefetchPipelineBlockRangeResponse {
-    bool success = 1;
-    string error = 2;
-}
 
 service EvmIndexerService {
-  rpc GetStores(GetStoresRequest) returns (GetStoresResponse) {}
+  // EvmiInstance
+  rpc GetEvmiInstance(GetEvmiInstanceRequest) returns (GetEvmiInstanceResponse);
+  rpc ListEvmiInstances(ListEvmiInstancesRequest) returns (ListEvmiInstancesResponse);
 
+  // EvmBlockchain
+  rpc CreateEvmBlockchain(CreateEvmBlockchainRequest) returns (CreateEvmBlockchainResponse);
+  rpc GetEvmBlockchain(GetEvmBlockchainRequest) returns (GetEvmBlockchainResponse);
+  rpc UpdateEvmBlockchain(UpdateEvmBlockchainRequest) returns (UpdateEvmBlockchainResponse);
+  rpc ListEvmBlockchains(ListEvmBlockchainsRequest) returns (ListEvmBlockchainsResponse);
+  rpc DeleteEvmBlockchain(DeleteEvmBlockchainRequest) returns (DeleteEvmBlockchainResponse);
+
+  // EvmJsonAbi
+  rpc CreateEvmJsonAbi(CreateEvmJsonAbiRequest) returns (CreateEvmJsonAbiResponse);
+  rpc GetEvmJsonAbi(GetEvmJsonAbiRequest) returns (GetEvmJsonAbiResponse);
+  rpc UpdateEvmJsonAbi(UpdateEvmJsonAbiRequest) returns (UpdateEvmJsonAbiResponse);
+  rpc ListEvmJsonAbis(ListEvmJsonAbisRequest) returns (ListEvmJsonAbisResponse);
+  rpc DeleteEvmJsonAbi(DeleteEvmJsonAbiRequest) returns (DeleteEvmJsonAbiResponse);
+
+  // EvmLogStore
+  rpc CreateEvmLogStore(CreateEvmLogStoreRequest) returns (CreateEvmLogStoreResponse);
+  rpc GetEvmLogStore(GetEvmLogStoreRequest) returns (GetEvmLogStoreResponse);
+  rpc UpdateEvmLogStore(UpdateEvmLogStoreRequest) returns (UpdateEvmLogStoreResponse);
+  rpc ListEvmLogStores(ListEvmLogStoresRequest) returns (ListEvmLogStoresResponse);
+  rpc DeleteEvmLogStore(DeleteEvmLogStoreRequest) returns (DeleteEvmLogStoreResponse);
+
+  // EvmLogPipeline
+  rpc CreateEvmLogPipeline(CreateEvmLogPipelineRequest) returns (CreateEvmLogPipelineResponse);
+  rpc GetEvmLogPipeline(GetEvmLogPipelineRequest) returns (GetEvmLogPipelineResponse);
+  rpc UpdateEvmLogPipeline(UpdateEvmLogPipelineRequest) returns (UpdateEvmLogPipelineResponse);
+  rpc ListEvmLogPipelines(ListEvmLogPipelinesRequest) returns (ListEvmLogPipelinesResponse);
+  rpc DeleteEvmLogPipeline(DeleteEvmLogPipelineRequest) returns (DeleteEvmLogPipelineResponse);
   rpc StartPipeline(StartPipelineRequest) returns (StartPipelineResponse) {}
   rpc StopPipeline(StopPipelineRequest) returns (StopPipelineResponse) {}
-  
-  rpc GetStoreLogs(GetStoreLogsRequest) returns (GetStoreLogsResponse) {} 
-  rpc GetLatestsStoreLogs(GetLatestStoreLogsRequest) returns (GetLatestStoreLogsResponse) {} 
-  rpc GetStoreLogStream(GetStoreLogsStreamRequest) returns (stream GetStoreLogsStreamResponse) {}
+
+  // EvmLogSource
+  rpc CreateEvmLogSource(CreateEvmLogSourceRequest) returns (CreateEvmLogSourceResponse);
+  rpc GetEvmLogSource(GetEvmLogSourceRequest) returns (GetEvmLogSourceResponse);
+  rpc UpdateEvmLogSource(UpdateEvmLogSourceRequest) returns (UpdateEvmLogSourceResponse);
+  rpc ListEvmLogSources(ListEvmLogSourcesRequest) returns (ListEvmLogSourcesResponse);
+  rpc DeleteEvmLogSource(DeleteEvmLogSourceRequest) returns (DeleteEvmLogSourceResponse);
+
+  // EvmLog
+  rpc ListEvmLogs(ListEvmLogsRequest) returns (ListEvmLogsResponse);
+
+  // EvmTransaction
+  rpc ListEvmTransactions(ListEvmTransactionsRequest) returns (ListEvmTransactionsResponse);
 }
