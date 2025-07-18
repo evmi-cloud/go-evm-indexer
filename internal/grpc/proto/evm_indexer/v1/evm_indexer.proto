@@ -29,27 +29,27 @@ message EvmBlockchain {
 }
 
 message EvmJsonAbi {
-  uint32 id = 1;   
+  optional uint32 id = 1;   
   string contract_name = 2;
   string content = 3;
-  uint32 created_at = 4; 
-  uint32 updated_at = 5; 
+  optional uint32 created_at = 4; 
+  optional uint32 updated_at = 5; 
   optional uint32 deleted_at = 6; 
 }
 
 message EvmLogStore {
-  uint32 id = 1;   
+  optional uint32 id = 1;   
   string identifier = 2;
   string description = 3;
   string store_type = 4;
   string store_config_json = 5;
-  uint32 created_at = 6; 
-  uint32 updated_at = 7; 
+  optional uint32 created_at = 6; 
+  optional uint32 updated_at = 7; 
   optional uint32 deleted_at = 8; 
 }
 
 message EvmLogPipeline {
-  uint32 id = 1;   
+  optional uint32 id = 1;   
 
   string name = 2;
   string type = 3;
@@ -58,13 +58,13 @@ message EvmLogPipeline {
   uint32 evm_blockchain_id = 5;
   uint32 evm_log_store_id = 6;
 
-  uint32 created_at = 7; 
-  uint32 updated_at = 8; 
+  optional uint32 created_at = 7; 
+  optional uint32 updated_at = 8; 
   optional uint32 deleted_at = 9; 
 }
 
 message EvmLogSource {
-  uint32 id = 1; 
+  optional uint32 id = 1; 
 
   string type = 2;
 
@@ -84,11 +84,10 @@ message EvmLogSource {
   uint32 evm_log_pipeline_id = 11;
   uint32 evm_json_abi_id = 12;
 
-  uint32 created_at = 13; 
-  uint32 updated_at = 14; 
+  optional uint32 created_at = 13; 
+  optional uint32 updated_at = 14; 
   optional uint32 deleted_at = 15; 
 }
-
 
 message EvmMetadata {
     optional string contract_name = 1;
