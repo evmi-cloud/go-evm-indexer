@@ -9,8 +9,8 @@ type EvmMetadata struct {
 
 type EvmLog struct {
 	Id               string
-	StoreId          uint
 	SourceId         uint
+	ChainId          uint64
 	Address          string
 	Topics           []string
 	Data             string
@@ -21,7 +21,6 @@ type EvmLog struct {
 	BlockHash        string
 	LogIndex         uint64
 	Removed          bool
-	MintedAt         uint64
 
 	Metadata EvmMetadata
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -77,6 +76,11 @@ func (db *ClickHouseStore) Init(config map[string]string) error {
 		return err
 	}
 
+	err = db.store.Exec(ctx, fmt.Sprintf(createLogsTableTemplate, db.logTableName))
+	if err != nil {
+		return err
+	}
+
 	err = db.store.Exec(ctx, fmt.Sprintf(createTransactionsTableTemplate, db.txTableName))
 	if err != nil {
 		return err
@@ -94,10 +98,10 @@ func (db *ClickHouseStore) InsertLogs(logs []types.EvmLog) error {
 
 	for _, log := range logs {
 		l := &ClickHouseEvmLog{
-			Id:               uuid.New().String(),
-			StoreId:          log.StoreId,
-			SourceId:         log.SourceId,
-			Address:          log.Address,
+			Id:       uuid.New().String(),
+			SourceId: log.SourceId,
+			Address:  log.Address,
+
 			Topics:           log.Topics,
 			Data:             log.Data,
 			BlockNumber:      log.BlockNumber,
@@ -107,7 +111,6 @@ func (db *ClickHouseStore) InsertLogs(logs []types.EvmLog) error {
 			BlockHash:        log.BlockHash,
 			LogIndex:         log.LogIndex,
 			Removed:          log.Removed,
-			MintedAt:         time.Unix(int64(log.MintedAt), 0),
 
 			Metadata: ClickHouseEvmMetadata{
 				ContractName: log.Metadata.ContractName,
@@ -121,7 +124,6 @@ func (db *ClickHouseStore) InsertLogs(logs []types.EvmLog) error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return batch.Send()
@@ -142,7 +144,6 @@ func (db *ClickHouseStore) InsertTransactions(txs []types.EvmTransaction) error 
 
 		transaction := &ClickHouseEvmTransaction{
 			Id:               uuid.New().String(),
-			StoreId:          tx.StoreId,
 			SourceId:         tx.SourceId,
 			BlockNumber:      tx.BlockNumber,
 			TransactionIndex: tx.TransactionIndex,
@@ -153,7 +154,6 @@ func (db *ClickHouseStore) InsertTransactions(txs []types.EvmTransaction) error 
 			Nonce:            tx.Nonce,
 			To:               tx.To,
 			Hash:             tx.Hash,
-			MintedAt:         time.Unix(int64(tx.MintedAt), 0),
 
 			Metadata: ClickHouseEvmMetadata{
 				ContractName: tx.Metadata.ContractName,
@@ -184,10 +184,10 @@ func (db *ClickHouseStore) GetLogsCount() (uint64, error) {
 	return uint64(result.Count), nil
 }
 
-func (db *ClickHouseStore) GetLogs(fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]types.EvmLog, error) {
+func (db *ClickHouseStore) GetLogs(fromTimestamp uint64, toTimestamp uint64, limit uint64, offset uint64) ([]types.EvmLog, error) {
 
 	var results []ClickHouseEvmLog
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE block_number >= %d AND block_number <= %d ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.logTableName, fromBlock, toBlock, offset, limit)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE minted_at >= %d AND minted_at <= %d ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.logTableName, fromTimestamp, toTimestamp, offset, limit)); err != nil {
 		return []types.EvmLog{}, err
 	}
 
@@ -195,7 +195,6 @@ func (db *ClickHouseStore) GetLogs(fromBlock uint64, toBlock uint64, limit uint6
 	for _, log := range results {
 		logs = append(logs, types.EvmLog{
 			Id:               log.Id,
-			StoreId:          log.StoreId,
 			SourceId:         log.SourceId,
 			Address:          log.Address,
 			Topics:           log.Topics,
@@ -206,7 +205,6 @@ func (db *ClickHouseStore) GetLogs(fromBlock uint64, toBlock uint64, limit uint6
 			BlockHash:        log.BlockHash,
 			LogIndex:         log.LogIndex,
 			Removed:          log.Removed,
-			MintedAt:         uint64(log.MintedAt.Unix()),
 
 			Metadata: types.EvmMetadata{
 				ContractName: log.Metadata.ContractName,
@@ -231,9 +229,9 @@ func (db *ClickHouseStore) GetLatestLogs(limit uint64) ([]types.EvmLog, error) {
 	logs := []types.EvmLog{}
 	for _, log := range results {
 		logs = append(logs, types.EvmLog{
-			Id:               log.Id,
-			StoreId:          log.StoreId,
-			SourceId:         log.SourceId,
+			Id:       log.Id,
+			SourceId: log.SourceId,
+
 			Address:          log.Address,
 			Topics:           log.Topics,
 			Data:             log.Data,
@@ -243,7 +241,6 @@ func (db *ClickHouseStore) GetLatestLogs(limit uint64) ([]types.EvmLog, error) {
 			BlockHash:        log.BlockHash,
 			LogIndex:         log.LogIndex,
 			Removed:          log.Removed,
-			MintedAt:         uint64(log.MintedAt.Unix()),
 
 			Metadata: types.EvmMetadata{
 				ContractName: log.Metadata.ContractName,
@@ -257,10 +254,10 @@ func (db *ClickHouseStore) GetLatestLogs(limit uint64) ([]types.EvmLog, error) {
 	return logs, nil
 }
 
-func (db *ClickHouseStore) GetTransactions(fromBlock uint64, toBlock uint64, limit uint64, offset uint64) ([]types.EvmTransaction, error) {
+func (db *ClickHouseStore) GetTransactions(fromTimestamp uint64, toTimestamp uint64, limit uint64, offset uint64) ([]types.EvmTransaction, error) {
 
 	var results []ClickHouseEvmTransaction
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s AND block_number >= %d AND block_number <= %d ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.txTableName, fromBlock, toBlock, offset, limit)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s AND minted_at >= %d AND minted_at <= %d ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.txTableName, fromTimestamp, toTimestamp, offset, limit)); err != nil {
 		return []types.EvmTransaction{}, err
 	}
 
@@ -269,7 +266,6 @@ func (db *ClickHouseStore) GetTransactions(fromBlock uint64, toBlock uint64, lim
 
 		txs = append(txs, types.EvmTransaction{
 			Id:          tx.Id,
-			StoreId:     tx.StoreId,
 			SourceId:    tx.SourceId,
 			BlockNumber: tx.BlockNumber,
 			ChainId:     tx.ChainId,
@@ -279,7 +275,6 @@ func (db *ClickHouseStore) GetTransactions(fromBlock uint64, toBlock uint64, lim
 			Nonce:       tx.Nonce,
 			To:          tx.To,
 			Hash:        tx.Hash,
-			MintedAt:    uint64(tx.MintedAt.Unix()),
 
 			Metadata: types.EvmMetadata{
 				ContractName: tx.Metadata.ContractName,

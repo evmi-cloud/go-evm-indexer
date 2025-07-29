@@ -1,13 +1,15 @@
-package pipeline
+package indexer
 
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -25,7 +27,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type PipelineIndexerSubprocess struct {
+type SourceIndexerService struct {
 	db      *evmi_database.EvmiDatabase
 	bus     *bus.Bus
 	metrics *metrics.MetricService
@@ -39,46 +41,35 @@ type PipelineIndexerSubprocess struct {
 	contractName string
 	abi          abi.ABI
 
-	logger *zerolog.Logger
+	logger zerolog.Logger
 
 	running bool
 	ended   bool
 }
 
-func NewPipelineIndexer(
+func NewSourceIndexerService(
 	db *evmi_database.EvmiDatabase,
 	bus *bus.Bus,
 	metrics *metrics.MetricService,
-	store *log_stores.IndexerStore,
 	source evmi_database.EvmLogSource,
-	pipeline evmi_database.EvmLogPipeline,
-	chain evmi_database.EvmBlockchain,
-	storeInfo evmi_database.EvmLogStore,
-	contractName string,
-	abi abi.ABI,
-) *PipelineIndexerSubprocess {
+) *SourceIndexerService {
 
 	logger := zerolog.New(
 		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
 	).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
 
-	return &PipelineIndexerSubprocess{
-		db:        db,
-		bus:       bus,
-		metrics:   metrics,
-		chain:     chain,
-		pipeline:  pipeline,
-		store:     store,
-		source:    source,
-		storeInfo: storeInfo,
-		abi:       abi,
-		logger:    &logger,
-		running:   false,
-		ended:     true,
+	return &SourceIndexerService{
+		db:      db,
+		bus:     bus,
+		metrics: metrics,
+		source:  source,
+		logger:  logger,
+		running: false,
+		ended:   true,
 	}
 }
 
-func (p *PipelineIndexerSubprocess) Serve(ctx context.Context) error {
+func (p *SourceIndexerService) Serve(ctx context.Context) error {
 	p.running = true
 
 	logParams := map[string]interface{}{
@@ -86,47 +77,99 @@ func (p *PipelineIndexerSubprocess) Serve(ctx context.Context) error {
 	}
 
 	p.logger.Info().Fields(logParams).Msg("starting subprocess")
-	if p.source.Type == evmi_database.ContractLogSourceType || p.source.Type == evmi_database.FactoryLogSourceType {
+
+	p.logger.Info().Fields(logParams).Msg("loading blockchain")
+	result := p.db.Conn.First(&p.chain, p.source.EvmBlockchainID)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	p.logger.Info().Fields(logParams).Msg("loading pipeline")
+	result = p.db.Conn.First(&p.pipeline, p.source.EvmLogPipelineID)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	p.logger.Info().Fields(logParams).Msg("loading store")
+	result = p.db.Conn.First(&p.storeInfo, p.pipeline.EvmLogStoreId)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	p.logger.Info().Fields(logParams).Msg("loading abi")
+	var abiEntry evmi_database.EvmJsonAbi
+	result = p.db.Conn.First(&abiEntry, p.source.EvmJsonAbiID)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	abi, err := abi.JSON(strings.NewReader(abiEntry.Content))
+	if err != nil {
+		return result.Error
+	}
+
+	p.contractName = abiEntry.ContractName
+	p.abi = abi
+
+	p.logger.Info().Fields(logParams).Msg("loading store config")
+	var storeConfig map[string]string
+	err = json.Unmarshal(p.storeInfo.StoreConfig, &storeConfig)
+	if err != nil {
+		return result.Error
+	}
+
+	p.logger.Info().Fields(logParams).Msg("connecting store")
+	p.store, err = log_stores.LoadStore(p.storeInfo.StoreType, storeConfig, p.logger)
+	if err != nil {
+		p.logger.Error().Msg(err.Error())
+		return err
+	}
+
+	p.logger.Info().Fields(logParams).Msg("update source")
+	p.source.Status = string(evmi_database.RunningLogSourceStatus)
+	result = p.db.Conn.Save(&p.source)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	p.logger.Info().Fields(logParams).Msg("source updates")
+
+	if p.source.Type == string(evmi_database.ContractLogSourceType) || p.source.Type == string(evmi_database.FactoryLogSourceType) {
 		return p.serveStaticIndexation()
 	}
-	if p.source.Type == evmi_database.TopicLogSourceType {
+	if p.source.Type == string(evmi_database.TopicLogSourceType) {
 		return p.serveTopicIndexation()
+	}
+	if p.source.Type == string(evmi_database.FullLogSourceType) {
+		return p.serveFullIndexation()
 	}
 
 	return errors.New("config types invalid")
 }
 
-func (p *PipelineIndexerSubprocess) Stop() {
+func (p *SourceIndexerService) Stop() error {
 	p.running = false
+
+	for !p.IsEnded() {
+		time.Sleep(time.Second)
+	}
+
+	return nil
 }
 
-func (p *PipelineIndexerSubprocess) IsEnded() bool {
+func (p *SourceIndexerService) IsEnded() bool {
 	return p.ended
 }
 
-func (p *PipelineIndexerSubprocess) GetLogMetadata(log ethTypes.Log) types.EvmMetadata {
-	// var contractName string = ""
-	// address := strings.ToLower(log.Address.Hex())
-	// for _, contract := range p.source.Contracts {
-	// 	if address == strings.ToLower(contract.Address) {
-	// 		contractName = contract.ContractName
-	// 	}
-	// }
+func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadata {
 
-	// if contractName == "" {
-	// 	return types.EvmMetadata{
-	// 		ContractName: "Unknown",
-	// 		Data:         map[string]string{},
-	// 	}
-	// }
-
-	// contractAbi, ok := p.abis[contractName]
-	// if !ok {
-	// 	return types.EvmMetadata{
-	// 		ContractName: contractName,
-	// 		Data:         map[string]string{},
-	// 	}
-	// }
+	if p.source.Type == string(evmi_database.FullLogSourceType) {
+		return types.EvmMetadata{
+			ContractName: "Unknown",
+			EventName:    "Unknown",
+			Data:         map[string]string{},
+		}
+	}
 
 	var eventName string = ""
 	event := map[string]any{}
@@ -284,7 +327,172 @@ func (p *PipelineIndexerSubprocess) GetLogMetadata(log ethTypes.Log) types.EvmMe
 	}
 }
 
-func (p *PipelineIndexerSubprocess) serveStaticIndexation() error {
+func (p *SourceIndexerService) serveFullIndexation() error {
+
+	// 1. Connect to an RPC endpoint
+	client, err := w3.Dial(p.chain.RpcUrl)
+	if err != nil {
+		// handle error
+	}
+
+	defer client.Close()
+
+	// 2. Make a batch request
+	p.metrics.EvmRpcCallMetricsInc(p.pipeline.Name, p.chain.ChainId, "getChainId", 1)
+
+	latestBlockNumberIndexed := p.source.SyncBlock
+	if err != nil {
+		p.logger.Fatal().Msg(err.Error())
+	}
+
+	if latestBlockNumberIndexed < p.source.StartBlock {
+		latestBlockNumberIndexed = p.source.StartBlock
+	}
+
+	for {
+		if !p.running {
+			p.source.Status = "STOPPED"
+			result := p.db.Conn.Save(&p.source.Status)
+			if result.Error != nil {
+				return result.Error
+			}
+
+			p.ended = true
+			return nil
+		}
+
+		time.Sleep(time.Duration(p.chain.PullInterval) * time.Second)
+
+		var (
+			block *big.Int
+		)
+		if err := client.Call(
+			eth.BlockNumber().Returns(&block),
+		); err != nil {
+			p.logger.Fatal().Msg(err.Error())
+		}
+
+		p.metrics.EvmRpcCallMetricsInc(p.pipeline.Name, p.chain.ChainId, "getBlockNumber", 1)
+		p.metrics.LatestChainBlockMetricsSet(p.chain.ChainId, block.Uint64())
+		p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+
+		currentBlock := block.Uint64()
+
+		if currentBlock-p.source.SyncBlock < p.chain.BlockSlice {
+			continue
+		}
+
+		if currentBlock > latestBlockNumberIndexed {
+
+			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
+				fromBlock := big.NewInt(int64(i))
+
+				var toBlock *big.Int
+				if i+p.chain.BlockRange > currentBlock {
+					toBlock = big.NewInt(int64(currentBlock))
+				} else {
+					toBlock = big.NewInt(int64(i + p.chain.BlockRange))
+				}
+
+				logParams := map[string]interface{}{
+					"store":     p.storeInfo.Identifier,
+					"source":    p.source.Address.String,
+					"fromBlock": fromBlock,
+					"toBlock":   toBlock,
+				}
+
+				p.logger.Info().Fields(logParams).Msg("Fetch logs")
+
+				var (
+					logs []ethTypes.Log
+				)
+
+				if err := client.Call(
+					eth.Logs(ethereum.FilterQuery{
+						FromBlock: fromBlock,
+						ToBlock:   toBlock,
+					}).Returns(&logs),
+				); err != nil {
+					p.logger.Fatal().Msg(err.Error())
+				}
+
+				p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getLogs", 1)
+
+				if err != nil {
+					p.logger.Fatal().Fields(logParams).Msg(err.Error())
+				}
+
+				dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
+				if err != nil {
+					p.logger.Fatal().Msg(err.Error())
+				}
+
+				if len(dbLogs) > 0 {
+					err = p.store.GetStorage().InsertLogs(dbLogs)
+					if err != nil {
+						p.logger.Error().Msg(err.Error())
+						return err
+					}
+
+					p.bus.Emit(context.Background(), "logs.new", dbLogs)
+
+					//If factory mode, check if there is new contract trigger
+					if p.source.Type == string(evmi_database.FactoryLogSourceType) {
+						for _, log := range dbLogs {
+							if log.Metadata.FunctionName == p.source.FactoryCreationFunctionName.String {
+								newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
+								if !ok {
+									logParams := map[string]interface{}{
+										"transaction": log.TransactionHash,
+										"logIndex":    log.LogIndex,
+										"block":       log.BlockNumber,
+									}
+
+									p.logger.Error().Fields(logParams).Msg("Unable to retrieve new contract from factory log")
+									continue
+								}
+
+								event := ContractFromFactory{
+									Type:             evmi_database.ContractLogSourceType,
+									StartBlock:       log.BlockNumber,
+									Address:          newContractAddress,
+									EvmLogPipelineID: p.pipeline.ID,
+									EvmJsonAbiID:     uint(p.source.FactoryChildEvmJsonABI.Int32),
+								}
+
+								p.bus.Emit(context.Background(), "logs.newFactoryItem", event)
+							}
+						}
+					}
+
+					p.metrics.LogsCountMetricsAdd(p.storeInfo.Identifier, uint64(len(dbLogs)))
+				}
+
+				if len(dbTxs) > 0 {
+					err = p.store.GetStorage().InsertTransactions(dbTxs)
+					if err != nil {
+						p.logger.Error().Msg(err.Error())
+						return err
+					}
+				}
+
+				p.source.SyncBlock = toBlock.Uint64()
+
+				tx := p.db.Conn.Save(p.source)
+				if tx.Error != nil {
+					p.logger.Error().Msg(err.Error())
+					return err
+				}
+
+				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+			}
+
+			latestBlockNumberIndexed = currentBlock
+		}
+	}
+}
+
+func (p *SourceIndexerService) serveStaticIndexation() error {
 
 	// 1. Connect to an RPC endpoint
 	client, err := w3.Dial(p.chain.RpcUrl)
@@ -347,9 +555,10 @@ func (p *PipelineIndexerSubprocess) serveStaticIndexation() error {
 
 				logParams := map[string]interface{}{
 					"store":     p.storeInfo.Identifier,
-					"source":    p.source.Address,
+					"source":    p.source.Address.String,
 					"fromBlock": fromBlock,
 					"toBlock":   toBlock,
+					"rpc":       p.chain.RpcUrl,
 				}
 
 				p.logger.Info().Fields(logParams).Msg("Fetch logs")
@@ -368,12 +577,15 @@ func (p *PipelineIndexerSubprocess) serveStaticIndexation() error {
 					p.logger.Fatal().Msg(err.Error())
 				}
 
+				p.logger.Info().Fields(logParams).Msg("Log fetched")
+
 				p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getLogs", 1)
 
 				if err != nil {
 					p.logger.Fatal().Fields(logParams).Msg(err.Error())
 				}
 
+				p.logger.Info().Fields(logParams).Msg("Computing logs")
 				dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
 				if err != nil {
 					p.logger.Fatal().Msg(err.Error())
@@ -389,7 +601,7 @@ func (p *PipelineIndexerSubprocess) serveStaticIndexation() error {
 					p.bus.Emit(context.Background(), "logs.new", dbLogs)
 
 					//If factory mode, check if there is new contract trigger
-					if p.source.Type == evmi_database.FactoryLogSourceType {
+					if p.source.Type == string(evmi_database.FactoryLogSourceType) {
 						for _, log := range dbLogs {
 							if log.Metadata.FunctionName == p.source.FactoryCreationFunctionName.String {
 								newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
@@ -444,7 +656,7 @@ func (p *PipelineIndexerSubprocess) serveStaticIndexation() error {
 	}
 }
 
-func (p *PipelineIndexerSubprocess) serveTopicIndexation() error {
+func (p *SourceIndexerService) serveTopicIndexation() error {
 	client, err := w3.Dial(p.chain.RpcUrl)
 	if err != nil {
 		p.logger.Fatal().Msg(err.Error())
@@ -576,42 +788,40 @@ func (p *PipelineIndexerSubprocess) serveTopicIndexation() error {
 	}
 }
 
-func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []ethTypes.Log) ([]types.EvmLog, []types.EvmTransaction, error) {
+func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTypes.Log) ([]types.EvmLog, []types.EvmTransaction, error) {
 	dbLogs := []types.EvmLog{}
 	dbTxs := []types.EvmTransaction{}
 
 	if len(logs) == 0 {
+		p.logger.Info().Msg("No logs found")
+
 		return dbLogs, dbTxs, nil
 	}
 
-	alreadyIndexedTx := make(map[string]bool)
-	alreadyIndexedBlockHeader := make(map[string]bool)
-	transactionToLoad := []common.Hash{}
-	blockHeaderToLoad := []common.Hash{}
-	for _, log := range logs {
-		blockHash := log.BlockHash.Hex()
-		_, alreadyIndexedBlockHeader := alreadyIndexedBlockHeader[blockHash]
-		if !alreadyIndexedBlockHeader {
-			blockHeaderToLoad = append(blockHeaderToLoad, log.BlockHash)
-		}
+	p.logger.Info().Msg(fmt.Sprintf("%d logs found", len(logs)))
 
+	alreadyIndexedTx := make(map[string]bool)
+	transactionToLoad := []common.Hash{}
+	for _, log := range logs {
 		txHash := log.TxHash.Hex()
 		_, txAlreadyIndexed := alreadyIndexedTx[txHash]
 		if !txAlreadyIndexed {
 			transactionToLoad = append(transactionToLoad, log.TxHash)
+			alreadyIndexedTx[txHash] = true
 		}
 	}
+
+	p.logger.Info().Msg(fmt.Sprintf("%d transactions to load", len(transactionToLoad)))
 
 	// build rpc calls
 	maxBatchRequest := p.chain.RpcMaxBatchSize
 	transactions := make([]*ethTypes.Transaction, len(transactionToLoad))
-	blockHeaders := make([]*ethTypes.Header, len(blockHeaderToLoad))
 
 	var isEnded bool = false
 	var currentTransactionIndex uint64 = 0
-	var currentBlockIndex uint64 = 0
 	for !isEnded {
-		remainingRequests := uint64(len(transactionToLoad)) + uint64(len(blockHeaderToLoad)) - currentTransactionIndex - currentBlockIndex
+		remainingRequests := uint64(len(transactionToLoad)) - currentTransactionIndex
+		p.logger.Info().Msg(fmt.Sprintf("%d remaining requests", remainingRequests))
 		var requestSize uint64
 		if remainingRequests > maxBatchRequest {
 			requestSize = maxBatchRequest
@@ -626,11 +836,6 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 				currentTransactionIndex += 1
 				continue
 			}
-			if currentBlockIndex < uint64(len(blockHeaderToLoad)) {
-				request[i] = eth.HeaderByHash(blockHeaderToLoad[currentBlockIndex]).Returns(&blockHeaders[currentBlockIndex])
-				currentBlockIndex += 1
-				continue
-			}
 		}
 
 		var batchErr w3.CallErrors
@@ -642,7 +847,7 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 
 		p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getTransactionAndBlockHeader", 1)
 
-		if currentTransactionIndex == uint64(len(transactionToLoad)) && currentBlockIndex == uint64(len(blockHeaderToLoad)) {
+		if currentTransactionIndex == uint64(len(transactionToLoad)) {
 			isEnded = true
 		}
 	}
@@ -662,16 +867,9 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 		p.logger.Info().Fields(logData).Msg("Log found")
 
 		var (
-			blockHeader      *ethTypes.Header
 			transaction      *ethTypes.Transaction
 			transactionIndex int
 		)
-
-		for _, header := range blockHeaders {
-			if header.Hash().Hex() == log.BlockHash.Hex() {
-				blockHeader = header
-			}
-		}
 
 		for index, tx := range transactions {
 			if tx.Hash().Hex() == log.TxHash.Hex() {
@@ -680,16 +878,13 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 			}
 		}
 
-		if blockHeader == nil {
-			return nil, nil, errors.New("block header not found")
-		}
-
 		if transaction == nil {
 			return nil, nil, errors.New("transaction not found")
 		}
 
 		sender, err := getTxSender(big.NewInt(int64(p.chain.ChainId)), transaction)
 		if err != nil {
+			p.logger.Error().Msg("TX: " + transaction.Hash().Hex())
 			p.logger.Error().Msg(err.Error())
 			return nil, nil, err
 		}
@@ -702,7 +897,7 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 		}
 
 		evmTx := types.EvmTransaction{
-			StoreId:          p.storeInfo.ID,
+			Id:               fmt.Sprintf("%d:%s", transaction.ChainId().Uint64(), log.TxHash.Hex()),
 			SourceId:         p.source.ID,
 			BlockNumber:      log.BlockNumber,
 			ChainId:          transaction.ChainId().Uint64(),
@@ -713,7 +908,6 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 			Nonce:            transaction.Nonce(),
 			To:               to,
 			Hash:             log.TxHash.Hex(),
-			MintedAt:         blockHeader.Time,
 		}
 
 		dbTxs = append(dbTxs, evmTx)
@@ -724,7 +918,7 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 		}
 
 		l := types.EvmLog{
-			StoreId:          p.storeInfo.ID,
+			Id:               fmt.Sprintf("%d:%d:%d", transaction.ChainId().Uint64(), log.BlockNumber, log.Index),
 			SourceId:         p.source.ID,
 			Address:          log.Address.Hex(),
 			Topics:           logTopics,
@@ -736,7 +930,6 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 			BlockHash:        log.BlockHash.Hex(),
 			LogIndex:         uint64(log.Index),
 			Removed:          log.Removed,
-			MintedAt:         blockHeader.Time,
 			Metadata:         p.GetLogMetadata(log),
 		}
 
@@ -747,7 +940,7 @@ func (p *PipelineIndexerSubprocess) computeLogsAndTxs(client *w3.Client, logs []
 }
 
 func getTxSender(chainId *big.Int, tx *ethTypes.Transaction) (string, error) {
-	sender, err := ethTypes.Sender(ethTypes.NewLondonSigner(chainId), tx)
+	sender, err := ethTypes.Sender(ethTypes.NewPragueSigner(chainId), tx)
 	if err != nil {
 		return "", err
 	}

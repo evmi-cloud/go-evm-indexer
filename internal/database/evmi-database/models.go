@@ -2,6 +2,7 @@ package evmi_database
 
 import (
 	"database/sql"
+	"database/sql/driver"
 
 	"github.com/lib/pq"
 	"gorm.io/datatypes"
@@ -11,15 +12,42 @@ import (
 type LogSourceType string
 
 const (
+	FullLogSourceType     LogSourceType = "FULL"
 	ContractLogSourceType LogSourceType = "CONTRACT"
 	TopicLogSourceType    LogSourceType = "TOPIC"
 	FactoryLogSourceType  LogSourceType = "FACTORY"
 )
 
+func (ct *LogSourceType) Scan(value interface{}) error {
+	*ct = LogSourceType(value.(string))
+	return nil
+}
+
+func (ct LogSourceType) Value() (driver.Value, error) {
+	return string(ct), nil
+}
+
+type LogSourceStatus string
+
+const (
+	RunningLogSourceStatus     LogSourceStatus = "RUNNING"
+	LoopbackOffLogSourceStatus LogSourceStatus = "LOOPBACKOFF"
+	StoppedLogSourceStatus     LogSourceStatus = "STOPPED"
+)
+
+func (ct *LogSourceStatus) Scan(value interface{}) error {
+	*ct = LogSourceStatus(value.(string))
+	return nil
+}
+
+func (ct LogSourceStatus) Value() (driver.Value, error) {
+	return string(ct), nil
+}
+
 type EvmiInstance struct {
 	gorm.Model
 
-	InstanceId uint64
+	InstanceId string
 	IpV4       string
 	Status     string
 }
@@ -59,7 +87,6 @@ type EvmLogPipeline struct {
 	gorm.Model
 
 	Name       string
-	Type       string
 	LogSources []EvmLogSource
 
 	EvmiInstanceID  uint
@@ -70,7 +97,9 @@ type EvmLogPipeline struct {
 type EvmLogSource struct {
 	gorm.Model
 
-	Type LogSourceType
+	Enabled bool
+	Status  string
+	Type    string
 
 	StartBlock uint64
 	SyncBlock  uint64
@@ -89,4 +118,5 @@ type EvmLogSource struct {
 
 	EvmLogPipelineID uint
 	EvmJsonAbiID     uint
+	EvmBlockchainID  uint
 }

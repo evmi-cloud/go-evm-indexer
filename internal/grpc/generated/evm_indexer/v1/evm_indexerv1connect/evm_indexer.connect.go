@@ -99,12 +99,12 @@ const (
 	// EvmIndexerServiceDeleteEvmLogPipelineProcedure is the fully-qualified name of the
 	// EvmIndexerService's DeleteEvmLogPipeline RPC.
 	EvmIndexerServiceDeleteEvmLogPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmLogPipeline"
-	// EvmIndexerServiceStartPipelineProcedure is the fully-qualified name of the EvmIndexerService's
-	// StartPipeline RPC.
-	EvmIndexerServiceStartPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/StartPipeline"
-	// EvmIndexerServiceStopPipelineProcedure is the fully-qualified name of the EvmIndexerService's
-	// StopPipeline RPC.
-	EvmIndexerServiceStopPipelineProcedure = "/evm_indexer.v1.EvmIndexerService/StopPipeline"
+	// EvmIndexerServiceStartSourceIndexerProcedure is the fully-qualified name of the
+	// EvmIndexerService's StartSourceIndexer RPC.
+	EvmIndexerServiceStartSourceIndexerProcedure = "/evm_indexer.v1.EvmIndexerService/StartSourceIndexer"
+	// EvmIndexerServiceStopSourceIndexerProcedure is the fully-qualified name of the
+	// EvmIndexerService's StopSourceIndexer RPC.
+	EvmIndexerServiceStopSourceIndexerProcedure = "/evm_indexer.v1.EvmIndexerService/StopSourceIndexer"
 	// EvmIndexerServiceCreateEvmLogSourceProcedure is the fully-qualified name of the
 	// EvmIndexerService's CreateEvmLogSource RPC.
 	EvmIndexerServiceCreateEvmLogSourceProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmLogSource"
@@ -153,8 +153,8 @@ var (
 	evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogPipeline")
 	evmIndexerServiceListEvmLogPipelinesMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogPipelines")
 	evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogPipeline")
-	evmIndexerServiceStartPipelineMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("StartPipeline")
-	evmIndexerServiceStopPipelineMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("StopPipeline")
+	evmIndexerServiceStartSourceIndexerMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("StartSourceIndexer")
+	evmIndexerServiceStopSourceIndexerMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("StopSourceIndexer")
 	evmIndexerServiceCreateEvmLogSourceMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogSource")
 	evmIndexerServiceGetEvmLogSourceMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogSource")
 	evmIndexerServiceUpdateEvmLogSourceMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogSource")
@@ -193,8 +193,8 @@ type EvmIndexerServiceClient interface {
 	UpdateEvmLogPipeline(context.Context, *connect.Request[v1.UpdateEvmLogPipelineRequest]) (*connect.Response[v1.UpdateEvmLogPipelineResponse], error)
 	ListEvmLogPipelines(context.Context, *connect.Request[v1.ListEvmLogPipelinesRequest]) (*connect.Response[v1.ListEvmLogPipelinesResponse], error)
 	DeleteEvmLogPipeline(context.Context, *connect.Request[v1.DeleteEvmLogPipelineRequest]) (*connect.Response[v1.DeleteEvmLogPipelineResponse], error)
-	StartPipeline(context.Context, *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error)
-	StopPipeline(context.Context, *connect.Request[v1.StopPipelineRequest]) (*connect.Response[v1.StopPipelineResponse], error)
+	StartSourceIndexer(context.Context, *connect.Request[v1.StartSourceIndexerRequest]) (*connect.Response[v1.StartSourceIndexerResponse], error)
+	StopSourceIndexer(context.Context, *connect.Request[v1.StopSourceIndexerRequest]) (*connect.Response[v1.StopSourceIndexerResponse], error)
 	// EvmLogSource
 	CreateEvmLogSource(context.Context, *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error)
 	GetEvmLogSource(context.Context, *connect.Request[v1.GetEvmLogSourceRequest]) (*connect.Response[v1.GetEvmLogSourceResponse], error)
@@ -349,16 +349,16 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		startPipeline: connect.NewClient[v1.StartPipelineRequest, v1.StartPipelineResponse](
+		startSourceIndexer: connect.NewClient[v1.StartSourceIndexerRequest, v1.StartSourceIndexerResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceStartPipelineProcedure,
-			connect.WithSchema(evmIndexerServiceStartPipelineMethodDescriptor),
+			baseURL+EvmIndexerServiceStartSourceIndexerProcedure,
+			connect.WithSchema(evmIndexerServiceStartSourceIndexerMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		stopPipeline: connect.NewClient[v1.StopPipelineRequest, v1.StopPipelineResponse](
+		stopSourceIndexer: connect.NewClient[v1.StopSourceIndexerRequest, v1.StopSourceIndexerResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceStopPipelineProcedure,
-			connect.WithSchema(evmIndexerServiceStopPipelineMethodDescriptor),
+			baseURL+EvmIndexerServiceStopSourceIndexerProcedure,
+			connect.WithSchema(evmIndexerServiceStopSourceIndexerMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmLogSource: connect.NewClient[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse](
@@ -430,8 +430,8 @@ type evmIndexerServiceClient struct {
 	updateEvmLogPipeline *connect.Client[v1.UpdateEvmLogPipelineRequest, v1.UpdateEvmLogPipelineResponse]
 	listEvmLogPipelines  *connect.Client[v1.ListEvmLogPipelinesRequest, v1.ListEvmLogPipelinesResponse]
 	deleteEvmLogPipeline *connect.Client[v1.DeleteEvmLogPipelineRequest, v1.DeleteEvmLogPipelineResponse]
-	startPipeline        *connect.Client[v1.StartPipelineRequest, v1.StartPipelineResponse]
-	stopPipeline         *connect.Client[v1.StopPipelineRequest, v1.StopPipelineResponse]
+	startSourceIndexer   *connect.Client[v1.StartSourceIndexerRequest, v1.StartSourceIndexerResponse]
+	stopSourceIndexer    *connect.Client[v1.StopSourceIndexerRequest, v1.StopSourceIndexerResponse]
 	createEvmLogSource   *connect.Client[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse]
 	getEvmLogSource      *connect.Client[v1.GetEvmLogSourceRequest, v1.GetEvmLogSourceResponse]
 	updateEvmLogSource   *connect.Client[v1.UpdateEvmLogSourceRequest, v1.UpdateEvmLogSourceResponse]
@@ -551,14 +551,14 @@ func (c *evmIndexerServiceClient) DeleteEvmLogPipeline(ctx context.Context, req 
 	return c.deleteEvmLogPipeline.CallUnary(ctx, req)
 }
 
-// StartPipeline calls evm_indexer.v1.EvmIndexerService.StartPipeline.
-func (c *evmIndexerServiceClient) StartPipeline(ctx context.Context, req *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error) {
-	return c.startPipeline.CallUnary(ctx, req)
+// StartSourceIndexer calls evm_indexer.v1.EvmIndexerService.StartSourceIndexer.
+func (c *evmIndexerServiceClient) StartSourceIndexer(ctx context.Context, req *connect.Request[v1.StartSourceIndexerRequest]) (*connect.Response[v1.StartSourceIndexerResponse], error) {
+	return c.startSourceIndexer.CallUnary(ctx, req)
 }
 
-// StopPipeline calls evm_indexer.v1.EvmIndexerService.StopPipeline.
-func (c *evmIndexerServiceClient) StopPipeline(ctx context.Context, req *connect.Request[v1.StopPipelineRequest]) (*connect.Response[v1.StopPipelineResponse], error) {
-	return c.stopPipeline.CallUnary(ctx, req)
+// StopSourceIndexer calls evm_indexer.v1.EvmIndexerService.StopSourceIndexer.
+func (c *evmIndexerServiceClient) StopSourceIndexer(ctx context.Context, req *connect.Request[v1.StopSourceIndexerRequest]) (*connect.Response[v1.StopSourceIndexerResponse], error) {
+	return c.stopSourceIndexer.CallUnary(ctx, req)
 }
 
 // CreateEvmLogSource calls evm_indexer.v1.EvmIndexerService.CreateEvmLogSource.
@@ -625,8 +625,8 @@ type EvmIndexerServiceHandler interface {
 	UpdateEvmLogPipeline(context.Context, *connect.Request[v1.UpdateEvmLogPipelineRequest]) (*connect.Response[v1.UpdateEvmLogPipelineResponse], error)
 	ListEvmLogPipelines(context.Context, *connect.Request[v1.ListEvmLogPipelinesRequest]) (*connect.Response[v1.ListEvmLogPipelinesResponse], error)
 	DeleteEvmLogPipeline(context.Context, *connect.Request[v1.DeleteEvmLogPipelineRequest]) (*connect.Response[v1.DeleteEvmLogPipelineResponse], error)
-	StartPipeline(context.Context, *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error)
-	StopPipeline(context.Context, *connect.Request[v1.StopPipelineRequest]) (*connect.Response[v1.StopPipelineResponse], error)
+	StartSourceIndexer(context.Context, *connect.Request[v1.StartSourceIndexerRequest]) (*connect.Response[v1.StartSourceIndexerResponse], error)
+	StopSourceIndexer(context.Context, *connect.Request[v1.StopSourceIndexerRequest]) (*connect.Response[v1.StopSourceIndexerResponse], error)
 	// EvmLogSource
 	CreateEvmLogSource(context.Context, *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error)
 	GetEvmLogSource(context.Context, *connect.Request[v1.GetEvmLogSourceRequest]) (*connect.Response[v1.GetEvmLogSourceResponse], error)
@@ -777,16 +777,16 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceStartPipelineHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceStartPipelineProcedure,
-		svc.StartPipeline,
-		connect.WithSchema(evmIndexerServiceStartPipelineMethodDescriptor),
+	evmIndexerServiceStartSourceIndexerHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceStartSourceIndexerProcedure,
+		svc.StartSourceIndexer,
+		connect.WithSchema(evmIndexerServiceStartSourceIndexerMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceStopPipelineHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceStopPipelineProcedure,
-		svc.StopPipeline,
-		connect.WithSchema(evmIndexerServiceStopPipelineMethodDescriptor),
+	evmIndexerServiceStopSourceIndexerHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceStopSourceIndexerProcedure,
+		svc.StopSourceIndexer,
+		connect.WithSchema(evmIndexerServiceStopSourceIndexerMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmLogSourceHandler := connect.NewUnaryHandler(
@@ -877,10 +877,10 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceListEvmLogPipelinesHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceDeleteEvmLogPipelineProcedure:
 			evmIndexerServiceDeleteEvmLogPipelineHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceStartPipelineProcedure:
-			evmIndexerServiceStartPipelineHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceStopPipelineProcedure:
-			evmIndexerServiceStopPipelineHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceStartSourceIndexerProcedure:
+			evmIndexerServiceStartSourceIndexerHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceStopSourceIndexerProcedure:
+			evmIndexerServiceStopSourceIndexerHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceCreateEvmLogSourceProcedure:
 			evmIndexerServiceCreateEvmLogSourceHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceGetEvmLogSourceProcedure:
@@ -992,12 +992,12 @@ func (UnimplementedEvmIndexerServiceHandler) DeleteEvmLogPipeline(context.Contex
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) StartPipeline(context.Context, *connect.Request[v1.StartPipelineRequest]) (*connect.Response[v1.StartPipelineResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StartPipeline is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) StartSourceIndexer(context.Context, *connect.Request[v1.StartSourceIndexerRequest]) (*connect.Response[v1.StartSourceIndexerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StartSourceIndexer is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) StopPipeline(context.Context, *connect.Request[v1.StopPipelineRequest]) (*connect.Response[v1.StopPipelineResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StopPipeline is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) StopSourceIndexer(context.Context, *connect.Request[v1.StopSourceIndexerRequest]) (*connect.Response[v1.StopSourceIndexerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StopSourceIndexer is not implemented"))
 }
 
 func (UnimplementedEvmIndexerServiceHandler) CreateEvmLogSource(context.Context, *connect.Request[v1.CreateEvmLogSourceRequest]) (*connect.Response[v1.CreateEvmLogSourceResponse], error) {

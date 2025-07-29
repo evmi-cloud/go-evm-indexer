@@ -12,12 +12,10 @@ import (
 func (e *EvmIndexerServer) CreateEvmLogPipeline(ctx context.Context, req *connect.Request[evm_indexerv1.CreateEvmLogPipelineRequest]) (*connect.Response[evm_indexerv1.CreateEvmLogPipelineResponse], error) {
 	newPipeline := evmi_database.EvmLogPipeline{
 		Name:       req.Msg.Pipeline.Name,
-		Type:       req.Msg.Pipeline.Type,
 		LogSources: []evmi_database.EvmLogSource{},
 
-		EvmiInstanceID:  uint(req.Msg.Pipeline.EvmiInstanceId),
-		EvmBlockchainID: uint(req.Msg.Pipeline.EvmBlockchainId),
-		EvmLogStoreId:   uint(req.Msg.Pipeline.EvmLogStoreId),
+		EvmiInstanceID: uint(req.Msg.Pipeline.EvmiInstanceId),
+		EvmLogStoreId:  uint(req.Msg.Pipeline.EvmLogStoreId),
 	}
 
 	result := e.db.Conn.Create(&newPipeline)
@@ -66,7 +64,7 @@ func (e *EvmIndexerServer) GetEvmLogPipeline(ctx context.Context, req *connect.R
 func (e *EvmIndexerServer) ListEvmLogPipelines(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmLogPipelinesRequest]) (*connect.Response[evm_indexerv1.ListEvmLogPipelinesResponse], error) {
 	var pipelines []evmi_database.EvmLogPipeline
 
-	result := e.db.Conn.Model(&evmi_database.EvmBlockchain{}).Find(&pipelines).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	result := e.db.Conn.Model(&evmi_database.EvmLogPipeline{}).Find(&pipelines).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -88,9 +86,7 @@ func (e *EvmIndexerServer) UpdateEvmLogPipeline(ctx context.Context, req *connec
 	}
 
 	blockchain.Name = req.Msg.Pipeline.Name
-	blockchain.Type = req.Msg.Pipeline.Type
 	blockchain.EvmiInstanceID = uint(req.Msg.Pipeline.EvmiInstanceId)
-	blockchain.EvmBlockchainID = uint(req.Msg.Pipeline.EvmBlockchainId)
 	blockchain.EvmLogStoreId = uint(req.Msg.Pipeline.EvmLogStoreId)
 
 	result = e.db.Conn.Save(&blockchain)
@@ -103,31 +99,19 @@ func (e *EvmIndexerServer) UpdateEvmLogPipeline(ctx context.Context, req *connec
 	}, nil
 }
 
-// StartPipeline implements evm_indexerv1connect.EvmIndexerServiceHandler.
-func (e *EvmIndexerServer) StartPipeline(ctx context.Context, req *connect.Request[evm_indexerv1.StartPipelineRequest]) (*connect.Response[evm_indexerv1.StartPipelineResponse], error) {
-	panic("unimplemented")
-}
-
-// StopPipeline implements evm_indexerv1connect.EvmIndexerServiceHandler.
-func (e *EvmIndexerServer) StopPipeline(ctx context.Context, req *connect.Request[evm_indexerv1.StopPipelineRequest]) (*connect.Response[evm_indexerv1.StopPipelineResponse], error) {
-	panic("unimplemented")
-}
-
 func toGrpcPipeline(pipeline evmi_database.EvmLogPipeline) *evm_indexerv1.EvmLogPipeline {
 	id := uint32(pipeline.ID)
 	createdAt := uint32(pipeline.CreatedAt.Unix())
 	updatedAt := uint32(pipeline.UpdatedAt.Unix())
 	deletedAt := uint32(pipeline.DeletedAt.Time.Unix())
 	return &evm_indexerv1.EvmLogPipeline{
-		Id:              &id,
-		Name:            pipeline.Name,
-		Type:            pipeline.Type,
-		EvmiInstanceId:  uint32(pipeline.EvmiInstanceID),
-		EvmBlockchainId: uint32(pipeline.EvmBlockchainID),
-		EvmLogStoreId:   uint32(pipeline.EvmLogStoreId),
-		CreatedAt:       &createdAt,
-		UpdatedAt:       &updatedAt,
-		DeletedAt:       &deletedAt,
+		Id:             &id,
+		Name:           pipeline.Name,
+		EvmiInstanceId: uint32(pipeline.EvmiInstanceID),
+		EvmLogStoreId:  uint32(pipeline.EvmLogStoreId),
+		CreatedAt:      &createdAt,
+		UpdatedAt:      &updatedAt,
+		DeletedAt:      &deletedAt,
 	}
 }
 

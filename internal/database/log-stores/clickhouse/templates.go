@@ -2,10 +2,9 @@ package clickhouse_store
 
 var createLogsTableTemplate = `
 CREATE TABLE IF NOT EXISTS %s (
-    id UUID CODEC(ZSTD),
-    store_id UInt32 CODEC(ZSTD),
+    id String CODEC(ZSTD),
     source_id UInt32 CODEC(ZSTD),
-    minted_at DateTime64(3, 'UTC') CODEC(ZSTD),
+    chain_id UInt32 CODEC(ZSTD),
     block_hash String CODEC(ZSTD),
     block_number UInt64 CODEC(ZSTD),
     transaction_from String CODEC(ZSTD),
@@ -19,9 +18,7 @@ CREATE TABLE IF NOT EXISTS %s (
     metadata JSON CODEC(ZSTD),
 
     index idx_id id type bloom_filter granularity 1,
-    index idx_store_id store_id type bloom_filter granularity 1,
     index idx_source_id source_id type bloom_filter granularity 1,
-    index idx_minted_at minted_at type minmax granularity 1,
     index idx_block_hash block_hash type bloom_filter granularity 4,
     index idx_transaction_from transaction_from type bloom_filter granularity 4,
     index idx_transaction_hash transaction_hash type bloom_filter granularity 4,
@@ -29,17 +26,14 @@ CREATE TABLE IF NOT EXISTS %s (
     index idx_topics_1 topics[1] type bloom_filter granularity 4
 )
 engine = ReplacingMergeTree
-partition by toYYYYMM(minted_at)
+partition by source_id
 order by (block_number, log_index)
 `
 
 var createTransactionsTableTemplate = `
 CREATE TABLE IF NOT EXISTS %s (
-    id UUID CODEC(ZSTD),
-    store_id UInt32 CODEC(ZSTD),
+    id String CODEC(ZSTD),
     source_id UInt32 CODEC(ZSTD),
-    minted_at DateTime64(3, 'UTC') CODEC(ZSTD),
-    
     block_number UInt64 CODEC(ZSTD),
     transaction_index UInt64 CODEC(ZSTD),
     chain_id UInt32 CODEC(ZSTD),
@@ -52,13 +46,13 @@ CREATE TABLE IF NOT EXISTS %s (
 
     metadata JSON CODEC(ZSTD),
 
-    index idx_minted_at minted_at type minmax granularity 1,
+    index idx_source_id source_id type bloom_filter granularity 1,
     index idx_block_number block_number type minmax granularity 4,
     index idx_transaction_index transaction_index type minmax granularity 4,
     index idx_from from type bloom_filter granularity 4,
     index idx_hash hash type bloom_filter granularity 4,
 )
 engine = ReplacingMergeTree
-partition by toYYYYMM(minted_at)
+partition by source_id
 order by (block_number, transaction_index)
 `

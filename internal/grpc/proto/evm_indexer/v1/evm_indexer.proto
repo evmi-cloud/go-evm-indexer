@@ -6,7 +6,7 @@ option go_package = "github.com/evmi-cloud/go-evm-indexer/gen/evm-indexer/v1;evm
 
 message EvmiInstance {
     optional uint32 id = 1;        
-    uint64 instance_id = 2;
+    string instance_id = 2;
     string ipv4 = 3;
     string status = 4;
     optional uint32 created_at = 5; 
@@ -52,10 +52,8 @@ message EvmLogPipeline {
   optional uint32 id = 1;   
 
   string name = 2;
-  string type = 3;
 
   uint32 evmi_instance_id = 4;
-  uint32 evm_blockchain_id = 5;
   uint32 evm_log_store_id = 6;
 
   optional uint32 created_at = 7; 
@@ -67,26 +65,29 @@ message EvmLogSource {
   optional uint32 id = 1; 
 
   string type = 2;
+  bool enabled = 3;
+  string status = 4;
 
-  uint64 start_block = 3;
-  uint64 sync_block = 4;
+  uint64 start_block = 5;
+  uint64 sync_block = 6;
 
   // Nullable fields
-  optional string address = 5;
+  optional string address = 7;
 
-  optional string topic0 = 6;
-  repeated string topic_filters = 7;
+  optional string topic0 = 8;
+  repeated string topic_filters = 9;
 
-  optional int32 factory_child_evm_json_abi = 8;
-  optional string factory_creation_function_name = 9;
-  optional string factory_creation_address_log_arg = 10;
+  optional int32 factory_child_evm_json_abi = 10;
+  optional string factory_creation_function_name =11;
+  optional string factory_creation_address_log_arg = 20;
 
-  uint32 evm_log_pipeline_id = 11;
-  uint32 evm_json_abi_id = 12;
+  uint32 evm_log_pipeline_id = 13;
+  uint32 evm_json_abi_id = 14;
+  uint32 evm_blockchain_id = 15;
 
-  optional uint32 created_at = 13; 
-  optional uint32 updated_at = 14; 
-  optional uint32 deleted_at = 15; 
+  optional uint32 created_at = 16; 
+  optional uint32 updated_at = 17; 
+  optional uint32 deleted_at = 18; 
 }
 
 message EvmMetadata {
@@ -110,11 +111,9 @@ message EvmLog {
   uint64 transaction_index = 10;
   string block_hash = 11;
   uint64 log_index = 12;
-
   bool removed = 13;
-  uint32 minted_at = 14;
 
-  EvmMetadata metadata = 15;
+  EvmMetadata metadata = 14;
 }
 
 message EvmTransaction {
@@ -133,9 +132,7 @@ message EvmTransaction {
   string to = 11;
   string hash = 12;
 
-  uint32 minted_at = 13;
-
-  EvmMetadata metadata = 14;
+  EvmMetadata metadata = 13;
 }
 
 // Pagination
@@ -279,20 +276,7 @@ message DeleteEvmLogPipelineRequest {
 }
 message DeleteEvmLogPipelineResponse {
 }
-message StartPipelineRequest {
-  uint32 id = 1;
-}
-message StartPipelineResponse {
-  bool success = 1;
-  string error = 2;
-}
-message StopPipelineRequest {
-  uint32 id = 1;
-}
-message StopPipelineResponse {
-  bool success = 1;
-  string error = 2;
-}
+
 
 // EvmLogSource
 message CreateEvmLogSourceRequest {
@@ -314,6 +298,7 @@ message UpdateEvmLogSourceResponse {
 }
 message ListEvmLogSourcesRequest {
   Pagination pagination = 1;
+  uint32 pipeline_id = 2;
 }
 message ListEvmLogSourcesResponse {
   repeated EvmLogSource sources = 1;
@@ -324,9 +309,27 @@ message DeleteEvmLogSourceRequest {
 message DeleteEvmLogSourceResponse {
 }
 
+message StartSourceIndexerRequest {
+  uint32 id = 1;
+}
+message StartSourceIndexerResponse {
+  bool success = 1;
+  string error = 2;
+}
+message StopSourceIndexerRequest {
+  uint32 id = 1;
+}
+message StopSourceIndexerResponse {
+  bool success = 1;
+  string error = 2;
+}
+
 // EvmLog
 message ListEvmLogsRequest {
   Pagination pagination = 1;
+  uint32 pipeline_id = 2;
+  uint64 fromTimestamp = 3;
+  uint64 toTimestamp = 4;
 }
 message ListEvmLogsResponse {
   repeated EvmLog logs = 1;
@@ -335,6 +338,9 @@ message ListEvmLogsResponse {
 // EvmTransaction
 message ListEvmTransactionsRequest {
   Pagination pagination = 1;
+  uint32 pipeline_id = 2;
+  uint64 fromTimestamp = 3;
+  uint64 toTimestamp = 4;
 }
 message ListEvmTransactionsResponse {
   repeated EvmTransaction transactions = 1;
@@ -373,8 +379,8 @@ service EvmIndexerService {
   rpc UpdateEvmLogPipeline(UpdateEvmLogPipelineRequest) returns (UpdateEvmLogPipelineResponse);
   rpc ListEvmLogPipelines(ListEvmLogPipelinesRequest) returns (ListEvmLogPipelinesResponse);
   rpc DeleteEvmLogPipeline(DeleteEvmLogPipelineRequest) returns (DeleteEvmLogPipelineResponse);
-  rpc StartPipeline(StartPipelineRequest) returns (StartPipelineResponse) {}
-  rpc StopPipeline(StopPipelineRequest) returns (StopPipelineResponse) {}
+  rpc StartSourceIndexer(StartSourceIndexerRequest) returns (StartSourceIndexerResponse) {}
+  rpc StopSourceIndexer(StopSourceIndexerRequest) returns (StopSourceIndexerResponse) {}
 
   // EvmLogSource
   rpc CreateEvmLogSource(CreateEvmLogSourceRequest) returns (CreateEvmLogSourceResponse);

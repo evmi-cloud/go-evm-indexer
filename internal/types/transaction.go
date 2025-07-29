@@ -2,7 +2,6 @@ package types
 
 type EvmTransaction struct {
 	Id               string
-	StoreId          uint
 	SourceId         uint
 	BlockNumber      uint64
 	TransactionIndex uint64
@@ -13,7 +12,6 @@ type EvmTransaction struct {
 	Nonce            uint64
 	To               string
 	Hash             string
-	MintedAt         uint64
 
 	Metadata EvmMetadata
 }

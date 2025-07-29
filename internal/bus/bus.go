@@ -1,9 +1,16 @@
-package bus
+package internal_bus
 
 import (
 	"github.com/mustafaturan/bus/v3"
 	"github.com/mustafaturan/monoton/v2"
 	"github.com/mustafaturan/monoton/v2/sequencer"
+)
+
+const (
+	NewLogTopic         string = "logs.new"
+	EnableSourceTopic   string = "source.enable"
+	DisableSourceTopic  string = "source.disable"
+	ShutdownSignalTopic string = "signal.shutwown"
 )
 
 func InitializeBus() *bus.Bus {
@@ -25,7 +32,10 @@ func InitializeBus() *bus.Bus {
 		panic(err)
 	}
 
-	b.RegisterTopics("logs.new")
+	b.RegisterTopics(NewLogTopic)
+	b.RegisterTopics(EnableSourceTopic)
+	b.RegisterTopics(DisableSourceTopic)
+	b.RegisterTopics(ShutdownSignalTopic)
 
 	return b
 }

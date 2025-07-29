@@ -1,4 +1,4 @@
-package pipeline
+package indexer
 
 import evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 

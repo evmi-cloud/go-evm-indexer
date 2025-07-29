@@ -3,8 +3,10 @@ package grpc
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"connectrpc.com/connect"
+	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	evm_indexerv1 "github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1"
 )
@@ -12,7 +14,7 @@ import (
 // CreateEvmLogSource implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) CreateEvmLogSource(ctx context.Context, req *connect.Request[evm_indexerv1.CreateEvmLogSourceRequest]) (*connect.Response[evm_indexerv1.CreateEvmLogSourceResponse], error) {
 	newLogSource := evmi_database.EvmLogSource{
-		Type:       evmi_database.LogSourceType(req.Msg.Source.Type),
+		Type:       req.Msg.Source.Type,
 		StartBlock: req.Msg.Source.StartBlock,
 		SyncBlock:  req.Msg.Source.SyncBlock,
 		Address: sql.NullString{
@@ -41,6 +43,7 @@ func (e *EvmIndexerServer) CreateEvmLogSource(ctx context.Context, req *connect.
 
 		EvmLogPipelineID: uint(req.Msg.Source.EvmLogPipelineId),
 		EvmJsonAbiID:     uint(req.Msg.Source.EvmJsonAbiId),
+		EvmBlockchainID:  uint(req.Msg.Source.EvmBlockchainId),
 	}
 
 	result := e.db.Conn.Create(&newLogSource)
@@ -87,16 +90,16 @@ func (e *EvmIndexerServer) GetEvmLogSource(ctx context.Context, req *connect.Req
 
 // ListEvmLogSources implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) ListEvmLogSources(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmLogSourcesRequest]) (*connect.Response[evm_indexerv1.ListEvmLogSourcesResponse], error) {
-	var blockchains []evmi_database.EvmLogSource
+	var logSources []evmi_database.EvmLogSource
 
-	result := e.db.Conn.Model(&evmi_database.EvmLogSource{}).Find(&blockchains).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	result := e.db.Conn.Model(&evmi_database.EvmLogSource{}).Find(&logSources).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmLogSourcesResponse]{
 		Msg: &evm_indexerv1.ListEvmLogSourcesResponse{
-			Sources: toGrpcLogSources(blockchains),
+			Sources: toGrpcLogSources(logSources),
 		},
 	}, nil
 }
@@ -110,7 +113,7 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 		return nil, result.Error
 	}
 
-	logSoure.Type = evmi_database.LogSourceType(req.Msg.Source.Type)
+	logSoure.Type = req.Msg.Source.Type
 	logSoure.StartBlock = req.Msg.Source.StartBlock
 	logSoure.SyncBlock = req.Msg.Source.SyncBlock
 	logSoure.Address = sql.NullString{
@@ -138,6 +141,7 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 
 	logSoure.EvmLogPipelineID = uint(req.Msg.Source.EvmLogPipelineId)
 	logSoure.EvmJsonAbiID = uint(req.Msg.Source.EvmJsonAbiId)
+	logSoure.EvmBlockchainID = uint(req.Msg.Source.EvmBlockchainId)
 
 	result = e.db.Conn.Save(&logSoure)
 	if result.Error != nil {
@@ -146,6 +150,93 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 
 	return &connect.Response[evm_indexerv1.UpdateEvmLogSourceResponse]{
 		Msg: &evm_indexerv1.UpdateEvmLogSourceResponse{},
+	}, nil
+}
+
+// StartSourceIndexer implements evm_indexerv1connect.EvmIndexerServiceHandler.
+func (e *EvmIndexerServer) StartSourceIndexer(ctx context.Context, req *connect.Request[evm_indexerv1.StartSourceIndexerRequest]) (*connect.Response[evm_indexerv1.StartSourceIndexerResponse], error) {
+
+	sourceId := uint(req.Msg.Id)
+	var source evmi_database.EvmLogSource
+	result := e.db.Conn.First(&source, sourceId)
+	if result.Error != nil {
+		return &connect.Response[evm_indexerv1.StartSourceIndexerResponse]{
+			Msg: &evm_indexerv1.StartSourceIndexerResponse{
+				Success: false,
+				Error:   result.Error.Error(),
+			},
+		}, nil
+	}
+
+	e.bus.Emit(context.Background(), internal_bus.EnableSourceTopic, sourceId)
+
+	try := 10
+	for i := 0; i < try; i++ {
+		time.Sleep(time.Second)
+		result := e.db.Conn.First(&source, sourceId)
+		if result.Error != nil {
+			return &connect.Response[evm_indexerv1.StartSourceIndexerResponse]{
+				Msg: &evm_indexerv1.StartSourceIndexerResponse{
+					Success: false,
+					Error:   result.Error.Error(),
+				},
+			}, nil
+		}
+
+		if source.Status == string(evmi_database.RunningLogSourceStatus) {
+			return &connect.Response[evm_indexerv1.StartSourceIndexerResponse]{
+				Msg: &evm_indexerv1.StartSourceIndexerResponse{
+					Success: true,
+				},
+			}, nil
+		}
+	}
+
+	return &connect.Response[evm_indexerv1.StartSourceIndexerResponse]{
+		Msg: &evm_indexerv1.StartSourceIndexerResponse{},
+	}, nil
+}
+
+// StopSourceIndexer implements evm_indexerv1connect.EvmIndexerServiceHandler.
+func (e *EvmIndexerServer) StopSourceIndexer(ctx context.Context, req *connect.Request[evm_indexerv1.StopSourceIndexerRequest]) (*connect.Response[evm_indexerv1.StopSourceIndexerResponse], error) {
+	sourceId := uint(req.Msg.Id)
+	var source evmi_database.EvmLogSource
+	result := e.db.Conn.First(&source, sourceId)
+	if result.Error != nil {
+		return &connect.Response[evm_indexerv1.StopSourceIndexerResponse]{
+			Msg: &evm_indexerv1.StopSourceIndexerResponse{
+				Success: false,
+				Error:   result.Error.Error(),
+			},
+		}, nil
+	}
+
+	e.bus.Emit(context.Background(), internal_bus.DisableSourceTopic, sourceId)
+
+	try := 10
+	for i := 0; i < try; i++ {
+		time.Sleep(time.Second)
+		result := e.db.Conn.First(&source, sourceId)
+		if result.Error != nil {
+			return &connect.Response[evm_indexerv1.StopSourceIndexerResponse]{
+				Msg: &evm_indexerv1.StopSourceIndexerResponse{
+					Success: false,
+					Error:   result.Error.Error(),
+				},
+			}, nil
+		}
+
+		if source.Status == string(evmi_database.StoppedLogSourceStatus) {
+			return &connect.Response[evm_indexerv1.StopSourceIndexerResponse]{
+				Msg: &evm_indexerv1.StopSourceIndexerResponse{
+					Success: true,
+				},
+			}, nil
+		}
+	}
+
+	return &connect.Response[evm_indexerv1.StopSourceIndexerResponse]{
+		Msg: &evm_indexerv1.StopSourceIndexerResponse{},
 	}, nil
 }
 
@@ -169,6 +260,8 @@ func toGrpcLogSource(logSource evmi_database.EvmLogSource) *evm_indexerv1.EvmLog
 	return &evm_indexerv1.EvmLogSource{
 		Id:                           &id,
 		Type:                         string(logSource.Type),
+		Enabled:                      logSource.Enabled,
+		Status:                       string(logSource.Status),
 		StartBlock:                   logSource.StartBlock,
 		SyncBlock:                    logSource.SyncBlock,
 		Address:                      &logSource.Address.String,
@@ -177,6 +270,7 @@ func toGrpcLogSource(logSource evmi_database.EvmLogSource) *evm_indexerv1.EvmLog
 		FactoryChildEvmJsonAbi:       &logSource.FactoryChildEvmJsonABI.Int32,
 		FactoryCreationFunctionName:  &logSource.FactoryCreationFunctionName.String,
 		FactoryCreationAddressLogArg: &logSource.FactoryCreationAddressLogArg.String,
+		EvmBlockchainId:              uint32(logSource.EvmBlockchainID),
 		EvmLogPipelineId:             uint32(logSource.EvmLogPipelineID),
 		EvmJsonAbiId:                 uint32(logSource.EvmJsonAbiID),
 

@@ -3,6 +3,7 @@ package hooks
 import (
 	"context"
 
+	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	redispubsub "github.com/evmi-cloud/go-evm-indexer/internal/hooks/redis-pubsub"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ func (h *HookService) Start() {
 				hook.PublishNewLogs(logs)
 			}
 		},
-		Matcher: "logs.new",
+		Matcher: internal_bus.NewLogTopic,
 	})
 
 	h.logger.Info().Msg("Hook service started")

@@ -2,16 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"log"
+	"net"
 	"os"
 	"time"
 
 	"github.com/rs/zerolog"
 
-	"github.com/evmi-cloud/go-evm-indexer/internal/bus"
+	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc"
+	"github.com/evmi-cloud/go-evm-indexer/internal/indexer"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
-	"github.com/evmi-cloud/go-evm-indexer/internal/pipeline"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/urfave/cli/v2"
 )
@@ -62,7 +64,7 @@ func main() {
 					}
 
 					logger.Info().Msg("Initialize Bus")
-					internalBus := bus.InitializeBus()
+					internalBus := internal_bus.InitializeBus()
 
 					logger.Info().Msg("Initialize Metrics")
 					metrics := metrics.NewMetricService(config.Metrics.Enabled, config.Metrics.Path, config.Metrics.Port)
@@ -99,8 +101,27 @@ func main() {
 					// logger.Info().Msg("Starting hooks service")
 					// hooks.Start()
 
-					logger.Info().Msg("Mount pipeline service")
-					pipelineService := pipeline.NewPipelineService(instanceId, database, internalBus, metrics, logger)
+					var instance evmi_database.EvmiInstance
+					result := database.Conn.Model(&evmi_database.EvmiInstance{}).Where("instance_id = ?", instanceId).First(&instance)
+					if result.Error != nil {
+						log.Println(result.Error.Error())
+						if result.Error.Error() == "record not found" {
+
+							instance = evmi_database.EvmiInstance{
+								InstanceId: instanceId,
+							}
+
+						} else {
+							return result.Error
+						}
+					}
+
+					instance.IpV4 = GetLocalIP().String()
+					instance.Status = "RUNNING"
+					database.Conn.Save(&instance)
+
+					logger.Info().Msg("Mount indexer service")
+					pipelineService := indexer.NewIndexerService(instanceId, database, internalBus, metrics, logger)
 
 					logger.Info().Msg("Start pipeline service")
 					err = pipelineService.Start()
@@ -123,4 +144,16 @@ func main() {
 
 		logger.Fatal().Msg(err.Error())
 	}
+}
+
+func GetLocalIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddress := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddress.IP
 }
