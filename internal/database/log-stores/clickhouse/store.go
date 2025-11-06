@@ -172,22 +172,21 @@ func (db *ClickHouseStore) InsertTransactions(txs []types.EvmTransaction) error 
 	return batch.Send()
 }
 
-// GetLogsCount implements stores.EvmIndexerStorage.
 func (db *ClickHouseStore) GetLogsCount() (uint64, error) {
 	var result struct {
 		Count uint64 `ch:"count"`
 	}
-	if err := db.store.QueryRow(context.Background(), "SELECT COUNT() as count FROM logs").ScanStruct(&result); err != nil {
+	if err := db.store.QueryRow(context.Background(), fmt.Sprintf("SELECT COUNT() as count FROM %s", db.txTableName)).ScanStruct(&result); err != nil {
 		return 0, err
 	}
 
 	return uint64(result.Count), nil
 }
 
-func (db *ClickHouseStore) GetLogs(fromTimestamp uint64, toTimestamp uint64, limit uint64, offset uint64) ([]types.EvmLog, error) {
+func (db *ClickHouseStore) GetLogs(sourceId uint64, fromBlock uint64, toBlock uint64) ([]types.EvmLog, error) {
 
 	var results []ClickHouseEvmLog
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE minted_at >= %d AND minted_at <= %d ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.logTableName, fromTimestamp, toTimestamp, offset, limit)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock)); err != nil {
 		return []types.EvmLog{}, err
 	}
 
@@ -218,11 +217,51 @@ func (db *ClickHouseStore) GetLogs(fromTimestamp uint64, toTimestamp uint64, lim
 	return logs, nil
 }
 
-// GetLatestLogs implements stores.EvmIndexerStorage.
-func (db *ClickHouseStore) GetLatestLogs(limit uint64) ([]types.EvmLog, error) {
+func (db *ClickHouseStore) GetLogStream(sourceId uint64, fromBlock uint64, toBlock uint64, stream chan types.EvmLog) error {
+
+	rows, err := db.store.Query(context.Background(), fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock))
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		log := &ClickHouseEvmLog{}
+		if err := rows.ScanStruct(log); err != nil {
+			return err
+		}
+
+		stream <- types.EvmLog{
+			Id:               log.Id,
+			SourceId:         log.SourceId,
+			Address:          log.Address,
+			Topics:           log.Topics,
+			Data:             log.Data,
+			BlockNumber:      log.BlockNumber,
+			TransactionHash:  log.TransactionHash,
+			TransactionIndex: log.TransactionIndex,
+			BlockHash:        log.BlockHash,
+			LogIndex:         log.LogIndex,
+			Removed:          log.Removed,
+
+			Metadata: types.EvmMetadata{
+				ContractName: log.Metadata.ContractName,
+				EventName:    log.Metadata.EventName,
+				FunctionName: log.Metadata.FunctionName,
+				Data:         log.Metadata.Data,
+			},
+		}
+	}
+
+	defer rows.Close()
+	close(stream)
+
+	return nil
+}
+
+func (db *ClickHouseStore) GetLatestLogs(sourceId uint64, limit uint64) ([]types.EvmLog, error) {
 
 	var results []ClickHouseEvmLog
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.logTableName, 0, limit)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d ORDER BY block_number DESC FETCH FIRST %d ROWS ONLY", db.logTableName, sourceId, limit)); err != nil {
 		return []types.EvmLog{}, err
 	}
 
@@ -254,10 +293,10 @@ func (db *ClickHouseStore) GetLatestLogs(limit uint64) ([]types.EvmLog, error) {
 	return logs, nil
 }
 
-func (db *ClickHouseStore) GetTransactions(fromTimestamp uint64, toTimestamp uint64, limit uint64, offset uint64) ([]types.EvmTransaction, error) {
+func (db *ClickHouseStore) GetTransactions(sourceId uint64, fromBlock uint64, toBlock uint64) ([]types.EvmTransaction, error) {
 
 	var results []ClickHouseEvmTransaction
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s AND minted_at >= %d AND minted_at <= %d ORDER BY minted_at OFFSET %d ROW FETCH FIRST %d ROWS ONLY", db.txTableName, fromTimestamp, toTimestamp, offset, limit)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number DESC", db.txTableName, sourceId, fromBlock, toBlock)); err != nil {
 		return []types.EvmTransaction{}, err
 	}
 

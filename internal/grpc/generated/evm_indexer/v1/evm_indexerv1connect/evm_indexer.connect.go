@@ -123,6 +123,9 @@ const (
 	// EvmIndexerServiceListEvmLogsProcedure is the fully-qualified name of the EvmIndexerService's
 	// ListEvmLogs RPC.
 	EvmIndexerServiceListEvmLogsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmLogs"
+	// EvmIndexerServiceListLatestEvmLogsProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListLatestEvmLogs RPC.
+	EvmIndexerServiceListLatestEvmLogsProcedure = "/evm_indexer.v1.EvmIndexerService/ListLatestEvmLogs"
 	// EvmIndexerServiceListEvmTransactionsProcedure is the fully-qualified name of the
 	// EvmIndexerService's ListEvmTransactions RPC.
 	EvmIndexerServiceListEvmTransactionsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmTransactions"
@@ -161,6 +164,7 @@ var (
 	evmIndexerServiceListEvmLogSourcesMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogSources")
 	evmIndexerServiceDeleteEvmLogSourceMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogSource")
 	evmIndexerServiceListEvmLogsMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogs")
+	evmIndexerServiceListLatestEvmLogsMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("ListLatestEvmLogs")
 	evmIndexerServiceListEvmTransactionsMethodDescriptor  = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmTransactions")
 )
 
@@ -203,6 +207,7 @@ type EvmIndexerServiceClient interface {
 	DeleteEvmLogSource(context.Context, *connect.Request[v1.DeleteEvmLogSourceRequest]) (*connect.Response[v1.DeleteEvmLogSourceResponse], error)
 	// EvmLog
 	ListEvmLogs(context.Context, *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error)
+	ListLatestEvmLogs(context.Context, *connect.Request[v1.ListLatestEvmLogsRequest]) (*connect.Response[v1.ListLatestEvmLogsResponse], error)
 	// EvmTransaction
 	ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error)
 }
@@ -397,6 +402,12 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceListEvmLogsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listLatestEvmLogs: connect.NewClient[v1.ListLatestEvmLogsRequest, v1.ListLatestEvmLogsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListLatestEvmLogsProcedure,
+			connect.WithSchema(evmIndexerServiceListLatestEvmLogsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		listEvmTransactions: connect.NewClient[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmTransactionsProcedure,
@@ -438,6 +449,7 @@ type evmIndexerServiceClient struct {
 	listEvmLogSources    *connect.Client[v1.ListEvmLogSourcesRequest, v1.ListEvmLogSourcesResponse]
 	deleteEvmLogSource   *connect.Client[v1.DeleteEvmLogSourceRequest, v1.DeleteEvmLogSourceResponse]
 	listEvmLogs          *connect.Client[v1.ListEvmLogsRequest, v1.ListEvmLogsResponse]
+	listLatestEvmLogs    *connect.Client[v1.ListLatestEvmLogsRequest, v1.ListLatestEvmLogsResponse]
 	listEvmTransactions  *connect.Client[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse]
 }
 
@@ -591,6 +603,11 @@ func (c *evmIndexerServiceClient) ListEvmLogs(ctx context.Context, req *connect.
 	return c.listEvmLogs.CallUnary(ctx, req)
 }
 
+// ListLatestEvmLogs calls evm_indexer.v1.EvmIndexerService.ListLatestEvmLogs.
+func (c *evmIndexerServiceClient) ListLatestEvmLogs(ctx context.Context, req *connect.Request[v1.ListLatestEvmLogsRequest]) (*connect.Response[v1.ListLatestEvmLogsResponse], error) {
+	return c.listLatestEvmLogs.CallUnary(ctx, req)
+}
+
 // ListEvmTransactions calls evm_indexer.v1.EvmIndexerService.ListEvmTransactions.
 func (c *evmIndexerServiceClient) ListEvmTransactions(ctx context.Context, req *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error) {
 	return c.listEvmTransactions.CallUnary(ctx, req)
@@ -635,6 +652,7 @@ type EvmIndexerServiceHandler interface {
 	DeleteEvmLogSource(context.Context, *connect.Request[v1.DeleteEvmLogSourceRequest]) (*connect.Response[v1.DeleteEvmLogSourceResponse], error)
 	// EvmLog
 	ListEvmLogs(context.Context, *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error)
+	ListLatestEvmLogs(context.Context, *connect.Request[v1.ListLatestEvmLogsRequest]) (*connect.Response[v1.ListLatestEvmLogsResponse], error)
 	// EvmTransaction
 	ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error)
 }
@@ -825,6 +843,12 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceListEvmLogsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	evmIndexerServiceListLatestEvmLogsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListLatestEvmLogsProcedure,
+		svc.ListLatestEvmLogs,
+		connect.WithSchema(evmIndexerServiceListLatestEvmLogsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	evmIndexerServiceListEvmTransactionsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmTransactionsProcedure,
 		svc.ListEvmTransactions,
@@ -893,6 +917,8 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceDeleteEvmLogSourceHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceListEvmLogsProcedure:
 			evmIndexerServiceListEvmLogsHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListLatestEvmLogsProcedure:
+			evmIndexerServiceListLatestEvmLogsHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceListEvmTransactionsProcedure:
 			evmIndexerServiceListEvmTransactionsHandler.ServeHTTP(w, r)
 		default:
@@ -1022,6 +1048,10 @@ func (UnimplementedEvmIndexerServiceHandler) DeleteEvmLogSource(context.Context,
 
 func (UnimplementedEvmIndexerServiceHandler) ListEvmLogs(context.Context, *connect.Request[v1.ListEvmLogsRequest]) (*connect.Response[v1.ListEvmLogsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmLogs is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListLatestEvmLogs(context.Context, *connect.Request[v1.ListLatestEvmLogsRequest]) (*connect.Response[v1.ListLatestEvmLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListLatestEvmLogs is not implemented"))
 }
 
 func (UnimplementedEvmIndexerServiceHandler) ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error) {

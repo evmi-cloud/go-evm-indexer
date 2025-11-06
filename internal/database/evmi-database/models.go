@@ -2,7 +2,6 @@ package evmi_database
 
 import (
 	"database/sql"
-	"database/sql/driver"
 
 	"github.com/lib/pq"
 	"gorm.io/datatypes"
@@ -18,15 +17,6 @@ const (
 	FactoryLogSourceType  LogSourceType = "FACTORY"
 )
 
-func (ct *LogSourceType) Scan(value interface{}) error {
-	*ct = LogSourceType(value.(string))
-	return nil
-}
-
-func (ct LogSourceType) Value() (driver.Value, error) {
-	return string(ct), nil
-}
-
 type LogSourceStatus string
 
 const (
@@ -34,15 +24,6 @@ const (
 	LoopbackOffLogSourceStatus LogSourceStatus = "LOOPBACKOFF"
 	StoppedLogSourceStatus     LogSourceStatus = "STOPPED"
 )
-
-func (ct *LogSourceStatus) Scan(value interface{}) error {
-	*ct = LogSourceStatus(value.(string))
-	return nil
-}
-
-func (ct LogSourceStatus) Value() (driver.Value, error) {
-	return string(ct), nil
-}
 
 type EvmiInstance struct {
 	gorm.Model
@@ -62,6 +43,9 @@ type EvmBlockchain struct {
 	BlockSlice      uint64
 	PullInterval    uint64
 	RpcMaxBatchSize uint64
+
+	SqdGatewayAvailable bool
+	SqdGatewayUrl       string
 }
 
 type EvmJsonAbi struct {
@@ -119,4 +103,19 @@ type EvmLogSource struct {
 	EvmLogPipelineID uint
 	EvmJsonAbiID     uint
 	EvmBlockchainID  uint
+}
+
+type EvmiExporter struct {
+	gorm.Model
+
+	Name string
+
+	EvmLogPipelineID uint
+
+	PluginConfig       datatypes.JSON
+	PluginGithubUrl    string
+	PluginRelativePath string
+
+	Status          string
+	ChainSyncStatus datatypes.JSON
 }
