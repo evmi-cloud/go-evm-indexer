@@ -11,6 +11,7 @@ import (
 
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
+	"github.com/evmi-cloud/go-evm-indexer/internal/exporter"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc"
 	"github.com/evmi-cloud/go-evm-indexer/internal/indexer"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
@@ -125,6 +126,15 @@ func main() {
 
 					logger.Info().Msg("Start pipeline service")
 					err = pipelineService.Start()
+					if err != nil {
+						logger.Fatal().Msg(err.Error())
+					}
+
+					logger.Info().Msg("Mount exporter service")
+					exporterService := exporter.NewExporterServiceManager(instanceId, database, internalBus, metrics, logger)
+
+					logger.Info().Msg("Start exporter service")
+					err = exporterService.Start()
 					if err != nil {
 						logger.Fatal().Msg(err.Error())
 					}

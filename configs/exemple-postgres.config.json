@@ -1,8 +1,8 @@
 {
     "database": {
-        "type": "SQLITE",
+        "type": "POSTGRES",
         "config": {
-            "filename": "evmi-database.sqlite"
+            "dsn": "host=localhost user=evmi password=secret dbname=evmi port=5432 sslmode=disable"
         }
     },
     "metrics": {

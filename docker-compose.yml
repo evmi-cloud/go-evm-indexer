@@ -12,15 +12,14 @@ services:
       context: .
       dockerfile: Dockerfile
     entrypoint: "/evm-indexer"
-    command: ['start', '-c', '/exemple.config.json', '-a', '/abis']
+    command: ['start', '-c', '/config.json']
     container_name: indexer
     restart: unless-stopped
     ports:
       - 8080:8080
     volumes:
-      - ./docker/exemple.config.json:/exemple.config.json
+      - ./docker/ambiant.config.json:/config.json
       - ./datastore:/datastore
-      - ./cmd/evm-indexer/abis:/abis:ro
 
   clickhouse:
     container_name: clickhouse

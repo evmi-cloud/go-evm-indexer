@@ -7,10 +7,12 @@ import (
 )
 
 const (
-	NewLogTopic         string = "logs.new"
-	EnableSourceTopic   string = "source.enable"
-	DisableSourceTopic  string = "source.disable"
-	ShutdownSignalTopic string = "signal.shutwown"
+	NewLogTopic          string = "logs.new"
+	EnableSourceTopic    string = "source.enable"
+	DisableSourceTopic   string = "source.disable"
+	EnableExporterTopic  string = "exporter.enable"
+	DisableExporterTopic string = "exporter.disable"
+	ShutdownSignalTopic  string = "signal.shutwown"
 )
 
 func InitializeBus() *bus.Bus {
@@ -35,6 +37,8 @@ func InitializeBus() *bus.Bus {
 	b.RegisterTopics(NewLogTopic)
 	b.RegisterTopics(EnableSourceTopic)
 	b.RegisterTopics(DisableSourceTopic)
+	b.RegisterTopics(EnableExporterTopic)
+	b.RegisterTopics(DisableExporterTopic)
 	b.RegisterTopics(ShutdownSignalTopic)
 
 	return b

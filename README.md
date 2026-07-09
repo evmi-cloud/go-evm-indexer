@@ -8,19 +8,21 @@ EVMI is a powerful and flexible Ethereum Virtual Machine (EVM) log indexing serv
 
 ## Features
 
-- **Multi-Chain Support**: Index logs from any EVM-compatible blockchain
-- **Flexible Storage**: Choose between different storage backends
-- **Real-time Event Processing**: Stream events to various message brokers
-- **Incremental Backups**: Export logs in multiple formats for analytics
-- **Configurable Pipeline**: Define custom indexing rules per contract
-- **Web UI**: Monitor and manage your indexing pipelines
+- **Multi-Chain Support**: Index logs from any EVM-compatible blockchain over JSON-RPC
+- **ABI Decoding**: Decode events into structured metadata using contract ABIs
+- **Multiple Source Types**: Index a whole chain, a single contract, a topic filter, or a
+  factory (auto-tracking every contract it deploys)
+- **ClickHouse Storage**: Persist decoded logs and transactions to ClickHouse behind a
+  pluggable store interface
+- **Runtime API**: Manage blockchains, ABIs, stores, pipelines, and sources live over a
+  gRPC/Connect API — no restart required
+- **Prometheus Metrics**: Indexing progress, RPC call counts, and log counts
 
 ## Getting Started
 
 EVMI can be used for multiple use cases:
-- Smart contract log storage and indexing
-- Event streaming to message brokers (Redis PubSub, Kafka, Webhooks)
-- Analytics data export (JSON/Parquet formats)
+- Smart contract log storage and indexing into ClickHouse
+- Structured, ABI-decoded event data for analytics and downstream processing
 
 ### Installation
 
@@ -35,73 +37,105 @@ go install github.com/evmi-cloud/go-evm-indexer/cmd/evm-indexer@latest
 
 ### Configuration
 
+The configuration file only sets up the **metadata database** (where indexing topology and
+progress are stored) and metrics. The indexing topology itself — blockchains, ABIs, log
+stores, pipelines, and sources — is created and managed at runtime through the gRPC/Connect
+API, not in this file.
+
 Create a configuration file (e.g., `config.json`):
 
 ```json
 {
-    "storage": {
-        "type": "clover",
+    "database": {
+        "type": "SQLITE",
         "config": {
-            "path": "./datastore"
+            "filename": "evmi-database.sqlite"
         }
     },
-    "indexer": {
-        "maxBlockRange": 1000,
-        "pullInterval": 2,
-        "rpcMaxBatchSize": 1000
-    },
-    "stores": [
-        {
-            "identifier": "my-pipeline",
-            "description": "Example pipeline",
-            "rpc": "https://your-rpc-endpoint",
-            "chainId": 1,
-            "sources": [
-                {
-                    "name": "Contract Events",
-                    "type": "STATIC",
-                    "contracts": [
-                        { 
-                            "address": "0x...", 
-                            "contractName": "MyContract" 
-                        }
-                    ],
-                    "startBlock": 1000000
-                }
-            ]
-        }
-    ]
+    "metrics": {
+        "enabled": true,
+        "path": "/metrics",
+        "port": 9090
+    }
 }
 ```
 
+`database.type` is one of `SQLITE`, `POSTGRES`, or `MYSQL`. SQLite reads `config.filename`;
+Postgres and MySQL read a `config.dsn` connection string. See `configs/` for full examples.
+
+Run it with:
+
+```bash
+evm-indexer start --config config.json --instance EVMI_INSTANCE_1
+```
+
+#### Log stores
+
+A **log store** is where decoded logs and transactions are written. Log stores are created
+via the API as `EvmLogStore` records, each with a `storeType` and a JSON `storeConfig`. The
+`clickhouse` store type expects:
+
+```json
+{
+    "addr": "localhost:9000",
+    "database": "evmi_cloud",
+    "username": "default",
+    "password": "secret",
+    "logsTableName": "logs",
+    "transactionsTableName": "transactions"
+}
+```
+
+(`addr` may be a comma-separated list for multiple nodes.)
+
 ## Components
 
-### Storage Engines
+### Metadata database
 
-Available storage backends:
-- **Clover** (Default): Embedded document database optimized for log storage
-- **FrostDB** (Planned): Column-oriented storage for analytical workloads
+Holds the indexing topology (blockchains, ABIs, stores, pipelines, sources) and per-source
+sync progress. Managed with GORM; `database.type` selects the backend:
+- **SQLite** — single-file, good for local/dev
+- **PostgreSQL**
+- **MySQL**
 
-### Event Hooks
+### Log stores
 
-Supported message brokers:
-- **Redis PubSub**: Real-time event streaming
-- **Webhooks**: HTTP callbacks for event notifications
-- **Kafka** (Planned): Distributed event streaming
+Where decoded logs and transactions are written, selected per store via `storeType`:
+- **ClickHouse** — the only implemented backend today
 
-### Backup System
+Additional backends can be added by implementing the `EvmIndexerStorage` interface in
+`internal/database/log-stores`.
 
-Backup configuration options:
-- **File Formats**: JSON, Apache Parquet
-- **Storage Destinations**: S3, Google Cloud Storage, IPFS
+### API
 
-## Web Interface
+A gRPC/Connect API (`EvmIndexerService`) is served on `:8080` (HTTP/2 cleartext, h2c). All
+topology — blockchains, ABIs, stores, pipelines, and sources — is created and managed here,
+including starting and stopping individual source indexers at runtime.
 
-EVMI includes a web UI for:
-- Pipeline management
-- Log monitoring
+### Metrics
 
-Access the UI at `http://localhost:8080` after starting the service.
+When enabled, Prometheus metrics are exposed on the configured `metrics.port` and
+`metrics.path`. A ready-made Prometheus + Grafana stack is included in `docker-compose.yml`.
+
+### Exporters (custom plugins)
+
+Exporters run user-written Go plugins over indexed data: the server calls a
+plugin's `NewLogEvent` for every stored log, in block order, and tracks each
+exporter's sync progress so it resumes after a restart — e.g. a plugin that
+maintains ERC-20 balances in your own database. Plugins implement the
+`github.com/evmi-cloud/go-evm-indexer/pkg/exporter` interface and are compiled
+with `-buildmode=plugin`. See [docs/exporters.md](docs/exporters.md) for the
+authoring guide and the important native-plugin constraints (toolchain/version
+matching, CGO, no process isolation).
+
+## Roadmap
+
+The following are planned and **not yet implemented**:
+- gRPC CRUD/start-stop endpoints for exporters (rows are DB-managed today)
+- Event streaming to message brokers (Redis PubSub, Kafka, Webhooks)
+- Analytics export (JSON / Apache Parquet) to S3, Google Cloud Storage, or IPFS
+- Web UI for pipeline management and monitoring
+- Additional log-store backends
 
 ## Documentation
 

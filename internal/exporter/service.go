@@ -15,6 +15,9 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
+// ExporterServiceManager owns the lifecycle of every exporter bound to a
+// pipeline of this instance, supervising each as an independent restartable
+// service and reacting to enable/disable events on the bus.
 type ExporterServiceManager struct {
 	instanceId string
 	db         *evmi_database.EvmiDatabase
@@ -26,6 +29,26 @@ type ExporterServiceManager struct {
 	exporterServices      map[uint]*ExporterService
 
 	logger zerolog.Logger
+}
+
+func NewExporterServiceManager(
+	instanceId string,
+	db *evmi_database.EvmiDatabase,
+	bus *bus.Bus,
+	metrics *metrics.MetricService,
+	logger zerolog.Logger,
+) *ExporterServiceManager {
+
+	supervisor := suture.NewSimple("Exporter service supervisor")
+
+	return &ExporterServiceManager{
+		instanceId: instanceId,
+		db:         db,
+		bus:        bus,
+		metrics:    metrics,
+		supervisor: supervisor,
+		logger:     logger,
+	}
 }
 
 func (s *ExporterServiceManager) Start() error {
@@ -45,137 +68,99 @@ func (s *ExporterServiceManager) Start() error {
 		return result.Error
 	}
 
-	s.logger.Info().Msg("instanceId: " + s.instanceId)
-	s.logger.Info().Msg("pipeline founds: " + fmt.Sprint(len(pipelines)))
+	s.logger.Info().Msg("exporter manager instanceId: " + s.instanceId)
 
 	for _, pipeline := range pipelines {
-		s.logger.Info().Msg("check source of pipeline id " + fmt.Sprint(pipeline.ID))
-		var sources []evmi_database.EvmLogSource
-		result := s.db.Conn.Model(&evmi_database.EvmLogSource{}).Where("evm_log_pipeline_id = ?", pipeline.ID).Find(&sources)
+		var exporters []evmi_database.EvmiExporter
+		result := s.db.Conn.Model(&evmi_database.EvmiExporter{}).Where("evm_log_pipeline_id = ?", pipeline.ID).Find(&exporters)
 		if result.Error != nil {
 			return result.Error
 		}
 
-		for _, source := range sources {
-			s.logger.Info().Msg("check if enabled on source id " + fmt.Sprint(source.ID))
-			if source.Enabled {
-				s.logger.Info().Msg("starting source id " + fmt.Sprint(source.ID))
-				s.sourceIndexers[source.ID] = NewExporterService(s.db, s.bus, s.metrics, source)
-
-				serviceToken := s.supervisor.Add(s.sourceIndexers[source.ID])
-				s.sourceIdToServiceId[source.ID] = serviceToken
+		for _, exp := range exporters {
+			if exp.Enabled {
+				s.startExporter(exp)
 			}
 		}
 	}
 
-	enableSourceHandlerId := uuid.New()
-	s.bus.RegisterHandler(enableSourceHandlerId.String(), bus.Handler{
+	enableHandlerId := uuid.New()
+	s.bus.RegisterHandler(enableHandlerId.String(), bus.Handler{
 		Handle: func(ctx context.Context, e bus.Event) {
-			sourceId := e.Data.(uint)
-			s.EnableSource(sourceId)
+			exporterId := e.Data.(uint)
+			if err := s.EnableExporter(exporterId); err != nil {
+				s.logger.Error().Msg(err.Error())
+			}
 		},
-		Matcher: internal_bus.EnableSourceTopic,
+		Matcher: internal_bus.EnableExporterTopic,
 	})
 
-	disableSourceHandlerId := uuid.New()
-	s.bus.RegisterHandler(disableSourceHandlerId.String(), bus.Handler{
+	disableHandlerId := uuid.New()
+	s.bus.RegisterHandler(disableHandlerId.String(), bus.Handler{
 		Handle: func(ctx context.Context, e bus.Event) {
-			sourceId := e.Data.(uint)
-			s.DisableSource(sourceId)
+			exporterId := e.Data.(uint)
+			if err := s.DisableExporter(exporterId); err != nil {
+				s.logger.Error().Msg(err.Error())
+			}
 		},
-		Matcher: internal_bus.DisableSourceTopic,
+		Matcher: internal_bus.DisableExporterTopic,
 	})
 
 	s.supervisor.ServeBackground(context.Background())
 	return nil
 }
 
-func (s *ExporterService) EnableSource(sourceId uint) error {
+func (s *ExporterServiceManager) startExporter(exp evmi_database.EvmiExporter) {
+	s.logger.Info().Msg("starting exporter id " + fmt.Sprint(exp.ID))
+	service := NewExporterService(s.db, s.metrics, exp)
+	s.exporterServices[exp.ID] = service
+	s.exporterIdToServiceId[exp.ID] = s.supervisor.Add(service)
+}
 
-	var source evmi_database.EvmLogSource
-	result := s.db.Conn.First(&source, sourceId)
-	if result.Error != nil {
+func (s *ExporterServiceManager) EnableExporter(exporterId uint) error {
+	var exp evmi_database.EvmiExporter
+	if result := s.db.Conn.First(&exp, exporterId); result.Error != nil {
 		return result.Error
 	}
 
-	source.Enabled = true
+	if _, ok := s.exporterServices[exporterId]; ok {
+		return errors.New("exporter already running")
+	}
 
-	result = s.db.Conn.Save(&source)
-	if result.Error != nil {
+	exp.Enabled = true
+	if result := s.db.Conn.Save(&exp); result.Error != nil {
 		return result.Error
 	}
 
-	_, ok := s.sourceIndexers[sourceId]
-	if ok {
-		return errors.New("service already running")
-	}
-
-	s.logger.Info().Msg("starting source id " + fmt.Sprint(source.ID))
-	s.sourceIndexers[source.ID] = NewExporterService(s.db, s.bus, s.metrics, source)
-
-	serviceToken := s.supervisor.Add(s.sourceIndexers[source.ID])
-	s.sourceIdToServiceId[source.ID] = serviceToken
-
-	source.Status = string(evmi_database.StoppedLogSourceStatus)
-	result = s.db.Conn.Save(&source)
-	if result.Error != nil {
-		return result.Error
-	}
-
+	s.startExporter(exp)
 	return nil
 }
 
-func (s *ExporterService) DisableSource(sourceId uint) error {
-
-	var source evmi_database.EvmLogSource
-	result := s.db.Conn.First(&source, sourceId)
-	if result.Error != nil {
+func (s *ExporterServiceManager) DisableExporter(exporterId uint) error {
+	var exp evmi_database.EvmiExporter
+	if result := s.db.Conn.First(&exp, exporterId); result.Error != nil {
 		return result.Error
 	}
 
-	source.Enabled = false
-	result = s.db.Conn.Save(&source)
-	if result.Error != nil {
-		return result.Error
-	}
-
-	_, ok := s.sourceIndexers[sourceId]
+	token, ok := s.exporterIdToServiceId[exporterId]
 	if !ok {
-		return errors.New("service already stoped")
+		return errors.New("exporter already stopped")
 	}
 
-	s.logger.Info().Msg("disable source id " + fmt.Sprint(source.ID))
-	s.supervisor.RemoveAndWait(s.sourceIdToServiceId[source.ID], time.Minute)
-
-	source.Status = "STOPPED"
-	result = s.db.Conn.Save(&source)
-	if result.Error != nil {
+	exp.Enabled = false
+	if result := s.db.Conn.Save(&exp); result.Error != nil {
 		return result.Error
 	}
 
-	delete(s.sourceIdToServiceId, source.ID)
-	return nil
-}
+	s.logger.Info().Msg("disabling exporter id " + fmt.Sprint(exp.ID))
+	s.supervisor.RemoveAndWait(token, time.Minute)
 
-func NewExporterServiceManager(
-	instanceId string,
-	db *evmi_database.EvmiDatabase,
-	bus *bus.Bus,
-	metrics *metrics.MetricService,
-	logger zerolog.Logger,
-) *ExporterServiceManager {
-
-	/**
-	* start supervizor
-	 */
-	supervisor := suture.NewSimple("Indexation service supervisor")
-
-	return &ExporterServiceManager{
-		instanceId: instanceId,
-		db:         db,
-		bus:        bus,
-		metrics:    metrics,
-		supervisor: supervisor,
-		logger:     logger,
+	exp.Status = string(evmi_database.StoppedExporterStatus)
+	if result := s.db.Conn.Save(&exp); result.Error != nil {
+		return result.Error
 	}
+
+	delete(s.exporterIdToServiceId, exp.ID)
+	delete(s.exporterServices, exp.ID)
+	return nil
 }

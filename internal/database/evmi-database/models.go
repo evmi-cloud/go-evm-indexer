@@ -25,6 +25,14 @@ const (
 	StoppedLogSourceStatus     LogSourceStatus = "STOPPED"
 )
 
+type ExporterStatus string
+
+const (
+	RunningExporterStatus ExporterStatus = "RUNNING"
+	StoppedExporterStatus ExporterStatus = "STOPPED"
+	FailedExporterStatus  ExporterStatus = "FAILED"
+)
+
 type EvmiInstance struct {
 	gorm.Model
 
@@ -112,10 +120,29 @@ type EvmiExporter struct {
 
 	EvmLogPipelineID uint
 
+	// Enabled controls whether the manager starts this exporter.
+	Enabled bool
+	// Status is one of ExporterStatus.
+	Status string
+
+	// StartBlock is the first block the exporter should process.
+	StartBlock uint64
+	// SyncBlock is the last fully-completed block (every log of blocks <=
+	// SyncBlock has been delivered to the plugin). SyncLogIndex is the last
+	// log_index delivered within the in-progress block (SyncBlock+1), or -1 when
+	// none of it has been processed yet. Together they pin the exact last log the
+	// exporter executed, so a restart resumes mid-block instead of replaying it.
+	SyncBlock    uint64
+	SyncLogIndex int64 `gorm:"default:-1"`
+
+	// Plugin source. If PluginLocalPath points at a prebuilt ".so" it is loaded
+	// directly. Otherwise the server builds a plugin from source: it clones
+	// PluginGithubUrl (when set) or uses PluginLocalPath as the module root, and
+	// builds the package at PluginRelativePath.
 	PluginConfig       datatypes.JSON
 	PluginGithubUrl    string
 	PluginRelativePath string
+	PluginLocalPath    string
 
-	Status          string
 	ChainSyncStatus datatypes.JSON
 }

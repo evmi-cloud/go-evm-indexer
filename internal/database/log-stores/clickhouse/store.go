@@ -217,6 +217,56 @@ func (db *ClickHouseStore) GetLogs(sourceId uint64, fromBlock uint64, toBlock ui
 	return logs, nil
 }
 
+func (db *ClickHouseStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64, afterLogIndex uint64, toBlock uint64) ([]types.EvmLog, error) {
+
+	if len(sourceIds) == 0 {
+		return []types.EvmLog{}, nil
+	}
+
+	ids := make([]string, len(sourceIds))
+	for i, id := range sourceIds {
+		ids[i] = fmt.Sprint(id)
+	}
+	inClause := strings.Join(ids, ",")
+
+	var results []ClickHouseEvmLog
+	query := fmt.Sprintf(
+		"SELECT * FROM %s WHERE source_id IN (%s) AND block_number <= %d AND (block_number > %d OR (block_number = %d AND log_index > %d)) ORDER BY block_number, log_index",
+		db.logTableName, inClause, toBlock, afterBlock, afterBlock, afterLogIndex,
+	)
+	if err := db.store.Select(context.Background(), &results, query); err != nil {
+		return []types.EvmLog{}, err
+	}
+
+	logs := []types.EvmLog{}
+	for _, log := range results {
+		logs = append(logs, types.EvmLog{
+			Id:               log.Id,
+			SourceId:         log.SourceId,
+			ChainId:          uint64(log.ChainID),
+			Address:          log.Address,
+			Topics:           log.Topics,
+			Data:             log.Data,
+			BlockNumber:      log.BlockNumber,
+			TransactionFrom:  log.TransactionFrom,
+			TransactionHash:  log.TransactionHash,
+			TransactionIndex: log.TransactionIndex,
+			BlockHash:        log.BlockHash,
+			LogIndex:         log.LogIndex,
+			Removed:          log.Removed,
+
+			Metadata: types.EvmMetadata{
+				ContractName: log.Metadata.ContractName,
+				EventName:    log.Metadata.EventName,
+				FunctionName: log.Metadata.FunctionName,
+				Data:         log.Metadata.Data,
+			},
+		})
+	}
+
+	return logs, nil
+}
+
 func (db *ClickHouseStore) GetLogStream(sourceId uint64, fromBlock uint64, toBlock uint64, stream chan types.EvmLog) error {
 
 	rows, err := db.store.Query(context.Background(), fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock))
