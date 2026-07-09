@@ -2,11 +2,74 @@ package evmi_database
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/lib/pq"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+type UserRole string
+
+const (
+	RoleAdmin UserRole = "admin"
+	RoleUser  UserRole = "user"
+)
+
+type AccessTokenKind string
+
+const (
+	// APITokenKind is a long-lived token a user creates as an API key.
+	APITokenKind AccessTokenKind = "api"
+	// SessionTokenKind is a shorter-lived token issued by password/OAuth login.
+	SessionTokenKind AccessTokenKind = "session"
+)
+
+// User is an authenticated principal. Password users have a PasswordHash; OAuth
+// users have an OAuthSubject and no password.
+type User struct {
+	gorm.Model
+
+	Username     string `gorm:"uniqueIndex"`
+	Email        string
+	PasswordHash string
+	Role         string
+	OAuthSubject string `gorm:"index"`
+}
+
+// AccessToken is an opaque bearer token. Only its SHA-256 hash is stored; the
+// plaintext is shown once at creation.
+type AccessToken struct {
+	gorm.Model
+
+	UserID uint `gorm:"index"`
+	Name   string
+	Kind   string
+
+	TokenHash  string `gorm:"uniqueIndex"`
+	ExpiresAt  *time.Time
+	LastUsedAt *time.Time
+}
+
+// OAuthConfig is a singleton row holding the admin-configured OAuth2/OIDC
+// provider used for login.
+type OAuthConfig struct {
+	gorm.Model
+
+	Enabled      bool
+	Provider     string
+	ClientID     string
+	ClientSecret string
+	AuthURL      string
+	TokenURL     string
+	UserInfoURL  string
+	RedirectURL  string
+	// Scopes is a space-separated list.
+	Scopes string
+	// StateSecret is an auto-generated HMAC key for signing the OAuth state
+	// parameter (stateless CSRF protection). Never returned to clients.
+	StateSecret string
+}
 
 type LogSourceType string
 

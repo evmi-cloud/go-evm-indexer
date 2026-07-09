@@ -3,12 +3,14 @@ package grpc
 import (
 	"net/http"
 
+	"connectrpc.com/connect"
 	"github.com/mustafaturan/bus/v3"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"github.com/evmi-cloud/go-evm-indexer/internal/auth"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1/evm_indexerv1connect"
 )
@@ -16,6 +18,7 @@ import (
 type EvmIndexerServer struct {
 	db     *evmi_database.EvmiDatabase
 	bus    *bus.Bus
+	auth   *auth.Authenticator
 	logger zerolog.Logger
 }
 
@@ -24,16 +27,30 @@ func StartGrpcServer(
 	bus *bus.Bus,
 	logger zerolog.Logger,
 ) {
+	authenticator := auth.NewAuthenticator(db)
+
 	indexer := &EvmIndexerServer{
 		db:     db,
 		bus:    bus,
+		auth:   authenticator,
 		logger: logger,
 	}
 
 	mux := http.NewServeMux()
 
-	path, handler := evm_indexerv1connect.NewEvmIndexerServiceHandler(indexer)
+	// Every Connect RPC requires a valid bearer token, except the public auth
+	// bootstrap procedures (login and obtaining the OAuth login URL).
+	path, handler := evm_indexerv1connect.NewEvmIndexerServiceHandler(
+		indexer,
+		connect.WithInterceptors(authenticator.Interceptor(
+			evm_indexerv1connect.EvmIndexerServiceLoginProcedure,
+			evm_indexerv1connect.EvmIndexerServiceGetOAuthLoginUrlProcedure,
+		)),
+	)
 	mux.Handle(path, handler)
+
+	// Only the OAuth callback (a browser redirect target) stays on HTTP.
+	auth.RegisterRoutes(mux, authenticator, logger)
 
 	//TODO: handle multiple TLS configurations
 	corsHandler := cors.AllowAll().Handler(mux)

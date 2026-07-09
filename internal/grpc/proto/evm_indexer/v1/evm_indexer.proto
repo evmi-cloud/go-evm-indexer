@@ -354,6 +354,94 @@ message ListEvmTransactionsResponse {
   repeated EvmTransaction transactions = 1;
 }
 
+// Auth
+message AuthUser {
+  uint32 id = 1;
+  string username = 2;
+  string email = 3;
+  string role = 4;
+}
+
+message AccessTokenInfo {
+  uint32 id = 1;
+  string name = 2;
+  optional int64 created_at = 3;
+  optional int64 expires_at = 4;
+  optional int64 last_used_at = 5;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+message LoginResponse {
+  string token = 1;
+  optional int64 expires_at = 2;
+}
+
+message MeRequest {}
+message MeResponse {
+  AuthUser user = 1;
+}
+
+message CreateAccessTokenRequest {
+  string name = 1;
+  uint32 expires_in_days = 2;
+}
+message CreateAccessTokenResponse {
+  uint32 id = 1;
+  string name = 2;
+  string token = 3;
+  optional int64 expires_at = 4;
+}
+
+message ListAccessTokensRequest {}
+message ListAccessTokensResponse {
+  repeated AccessTokenInfo tokens = 1;
+}
+
+message RevokeAccessTokenRequest {
+  uint32 id = 1;
+}
+message RevokeAccessTokenResponse {}
+
+message OAuthConfigMessage {
+  bool enabled = 1;
+  string provider = 2;
+  string client_id = 3;
+  string auth_url = 4;
+  string token_url = 5;
+  string user_info_url = 6;
+  string redirect_url = 7;
+  string scopes = 8;
+}
+
+message GetOAuthConfigRequest {}
+message GetOAuthConfigResponse {
+  OAuthConfigMessage config = 1;
+}
+
+message UpdateOAuthConfigRequest {
+  bool enabled = 1;
+  string provider = 2;
+  string client_id = 3;
+  // client_secret is write-only; send empty to keep the stored value.
+  string client_secret = 4;
+  string auth_url = 5;
+  string token_url = 6;
+  string user_info_url = 7;
+  string redirect_url = 8;
+  string scopes = 9;
+}
+message UpdateOAuthConfigResponse {
+  OAuthConfigMessage config = 1;
+}
+
+message GetOAuthLoginUrlRequest {}
+message GetOAuthLoginUrlResponse {
+  string url = 1;
+}
+
 
 service EvmIndexerService {
   // EvmiInstance
@@ -403,4 +491,14 @@ service EvmIndexerService {
 
   // EvmTransaction
   rpc ListEvmTransactions(ListEvmTransactionsRequest) returns (ListEvmTransactionsResponse);
+
+  // Auth (Login and GetOAuthLoginUrl are public; all others require a token)
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetOAuthLoginUrl(GetOAuthLoginUrlRequest) returns (GetOAuthLoginUrlResponse);
+  rpc Me(MeRequest) returns (MeResponse);
+  rpc CreateAccessToken(CreateAccessTokenRequest) returns (CreateAccessTokenResponse);
+  rpc ListAccessTokens(ListAccessTokensRequest) returns (ListAccessTokensResponse);
+  rpc RevokeAccessToken(RevokeAccessTokenRequest) returns (RevokeAccessTokenResponse);
+  rpc GetOAuthConfig(GetOAuthConfigRequest) returns (GetOAuthConfigResponse);
+  rpc UpdateOAuthConfig(UpdateOAuthConfigRequest) returns (UpdateOAuthConfigResponse);
 }

@@ -112,6 +112,11 @@ A gRPC/Connect API (`EvmIndexerService`) is served on `:8080` (HTTP/2 cleartext,
 topology — blockchains, ABIs, stores, pipelines, and sources — is created and managed here,
 including starting and stopping individual source indexers at runtime.
 
+Every RPC requires a bearer token except the public `Login` and `GetOAuthLoginUrl` RPCs. Call
+`Login` to obtain a token; a default `admin`/`admin` user is seeded on first startup (change it
+immediately). Users can mint long-lived API keys and admins can configure OAuth2/OIDC login —
+see [AUTH.md](AUTH.md).
+
 ### Metrics
 
 When enabled, Prometheus metrics are exposed on the configured `metrics.port` and

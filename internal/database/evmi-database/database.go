@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -108,5 +109,42 @@ func LoadDatabase(dbType DatabaseType, config map[string]string, logger zerolog.
 		return nil, err
 	}
 
+	err = db.AutoMigrate(&User{}, &AccessToken{}, &OAuthConfig{})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := seedDefaultAdmin(db, logger); err != nil {
+		return nil, err
+	}
+
 	return &EvmiDatabase{Conn: db}, nil
+}
+
+// seedDefaultAdmin creates an initial admin/admin user when no users exist yet.
+func seedDefaultAdmin(db *gorm.DB, logger zerolog.Logger) error {
+	var count int64
+	if err := db.Model(&User{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	admin := User{
+		Username:     "admin",
+		PasswordHash: string(hash),
+		Role:         string(RoleAdmin),
+	}
+	if err := db.Create(&admin).Error; err != nil {
+		return err
+	}
+
+	logger.Warn().Msg("created default admin user (admin/admin) — change the password immediately")
+	return nil
 }

@@ -85,6 +85,23 @@ plane and the indexing workers.
 instance). Handlers are mostly CRUD over the metadata DB; source start/stop handlers emit bus
 events rather than mutating workers directly. Generated code under
 `internal/grpc/generated/` is checked in — regenerate with `buf generate`, don't hand-edit.
+**Caveat:** the committed generated code was produced with `protoc-gen-go v1.35.1`; if the
+locally-installed generator differs, `buf generate` rewrites the whole file with the other
+version (verify `protoc-gen-go --version` before regenerating).
+
+**Auth** (`internal/auth`): bearer-token authentication over the API. Every Connect RPC is
+gated by `Authenticator.Interceptor(publicProcedures...)` (wired in `server.go`), which
+validates an `Authorization: Bearer <token>` header and injects the `*User` into context
+(`auth.UserFromContext`) — except the public procedures `Login` and `GetOAuthLoginUrl`, passed
+by their generated procedure constants. Tokens are opaque, SHA-256-hashed in the DB
+(`AccessToken`); passwords are bcrypt (`User`). Auth *operations* are Connect RPCs implemented
+in `internal/grpc/auth-handlers.go` (Login, Me, CreateAccessToken/List/Revoke, Get/Update
+OAuthConfig, GetOAuthLoginUrl) delegating to the `Authenticator`. The **only** HTTP endpoint is
+`GET /auth/oauth/callback` (`auth.RegisterRoutes`) — a browser redirect target that can't be an
+RPC; OAuth CSRF uses a stateless HMAC-signed `state` (secret in `OAuthConfig.StateSecret`), not
+a cookie. A default `admin`/`admin` user is seeded by `LoadDatabase` when the users table is
+empty. Full surface + flows in `AUTH.md`. Note: auth RPCs live in the shared proto, so
+regenerating requires `protoc-gen-go v1.35.1` (see the codegen caveat above).
 
 **Exporters** (`internal/exporter`, `pkg/exporter`): the plugin subsystem. Mirrors the
 indexer's manager/supervisor shape — `ExporterServiceManager` starts one `ExporterService`
