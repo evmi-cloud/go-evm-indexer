@@ -15,6 +15,12 @@ func (store *IndexerStore) GetStorage() EvmIndexerStorage {
 	return store.storage
 }
 
+// NewIndexerStore wraps an existing storage backend. Useful for tests that inject
+// a fake EvmIndexerStorage without going through LoadStore.
+func NewIndexerStore(storage EvmIndexerStorage) *IndexerStore {
+	return &IndexerStore{storage: storage}
+}
+
 func LoadStore(storeType string, config map[string]string, logger zerolog.Logger) (*IndexerStore, error) {
 	if storeType == "clickhouse" {
 

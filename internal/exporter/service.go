@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
@@ -25,6 +26,11 @@ type ExporterServiceManager struct {
 	supervisor *suture.Supervisor
 	metrics    *metrics.MetricService
 
+	// mu guards the service maps. bus.Emit dispatches handlers synchronously in
+	// the caller's goroutine, so concurrent enable/disable events would otherwise
+	// race the maps and could start two services for the same exporter — which
+	// would break the one-serial-runner-per-exporter (in-order) guarantee.
+	mu                    sync.Mutex
 	exporterIdToServiceId map[uint]suture.ServiceToken
 	exporterServices      map[uint]*ExporterService
 
@@ -70,6 +76,9 @@ func (s *ExporterServiceManager) Start() error {
 
 	s.logger.Info().Msg("exporter manager instanceId: " + s.instanceId)
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, pipeline := range pipelines {
 		var exporters []evmi_database.EvmiExporter
 		result := s.db.Conn.Model(&evmi_database.EvmiExporter{}).Where("evm_log_pipeline_id = ?", pipeline.ID).Find(&exporters)
@@ -110,7 +119,12 @@ func (s *ExporterServiceManager) Start() error {
 	return nil
 }
 
+// startExporter registers and supervises a service for exp. The caller MUST hold
+// s.mu; this keeps the "exactly one service per exporter" invariant atomic.
 func (s *ExporterServiceManager) startExporter(exp evmi_database.EvmiExporter) {
+	if _, ok := s.exporterServices[exp.ID]; ok {
+		return
+	}
 	s.logger.Info().Msg("starting exporter id " + fmt.Sprint(exp.ID))
 	service := NewExporterService(s.db, s.metrics, exp)
 	s.exporterServices[exp.ID] = service
@@ -118,6 +132,9 @@ func (s *ExporterServiceManager) startExporter(exp evmi_database.EvmiExporter) {
 }
 
 func (s *ExporterServiceManager) EnableExporter(exporterId uint) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var exp evmi_database.EvmiExporter
 	if result := s.db.Conn.First(&exp, exporterId); result.Error != nil {
 		return result.Error
@@ -137,6 +154,9 @@ func (s *ExporterServiceManager) EnableExporter(exporterId uint) error {
 }
 
 func (s *ExporterServiceManager) DisableExporter(exporterId uint) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var exp evmi_database.EvmiExporter
 	if result := s.db.Conn.First(&exp, exporterId); result.Error != nil {
 		return result.Error

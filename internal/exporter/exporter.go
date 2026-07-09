@@ -181,43 +181,56 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 			toBlock = head
 		}
 
-		afterBlock, afterIndex := cursorBound(completedBlock, lastLogIndex)
-		logs, err := p.store.GetStorage().GetLogsAfter(sourceIds, afterBlock, afterIndex, toBlock)
+		completedBlock, lastLogIndex, err = p.exportRange(sourceIds, completedBlock, lastLogIndex, toBlock)
 		if err != nil {
-			p.fail(err)
-			return err
-		}
-
-		// Deliver logs in order, persisting the exact cursor after each log.
-		// Delivery is at-least-once: a failure leaves the cursor at the last
-		// successfully delivered log, so the failing one is replayed on restart.
-		for _, l := range logs {
-			if err := p.plugin.NewLogEvent(toLogEvent(l)); err != nil {
-				p.fail(err)
-				return err
-			}
-			// A delivered log at (B, I) means every block < B is complete and
-			// block B is in progress at index I.
-			completedBlock = blockBefore(l.BlockNumber)
-			lastLogIndex = int64(l.LogIndex)
-			if err := p.persistCursor(completedBlock, lastLogIndex); err != nil {
-				return err
-			}
-		}
-
-		// The whole range up to toBlock has now been scanned: toBlock is complete
-		// (including any empty tail) and there is no in-progress block.
-		completedBlock = toBlock
-		lastLogIndex = -1
-		if err := p.persistCursor(completedBlock, lastLogIndex); err != nil {
 			return err
 		}
 
 		p.metrics.LatestBlockIndexedMetricsSet(p.exporter.Name, "exporter", p.chain.ChainId, toBlock)
 		p.logger.Info().Fields(map[string]interface{}{
-			"exporter": p.exporter.Name, "toBlock": toBlock, "logs": len(logs),
+			"exporter": p.exporter.Name, "toBlock": toBlock,
 		}).Msg("exported block range")
 	}
+}
+
+// exportRange fetches the logs strictly after (completedBlock, lastLogIndex) up to
+// toBlock and delivers them to the plugin one at a time, in (block, log_index)
+// order, persisting the cursor after each log. It returns the advanced cursor.
+//
+// Delivery is strictly sequential: logs are handed to NewLogEvent one by one in a
+// plain loop, and a failure returns immediately with the cursor at the last
+// successfully delivered log, so the failing log is replayed on restart
+// (at-least-once). It never delivers logs concurrently or out of order.
+func (p *ExporterService) exportRange(sourceIds []uint64, completedBlock uint64, lastLogIndex int64, toBlock uint64) (uint64, int64, error) {
+	afterBlock, afterIndex := cursorBound(completedBlock, lastLogIndex)
+	logs, err := p.store.GetStorage().GetLogsAfter(sourceIds, afterBlock, afterIndex, toBlock)
+	if err != nil {
+		p.fail(err)
+		return completedBlock, lastLogIndex, err
+	}
+
+	for _, l := range logs {
+		if err := p.plugin.NewLogEvent(toLogEvent(l)); err != nil {
+			p.fail(err)
+			return completedBlock, lastLogIndex, err
+		}
+		// A delivered log at (B, I) means every block < B is complete and block B
+		// is in progress at index I.
+		completedBlock = blockBefore(l.BlockNumber)
+		lastLogIndex = int64(l.LogIndex)
+		if err := p.persistCursor(completedBlock, lastLogIndex); err != nil {
+			return completedBlock, lastLogIndex, err
+		}
+	}
+
+	// The whole range up to toBlock has now been scanned: toBlock is complete
+	// (including any empty tail) and there is no in-progress block.
+	completedBlock = toBlock
+	lastLogIndex = -1
+	if err := p.persistCursor(completedBlock, lastLogIndex); err != nil {
+		return completedBlock, lastLogIndex, err
+	}
+	return completedBlock, lastLogIndex, nil
 }
 
 // blockBefore returns b-1, guarding the genesis edge (block 0 with logs is not
