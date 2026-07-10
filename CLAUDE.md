@@ -71,8 +71,17 @@ Source **types** (`LogSourceType` in `models.go`) select the poll strategy in `S
 - `TOPIC` → `serveTopicIndexation` (filter by topic0 + optional topic filters)
 - `FULL` → `serveFullIndexation` (all logs, no ABI decode)
 
-`FACTORY` additionally watches for a creation event and emits `logs.newFactoryItem` to spawn
-a child `CONTRACT` source for each newly deployed contract.
+`FACTORY` additionally watches for a creation event (matched by `EventName` against the
+source's `FactoryCreationFunctionName`), reads the new contract address from the decoded event
+args, and calls `SourceIndexerService.registerFactoryChild` **inline, before the cursor
+advances**. That method **creates a new enabled `CONTRACT` child source** (uniqueness is per
+`(ParentSourceID, Address)`, so re-seeing the same deployment is a no-op) and starts it
+best-effort by emitting `source.enable`. If child creation fails it returns the error, which
+propagates out of `serve*Indexation` → `Serve`; suture then restarts the range (SyncBlock was
+not advanced) so the factory blocks and retries rather than skipping the deployment. The child
+is created enabled, so it also starts on the next manager boot even if the enable emit was
+missed. The manager's service maps are mutex-guarded since enable/disable and startup can fire
+concurrently.
 
 ABI decoding lives in `SourceIndexerService.GetLogMetadata`: it matches `log.Topics[0]`
 against the ABI's events and unpacks indexed topics + data into a `map[string]string`. It

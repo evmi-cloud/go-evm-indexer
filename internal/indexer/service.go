@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
@@ -22,6 +23,9 @@ type IndexerService struct {
 	supervisor *suture.Supervisor
 	metrics    *metrics.MetricService
 
+	// mu guards the service maps; bus handlers (source enable/disable, factory
+	// discovery) can fire concurrently from different indexer goroutines.
+	mu                  sync.Mutex
 	sourceIdToServiceId map[uint]suture.ServiceToken
 	sourceIndexers      map[uint]*SourceIndexerService
 
@@ -29,9 +33,6 @@ type IndexerService struct {
 }
 
 func (s *IndexerService) Start() error {
-
-	s.sourceIndexers = make(map[uint]*SourceIndexerService)
-	s.sourceIdToServiceId = make(map[uint]suture.ServiceToken)
 
 	var evmInstance evmi_database.EvmiInstance
 	result := s.db.Conn.Model(&evmi_database.EvmiInstance{}).Where("instance_id = ?", s.instanceId).First(&evmInstance)
@@ -57,13 +58,8 @@ func (s *IndexerService) Start() error {
 		}
 
 		for _, source := range sources {
-			s.logger.Info().Msg("check if enabled on source id " + fmt.Sprint(source.ID))
 			if source.Enabled {
-				s.logger.Info().Msg("starting source id " + fmt.Sprint(source.ID))
-				s.sourceIndexers[source.ID] = NewSourceIndexerService(s.db, s.bus, s.metrics, source)
-
-				serviceToken := s.supervisor.Add(s.sourceIndexers[source.ID])
-				s.sourceIdToServiceId[source.ID] = serviceToken
+				s.startSource(source)
 			}
 		}
 	}
@@ -90,6 +86,20 @@ func (s *IndexerService) Start() error {
 	return nil
 }
 
+// startSource registers and supervises an indexer for source. Caller need not
+// hold the lock; this takes it and dedupes so a source is started at most once.
+func (s *IndexerService) startSource(source evmi_database.EvmLogSource) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.sourceIndexers[source.ID]; ok {
+		return
+	}
+	s.logger.Info().Msg("starting source id " + fmt.Sprint(source.ID))
+	service := NewSourceIndexerService(s.db, s.bus, s.metrics, source)
+	s.sourceIndexers[source.ID] = service
+	s.sourceIdToServiceId[source.ID] = s.supervisor.Add(service)
+}
+
 func (s *IndexerService) EnableSource(sourceId uint) error {
 
 	var source evmi_database.EvmLogSource
@@ -99,29 +109,13 @@ func (s *IndexerService) EnableSource(sourceId uint) error {
 	}
 
 	source.Enabled = true
-
-	result = s.db.Conn.Save(&source)
-	if result.Error != nil {
-		return result.Error
-	}
-
-	_, ok := s.sourceIndexers[sourceId]
-	if ok {
-		return errors.New("service already running")
-	}
-
-	s.logger.Info().Msg("starting source id " + fmt.Sprint(source.ID))
-	s.sourceIndexers[source.ID] = NewSourceIndexerService(s.db, s.bus, s.metrics, source)
-
-	serviceToken := s.supervisor.Add(s.sourceIndexers[source.ID])
-	s.sourceIdToServiceId[source.ID] = serviceToken
-
 	source.Status = string(evmi_database.StoppedLogSourceStatus)
 	result = s.db.Conn.Save(&source)
 	if result.Error != nil {
 		return result.Error
 	}
 
+	s.startSource(source)
 	return nil
 }
 
@@ -139,21 +133,24 @@ func (s *IndexerService) DisableSource(sourceId uint) error {
 		return result.Error
 	}
 
-	_, ok := s.sourceIndexers[sourceId]
+	s.mu.Lock()
+	token, ok := s.sourceIdToServiceId[sourceId]
+	if ok {
+		delete(s.sourceIdToServiceId, sourceId)
+		delete(s.sourceIndexers, sourceId)
+	}
+	s.mu.Unlock()
 	if !ok {
-		return errors.New("service already stoped")
+		return errors.New("service already stopped")
 	}
 
 	s.logger.Info().Msg("disable source id " + fmt.Sprint(source.ID))
-	s.supervisor.RemoveAndWait(s.sourceIdToServiceId[source.ID], time.Minute)
+	s.supervisor.RemoveAndWait(token, time.Minute)
 
 	source.Status = "STOPPED"
-	result = s.db.Conn.Save(&source)
-	if result.Error != nil {
+	if result := s.db.Conn.Save(&source); result.Error != nil {
 		return result.Error
 	}
-
-	delete(s.sourceIdToServiceId, source.ID)
 	return nil
 }
 
@@ -171,11 +168,13 @@ func NewIndexerService(
 	supervisor := suture.NewSimple("Indexation service supervisor")
 
 	return &IndexerService{
-		instanceId: instanceId,
-		db:         db,
-		bus:        bus,
-		metrics:    metrics,
-		supervisor: supervisor,
-		logger:     logger,
+		instanceId:          instanceId,
+		db:                  db,
+		bus:                 bus,
+		metrics:             metrics,
+		supervisor:          supervisor,
+		sourceIndexers:      make(map[uint]*SourceIndexerService),
+		sourceIdToServiceId: make(map[uint]suture.ServiceToken),
+		logger:              logger,
 	}
 }

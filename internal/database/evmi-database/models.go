@@ -208,6 +208,11 @@ type EvmLogSource struct {
 	FactoryCreationFunctionName  sql.NullString
 	FactoryCreationAddressLogArg sql.NullString
 
+	// ParentSourceID is the FACTORY source that dynamically created this source
+	// (0 for manually-created sources). A factory child is unique per
+	// (ParentSourceID, Address).
+	ParentSourceID uint `gorm:"index"`
+
 	EvmLogPipelineID uint
 	EvmJsonAbiID     uint
 	EvmBlockchainID  uint

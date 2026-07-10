@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -68,6 +69,46 @@ func NewSourceIndexerService(
 		running: false,
 		ended:   true,
 	}
+}
+
+// registerFactoryChild creates a CONTRACT source for a contract newly deployed
+// by this FACTORY source. Uniqueness is per (factory source id, child address):
+// re-seeing the same deployment is a no-op. It returns an error on DB failure so
+// the caller can block the factory cursor and let the supervisor retry the range
+// (the child is created enabled and started best-effort via the enable topic,
+// which is idempotent and also picked up on restart).
+func (p *SourceIndexerService) registerFactoryChild(address string, startBlock uint64) error {
+	var existing int64
+	if err := p.db.Conn.Model(&evmi_database.EvmLogSource{}).
+		Where("parent_source_id = ? AND address = ?", p.source.ID, address).
+		Count(&existing).Error; err != nil {
+		return err
+	}
+	if existing > 0 {
+		return nil
+	}
+
+	child := evmi_database.EvmLogSource{
+		Enabled:          true,
+		Status:           string(evmi_database.StoppedLogSourceStatus),
+		Type:             string(evmi_database.ContractLogSourceType),
+		StartBlock:       startBlock,
+		SyncBlock:        startBlock,
+		Address:          sql.NullString{String: address, Valid: true},
+		ParentSourceID:   p.source.ID,
+		EvmLogPipelineID: p.pipeline.ID,
+		EvmJsonAbiID:     uint(p.source.FactoryChildEvmJsonABI.Int32),
+		EvmBlockchainID:  p.source.EvmBlockchainID,
+	}
+	if err := p.db.Conn.Create(&child).Error; err != nil {
+		return err
+	}
+
+	p.logger.Info().Msg("registered factory child source id " + fmt.Sprint(child.ID) + " for " + address)
+	// Best-effort start; the manager creates+supervises the indexer. On failure the
+	// child stays enabled in DB and is started on the next manager boot.
+	p.bus.Emit(context.Background(), internal_bus.EnableSourceTopic, child.ID)
+	return nil
 }
 
 func (p *SourceIndexerService) Serve(ctx context.Context) error {
@@ -451,7 +492,7 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 					//If factory mode, check if there is new contract trigger
 					if p.source.Type == string(evmi_database.FactoryLogSourceType) {
 						for _, log := range dbLogs {
-							if log.Metadata.FunctionName == p.source.FactoryCreationFunctionName.String {
+							if log.Metadata.EventName == p.source.FactoryCreationFunctionName.String {
 								newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
 								if !ok {
 									logParams := map[string]interface{}{
@@ -464,15 +505,12 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 									continue
 								}
 
-								event := ContractFromFactory{
-									Type:             evmi_database.ContractLogSourceType,
-									StartBlock:       log.BlockNumber,
-									Address:          newContractAddress,
-									EvmLogPipelineID: p.pipeline.ID,
-									EvmJsonAbiID:     uint(p.source.FactoryChildEvmJsonABI.Int32),
+								// A failure here must NOT advance the cursor: return the error so the
+								// supervisor retries this range and re-attempts registration.
+								if err := p.registerFactoryChild(newContractAddress, log.BlockNumber); err != nil {
+									p.logger.Error().Msg("factory child registration failed: " + err.Error())
+									return err
 								}
-
-								p.bus.Emit(context.Background(), "logs.newFactoryItem", event)
 							}
 						}
 					}
@@ -617,7 +655,7 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 					//If factory mode, check if there is new contract trigger
 					if p.source.Type == string(evmi_database.FactoryLogSourceType) {
 						for _, log := range dbLogs {
-							if log.Metadata.FunctionName == p.source.FactoryCreationFunctionName.String {
+							if log.Metadata.EventName == p.source.FactoryCreationFunctionName.String {
 								newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
 								if !ok {
 									logParams := map[string]interface{}{
@@ -630,15 +668,12 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 									continue
 								}
 
-								event := ContractFromFactory{
-									Type:             evmi_database.ContractLogSourceType,
-									StartBlock:       log.BlockNumber,
-									Address:          newContractAddress,
-									EvmLogPipelineID: p.pipeline.ID,
-									EvmJsonAbiID:     uint(p.source.FactoryChildEvmJsonABI.Int32),
+								// A failure here must NOT advance the cursor: return the error so the
+								// supervisor retries this range and re-attempts registration.
+								if err := p.registerFactoryChild(newContractAddress, log.BlockNumber); err != nil {
+									p.logger.Error().Msg("factory child registration failed: " + err.Error())
+									return err
 								}
-
-								p.bus.Emit(context.Background(), "logs.newFactoryItem", event)
 							}
 						}
 					}
