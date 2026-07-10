@@ -75,9 +75,20 @@ handles Solidity types via an explicit `reflect`-based type switch and **panics 
 unmapped type** — when adding support for a new argument type, extend that switch.
 
 **Event bus** (`internal/bus`): thin wrapper over `mustafaturan/bus/v3` with a monotonic ID
-generator. Topics are declared as constants in `bus.go` (`logs.new`, `source.enable`,
-`source.disable`, `signal.shutwown`). This is the decoupling seam between the gRPC control
-plane and the indexing workers.
+generator. Topics are declared as constants in `bus.go` (`logs.new`, `source.update`,
+`source.enable`, `source.disable`, `exporter.enable`/`disable`, `signal.shutwown`). This is the
+decoupling seam between the gRPC control plane and the indexing workers. `source.update` /
+`exporter.update` carry the updated `EvmLogSource` / `EvmiExporter` (emitted by
+`SourceIndexerService.emitSourceUpdate` and `ExporterService.emitUpdate` on every sync-block
+advance and status change) and are relayed to clients by the `StreamEvmLogSourceUpdates` /
+`StreamEvmiExporterUpdates` server-streaming RPCs (`stream-handlers.go`): each stream registers a
+bus handler for its lifetime, forwards events through a buffered channel (non-blocking send —
+drops if the client lags, since the next update supersedes it), and optionally filters by
+`pipeline_id`. The web UI consumes both (generic `stream` capability on a resource → the
+`ResourceManager` merges updates by id, with a **● live** badge). Note bus `Matcher` is a regex
+matched against topic names. **Because this added a streaming RPC, `Authenticator.Interceptor`
+now implements the full `connect.Interceptor` (WrapUnary + WrapStreamingHandler) so streams are
+authenticated too — a plain `UnaryInterceptorFunc` would leave streams open.**
 
 **gRPC/Connect API** (`internal/grpc`): one Connect service, `EvmIndexerService`, defined in
 `internal/grpc/proto/evm_indexer/v1/evm_indexer.proto` and implemented across

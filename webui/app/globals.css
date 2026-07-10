@@ -336,6 +336,18 @@ textarea {
   font-size: 13px;
 }
 
+.live {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ok);
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* Table */
 .table-wrap {
   border: 1px solid var(--border);

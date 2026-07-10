@@ -308,6 +308,11 @@ message DeleteEvmLogSourceRequest {
 message DeleteEvmLogSourceResponse {
 }
 
+message StreamEvmLogSourceUpdatesRequest {
+  // Optional: only stream updates for sources of this pipeline (0 = all).
+  uint32 pipeline_id = 1;
+}
+
 message StartSourceIndexerRequest {
   uint32 id = 1;
 }
@@ -552,6 +557,11 @@ message StopExporterResponse {
   string error = 2;
 }
 
+message StreamEvmiExporterUpdatesRequest {
+  // Optional: only stream updates for exporters of this pipeline (0 = all).
+  uint32 pipeline_id = 1;
+}
+
 
 service EvmIndexerService {
   // EvmiInstance
@@ -594,6 +604,8 @@ service EvmIndexerService {
   rpc UpdateEvmLogSource(UpdateEvmLogSourceRequest) returns (UpdateEvmLogSourceResponse);
   rpc ListEvmLogSources(ListEvmLogSourcesRequest) returns (ListEvmLogSourcesResponse);
   rpc DeleteEvmLogSource(DeleteEvmLogSourceRequest) returns (DeleteEvmLogSourceResponse);
+  // Server stream of live source updates (indexing progress, status changes).
+  rpc StreamEvmLogSourceUpdates(StreamEvmLogSourceUpdatesRequest) returns (stream EvmLogSource);
 
   // EvmLog
   rpc ListEvmLogs(ListEvmLogsRequest) returns (ListEvmLogsResponse);
@@ -620,6 +632,8 @@ service EvmIndexerService {
   rpc DeleteEvmiExporter(DeleteEvmiExporterRequest) returns (DeleteEvmiExporterResponse);
   rpc StartExporter(StartExporterRequest) returns (StartExporterResponse);
   rpc StopExporter(StopExporterRequest) returns (StopExporterResponse);
+  // Server stream of live exporter updates (sync progress, status changes).
+  rpc StreamEvmiExporterUpdates(StreamEvmiExporterUpdatesRequest) returns (stream EvmiExporter);
 
   // Plugin
   rpc CreatePlugin(CreatePluginRequest) returns (CreatePluginResponse);

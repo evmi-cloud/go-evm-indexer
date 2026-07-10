@@ -126,7 +126,7 @@ func (s *ExporterServiceManager) startExporter(exp evmi_database.EvmiExporter) {
 		return
 	}
 	s.logger.Info().Msg("starting exporter id " + fmt.Sprint(exp.ID))
-	service := NewExporterService(s.db, s.metrics, exp)
+	service := NewExporterService(s.db, s.bus, s.metrics, exp)
 	s.exporterServices[exp.ID] = service
 	s.exporterIdToServiceId[exp.ID] = s.supervisor.Add(service)
 }

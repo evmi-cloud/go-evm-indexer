@@ -1,5 +1,7 @@
 
 volumes:
+  postgres-data:
+    driver: local
   prometheus-data:
     driver: local
   grafana-data:
@@ -15,11 +17,30 @@ services:
     command: ['start', '-c', '/config.json']
     container_name: indexer
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - 8081:8080
     volumes:
       - ./docker/ambiant.config.json:/config.json
-      - ./datastore:/datastore
+
+  postgres:
+    container_name: postgres
+    image: postgres:16
+    environment:
+      POSTGRES_USER: evmi
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: evmi
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432/tcp"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evmi -d evmi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   clickhouse:
     container_name: clickhouse

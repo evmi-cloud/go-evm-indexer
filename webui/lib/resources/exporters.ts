@@ -49,6 +49,22 @@ export const exporters: Resource<EvmiExporter> = {
     { label: "Start", run: async (e) => void (await client.startExporter({ id: e.id ?? 0 })) },
     { label: "Stop", run: async (e) => void (await client.stopExporter({ id: e.id ?? 0 })) },
   ],
+  // Live sync progress / status via the server stream, with auto-reconnect.
+  stream: (onUpdate, signal) => {
+    void (async () => {
+      while (!signal.aborted) {
+        try {
+          for await (const exporter of client.streamEvmiExporterUpdates({ pipelineId: 0 }, { signal })) {
+            onUpdate(exporter);
+          }
+        } catch {
+          // disconnected; retry below unless aborted.
+        }
+        if (signal.aborted) return;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    })();
+  },
 };
 
 function exporterFromForm(v: Parameters<Resource<EvmiExporter>["create"]>[0]) {

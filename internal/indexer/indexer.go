@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
+	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	log_stores "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
@@ -131,6 +132,7 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 	if result.Error != nil {
 		return result.Error
 	}
+	p.emitSourceUpdate()
 
 	p.logger.Info().Fields(logParams).Msg("source updates")
 
@@ -159,6 +161,13 @@ func (p *SourceIndexerService) Stop() error {
 
 func (p *SourceIndexerService) IsEnded() bool {
 	return p.ended
+}
+
+// emitSourceUpdate broadcasts the source's current state (sync block, status, …)
+// on the bus so subscribers (e.g. the StreamEvmLogSourceUpdates gRPC stream) can
+// observe indexing progress live.
+func (p *SourceIndexerService) emitSourceUpdate() {
+	p.bus.Emit(context.Background(), internal_bus.SourceUpdateTopic, p.source)
 }
 
 func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadata {
@@ -484,6 +493,8 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 					return err
 				}
 
+				p.emitSourceUpdate()
+
 				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
 			}
 
@@ -648,6 +659,8 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 					return err
 				}
 
+				p.emitSourceUpdate()
+
 				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
 			}
 
@@ -779,6 +792,8 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 					p.logger.Error().Msg(err.Error())
 					return err
 				}
+
+				p.emitSourceUpdate()
 
 				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
 			}

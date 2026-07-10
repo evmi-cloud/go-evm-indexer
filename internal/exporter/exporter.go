@@ -6,11 +6,13 @@ import (
 	"os"
 	"time"
 
+	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	log_stores "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	pluginsdk "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
+	"github.com/mustafaturan/bus/v3"
 	"github.com/rs/zerolog"
 )
 
@@ -24,6 +26,7 @@ const defaultBlockBatch uint64 = 1000
 // sync cursor at block boundaries so it resumes cleanly after a restart.
 type ExporterService struct {
 	db      *evmi_database.EvmiDatabase
+	bus     *bus.Bus
 	metrics *metrics.MetricService
 
 	store  *log_stores.IndexerStore
@@ -42,6 +45,7 @@ type ExporterService struct {
 
 func NewExporterService(
 	db *evmi_database.EvmiDatabase,
+	bus *bus.Bus,
 	metrics *metrics.MetricService,
 	exporter evmi_database.EvmiExporter,
 ) *ExporterService {
@@ -52,11 +56,21 @@ func NewExporterService(
 
 	return &ExporterService{
 		db:       db,
+		bus:      bus,
 		metrics:  metrics,
 		exporter: exporter,
 		logger:   logger,
 		running:  false,
 		ended:    true,
+	}
+}
+
+// emitUpdate broadcasts the exporter's current state (sync cursor, status) on the
+// bus for the StreamEvmiExporterUpdates gRPC stream. Guarded so tests that
+// construct an ExporterService without a bus don't panic.
+func (p *ExporterService) emitUpdate() {
+	if p.bus != nil {
+		p.bus.Emit(context.Background(), internal_bus.ExporterUpdateTopic, p.exporter)
 	}
 }
 
@@ -122,6 +136,7 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 
 	p.exporter.Status = string(evmi_database.RunningExporterStatus)
 	p.db.Conn.Save(&p.exporter)
+	p.emitUpdate()
 
 	err = p.run(logParams)
 
@@ -162,6 +177,7 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 		if !p.running {
 			p.exporter.Status = string(evmi_database.StoppedExporterStatus)
 			p.db.Conn.Save(&p.exporter)
+			p.emitUpdate()
 			return nil
 		}
 
@@ -186,6 +202,7 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 			return err
 		}
 
+		p.emitUpdate()
 		p.metrics.LatestBlockIndexedMetricsSet(p.exporter.Name, "exporter", p.chain.ChainId, toBlock)
 		p.logger.Info().Fields(map[string]interface{}{
 			"exporter": p.exporter.Name, "toBlock": toBlock,
@@ -299,6 +316,7 @@ func (p *ExporterService) fail(err error) {
 	p.logger.Error().Str("exporter", p.exporter.Name).Msg(err.Error())
 	p.exporter.Status = string(evmi_database.FailedExporterStatus)
 	p.db.Conn.Save(&p.exporter)
+	p.emitUpdate()
 }
 
 func (p *ExporterService) Stop() error {

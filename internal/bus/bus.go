@@ -8,8 +8,10 @@ import (
 
 const (
 	NewLogTopic          string = "logs.new"
+	SourceUpdateTopic    string = "source.update"
 	EnableSourceTopic    string = "source.enable"
 	DisableSourceTopic   string = "source.disable"
+	ExporterUpdateTopic  string = "exporter.update"
 	EnableExporterTopic  string = "exporter.enable"
 	DisableExporterTopic string = "exporter.disable"
 	ShutdownSignalTopic  string = "signal.shutwown"
@@ -35,8 +37,10 @@ func InitializeBus() *bus.Bus {
 	}
 
 	b.RegisterTopics(NewLogTopic)
+	b.RegisterTopics(SourceUpdateTopic)
 	b.RegisterTopics(EnableSourceTopic)
 	b.RegisterTopics(DisableSourceTopic)
+	b.RegisterTopics(ExporterUpdateTopic)
 	b.RegisterTopics(EnableExporterTopic)
 	b.RegisterTopics(DisableExporterTopic)
 	b.RegisterTopics(ShutdownSignalTopic)

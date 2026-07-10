@@ -43,6 +43,23 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
     refresh();
   }, [refresh]);
 
+  // Live updates: merge streamed items into the list by id (append if new).
+  useEffect(() => {
+    if (!resource.stream) return;
+    const controller = new AbortController();
+    resource.stream((item) => {
+      setItems((prev) => {
+        const id = resource.idOf(item);
+        const idx = prev.findIndex((x) => resource.idOf(x) === id);
+        if (idx === -1) return [...prev, item];
+        const next = [...prev];
+        next[idx] = item;
+        return next;
+      });
+    }, controller.signal);
+    return () => controller.abort();
+  }, [resource]);
+
   async function openForm(item: T | null) {
     setFormError(null);
     setValues(item ? { ...defaults(resource.fields), ...resource.toForm(item) } : defaults(resource.fields));
@@ -123,6 +140,7 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
           <h2>
             {resource.title}
             {!loading && <span className="count">{items.length}</span>}
+            {resource.stream && <span className="live" title="Live updates">● live</span>}
           </h2>
         </div>
         <div className="row" style={{ gap: 8 }}>

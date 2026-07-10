@@ -68,6 +68,22 @@ export const sources: Resource<EvmLogSource> = {
     { label: "Start", run: async (s) => void (await client.startSourceIndexer({ id: s.id ?? 0 })) },
     { label: "Stop", run: async (s) => void (await client.stopSourceIndexer({ id: s.id ?? 0 })) },
   ],
+  // Live indexing progress via the server stream, with auto-reconnect.
+  stream: (onUpdate, signal) => {
+    void (async () => {
+      while (!signal.aborted) {
+        try {
+          for await (const source of client.streamEvmLogSourceUpdates({ pipelineId: 0 }, { signal })) {
+            onUpdate(source);
+          }
+        } catch {
+          // disconnected (server restart / network); retry below unless aborted.
+        }
+        if (signal.aborted) return;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    })();
+  },
 };
 
 function sourceFromForm(v: Parameters<Resource<EvmLogSource>["create"]>[0]) {

@@ -21,6 +21,10 @@ export type Tone = "ok" | "warn" | "danger" | "muted" | "neutral";
 export type Column<T> = { label: string; get: (item: T) => string; tone?: (item: T) => Tone; mono?: boolean };
 export type RowAction<T> = { label: string; run: (item: T) => Promise<void> };
 
+// Optional live updates: subscribe until `signal` aborts, calling `onUpdate` for
+// each changed item (merged into the list by id).
+export type StreamSubscribe<T> = (onUpdate: (item: T) => void, signal: AbortSignal) => void;
+
 export type Resource<T> = {
   key: string;
   title: string;
@@ -34,6 +38,7 @@ export type Resource<T> = {
   remove: (id: number) => Promise<void>;
   toForm: (item: T) => FormValues;
   actions?: RowAction<T>[];
+  stream?: StreamSubscribe<T>;
 };
 
 // Standard pagination for list calls.

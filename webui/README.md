@@ -20,7 +20,12 @@ start/stop for sources and exporters.
   client calls; shared types/helpers are in `lib/resources/types.ts` and relation
   dropdown loaders in `lib/resources/options.ts`.
 - **`components/ResourceManager.tsx`** is the generic list + create/edit modal +
-  delete component that renders any resource.
+  delete component that renders any resource. A resource may also expose a
+  `stream` (server-streaming subscription); the manager merges live updates into
+  the table by id and shows a **● live** indicator. The **Log sources** and
+  **Exporters** tabs use this to reflect sync progress / status in real time via
+  the `StreamEvmLogSourceUpdates` / `StreamEvmiExporterUpdates` RPCs, with
+  auto-reconnect.
 
 ## Develop
 

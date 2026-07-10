@@ -168,28 +168,52 @@ func (a *Authenticator) ValidateToken(plaintext string) (*evmi_database.User, er
 
 // --- Connect interceptor + context -----------------------------------------
 
-// Interceptor enforces a valid bearer token on every unary RPC and injects the
-// authenticated user into the context. Procedures listed in publicProcedures
-// (fully-qualified names, e.g. "/evm_indexer.v1.EvmIndexerService/Login") are
-// exempt and pass through unauthenticated.
-func (a *Authenticator) Interceptor(publicProcedures ...string) connect.UnaryInterceptorFunc {
+// Interceptor enforces a valid bearer token on every RPC (unary and streaming)
+// and injects the authenticated user into the context. Procedures listed in
+// publicProcedures (fully-qualified names, e.g.
+// "/evm_indexer.v1.EvmIndexerService/Login") are exempt and pass through
+// unauthenticated.
+func (a *Authenticator) Interceptor(publicProcedures ...string) connect.Interceptor {
 	public := make(map[string]struct{}, len(publicProcedures))
 	for _, p := range publicProcedures {
 		public[p] = struct{}{}
 	}
+	return &interceptor{a: a, public: public}
+}
 
-	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			if _, ok := public[req.Spec().Procedure]; ok {
-				return next(ctx, req)
-			}
-			user, err := a.ValidateToken(BearerToken(req.Header().Get("Authorization")))
-			if err != nil {
-				return nil, connect.NewError(connect.CodeUnauthenticated, err)
-			}
-			return next(WithUser(ctx, user), req)
+type interceptor struct {
+	a      *Authenticator
+	public map[string]struct{}
+}
+
+func (i *interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		if _, ok := i.public[req.Spec().Procedure]; ok {
+			return next(ctx, req)
 		}
-	})
+		user, err := i.a.ValidateToken(BearerToken(req.Header().Get("Authorization")))
+		if err != nil {
+			return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		}
+		return next(WithUser(ctx, user), req)
+	}
+}
+
+func (i *interceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (i *interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		if _, ok := i.public[conn.Spec().Procedure]; !ok {
+			user, err := i.a.ValidateToken(BearerToken(conn.RequestHeader().Get("Authorization")))
+			if err != nil {
+				return connect.NewError(connect.CodeUnauthenticated, err)
+			}
+			ctx = WithUser(ctx, user)
+		}
+		return next(ctx, conn)
+	}
 }
 
 // BearerToken extracts the token from an Authorization header value, tolerating a
