@@ -97,26 +97,29 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 		return result.Error
 	}
 
-	p.logger.Info().Fields(logParams).Msg("loading abi")
-	var abiEntry evmi_database.EvmJsonAbi
-	result = p.db.Conn.First(&abiEntry, p.source.EvmJsonAbiID)
-	if result.Error != nil {
-		return result.Error
-	}
+	// FULL sources index every log without decoding, so they need no ABI.
+	if p.source.Type != string(evmi_database.FullLogSourceType) {
+		p.logger.Info().Fields(logParams).Msg("loading abi")
+		var abiEntry evmi_database.EvmJsonAbi
+		result = p.db.Conn.First(&abiEntry, p.source.EvmJsonAbiID)
+		if result.Error != nil {
+			return result.Error
+		}
 
-	abi, err := abi.JSON(strings.NewReader(abiEntry.Content))
-	if err != nil {
-		return result.Error
-	}
+		abi, err := abi.JSON(strings.NewReader(abiEntry.Content))
+		if err != nil {
+			return result.Error
+		}
 
-	p.contractName = abiEntry.ContractName
-	p.abi = abi
+		p.contractName = abiEntry.ContractName
+		p.abi = abi
+	}
 
 	p.logger.Info().Fields(logParams).Msg("loading store config")
 	var storeConfig map[string]string
-	err = json.Unmarshal(p.storeInfo.StoreConfig, &storeConfig)
+	err := json.Unmarshal(p.storeInfo.StoreConfig, &storeConfig)
 	if err != nil {
-		return result.Error
+		return err
 	}
 
 	p.logger.Info().Fields(logParams).Msg("connecting store")

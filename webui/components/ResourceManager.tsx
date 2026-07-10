@@ -99,10 +99,17 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
     setSaving(true);
     setFormError(null);
     try {
+      // Drop values of hidden (not-applicable) fields so they aren't persisted.
+      const effective: FormValues = {};
+      for (const f of resource.fields) {
+        const visible = !f.showIf || f.showIf(values);
+        effective[f.name] = visible ? values[f.name] : f.type === "checkbox" ? false : "";
+      }
+
       if (editing) {
-        if (resource.update) await resource.update(resource.idOf(editing), values);
+        if (resource.update) await resource.update(resource.idOf(editing), effective);
       } else {
-        const result = await resource.create(values);
+        const result = await resource.create(effective);
         if (typeof result === "string") setSecret(result);
       }
       setEditing(undefined);
@@ -246,7 +253,9 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
             <h3>
               {editing ? "Edit" : "New"} {resource.singular}
             </h3>
-            {resource.fields.map((f) =>
+            {resource.fields
+              .filter((f) => !f.showIf || f.showIf(values))
+              .map((f) =>
               f.type === "pluginConfig" ? (
                 <PluginConfigInput
                   key={f.name}

@@ -1,6 +1,6 @@
 import { client } from "@/lib/client";
 import type { EvmLogSource } from "@/gen/evm_indexer/v1/evm_indexer_pb";
-import { PAGE, big, bool, num, optNum, optStr, splitList, str, type Option, type Resource } from "./types";
+import { PAGE, big, bool, num, optNum, optStr, splitList, str, type FormValues, type Option, type Resource } from "./types";
 import { abiOptions, blockchainOptions, pipelineOptions } from "./options";
 
 const sourceTypeOptions: Option[] = [
@@ -9,6 +9,12 @@ const sourceTypeOptions: Option[] = [
   { value: "FACTORY", label: "Factory" },
   { value: "FULL", label: "Full chain" },
 ];
+
+// Show a field only for the given source type(s).
+const forType =
+  (...types: string[]) =>
+  (v: FormValues) =>
+    types.includes(String(v.type));
 
 export const sources: Resource<EvmLogSource> = {
   key: "sources",
@@ -19,14 +25,18 @@ export const sources: Resource<EvmLogSource> = {
     { name: "enabled", label: "Enabled", type: "checkbox" },
     { name: "evmLogPipelineId", label: "Pipeline", type: "select", optionsFrom: pipelineOptions },
     { name: "evmBlockchainId", label: "Blockchain", type: "select", optionsFrom: blockchainOptions },
-    { name: "evmJsonAbiId", label: "ABI", type: "select", optionsFrom: abiOptions },
     { name: "startBlock", label: "Start block", type: "bigint" },
-    { name: "address", label: "Address (contract/factory)", type: "text", help: "For CONTRACT / FACTORY sources" },
-    { name: "topic0", label: "Topic0", type: "text", help: "For TOPIC sources" },
-    { name: "topicFilters", label: "Topic filters", type: "textarea", help: "One per line (TOPIC sources)" },
-    { name: "factoryChildEvmJsonAbi", label: "Factory child ABI id", type: "number", help: "FACTORY sources" },
-    { name: "factoryCreationFunctionName", label: "Factory creation event", type: "text", help: "FACTORY sources" },
-    { name: "factoryCreationAddressLogArg", label: "Factory address arg", type: "text", help: "FACTORY sources" },
+    // ABI is used for decoding (not needed for a full-chain source).
+    { name: "evmJsonAbiId", label: "ABI", type: "select", optionsFrom: abiOptions, showIf: forType("CONTRACT", "TOPIC", "FACTORY") },
+    // Contract / factory: the address to watch.
+    { name: "address", label: "Contract address", type: "text", showIf: forType("CONTRACT", "FACTORY") },
+    // Topic: filter by event signature.
+    { name: "topic0", label: "Topic0", type: "text", help: "Event signature hash", showIf: forType("TOPIC") },
+    { name: "topicFilters", label: "Topic filters", type: "textarea", help: "One per line", showIf: forType("TOPIC") },
+    // Factory: how to discover child contracts.
+    { name: "factoryChildEvmJsonAbi", label: "Child contract ABI id", type: "number", showIf: forType("FACTORY") },
+    { name: "factoryCreationFunctionName", label: "Creation event name", type: "text", showIf: forType("FACTORY") },
+    { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "text", showIf: forType("FACTORY") },
   ],
   columns: [
     { label: "ID", get: (s) => String(s.id ?? "") },

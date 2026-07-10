@@ -43,6 +43,9 @@ export type Field = {
   help?: string;
   options?: Option[];
   optionsFrom?: () => Promise<Option[]>;
+  // Show this field only when the predicate (given the current form values)
+  // returns true — e.g. fields relevant only to a certain source type.
+  showIf?: (values: FormValues) => boolean;
   // For type "pluginConfig"/"keyedConfig": the name of the sibling field whose
   // value drives this config form (plugin id, or a type discriminator).
   dependsOn?: string;
