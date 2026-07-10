@@ -1,5 +1,6 @@
 import { client } from "@/lib/client";
 import type { EvmJsonAbi } from "@/gen/evm_indexer/v1/evm_indexer_pb";
+import AbiDetail from "@/components/AbiDetail";
 import { PAGE, str, type Resource } from "./types";
 
 export const abis: Resource<EvmJsonAbi> = {
@@ -13,7 +14,9 @@ export const abis: Resource<EvmJsonAbi> = {
   columns: [
     { label: "ID", get: (a) => String(a.id ?? "") },
     { label: "Contract", get: (a) => a.contractName },
+    { label: "Entries", get: (a) => String(countAbiEntries(a.content)) },
   ],
+  detail: AbiDetail,
   idOf: (a) => a.id ?? 0,
   list: async () => (await client.listEvmJsonAbis(PAGE)).abis ?? [],
   create: async (v) => {
@@ -27,3 +30,12 @@ export const abis: Resource<EvmJsonAbi> = {
   },
   toForm: (a) => ({ contractName: a.contractName, content: a.content }),
 };
+
+function countAbiEntries(content: string): number {
+  try {
+    const abi = JSON.parse(content || "[]");
+    return Array.isArray(abi) ? abi.filter((e) => e.type === "function" || e.type === "event").length : 0;
+  } catch {
+    return 0;
+  }
+}

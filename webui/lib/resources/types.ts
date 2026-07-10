@@ -2,7 +2,16 @@
 // lives in its own file (blockchains.ts, abis.ts, …) and is assembled in
 // index.ts.
 
-export type FieldType = "text" | "password" | "textarea" | "number" | "bigint" | "checkbox" | "select" | "pluginConfig";
+export type FieldType =
+  | "text"
+  | "password"
+  | "textarea"
+  | "number"
+  | "bigint"
+  | "checkbox"
+  | "select"
+  | "pluginConfig"
+  | "keyedConfig";
 
 // One declared plugin config parameter (mirrors pkg/exporter.ConfigField).
 export type PluginConfigField = {
@@ -11,6 +20,16 @@ export type PluginConfigField = {
   required?: boolean;
   description?: string;
   default?: string;
+};
+
+// One parameter of a "keyedConfig" field (string values → config JSON).
+export type ConfigParam = {
+  name: string;
+  label?: string;
+  type?: "text" | "password" | "number";
+  placeholder?: string;
+  help?: string;
+  required?: boolean;
 };
 export type Option = { value: string; label: string };
 export type FormValues = Record<string, string | boolean>;
@@ -24,14 +43,20 @@ export type Field = {
   help?: string;
   options?: Option[];
   optionsFrom?: () => Promise<Option[]>;
-  // For type "pluginConfig": the name of the sibling field holding the plugin id
-  // whose schema drives this config form.
+  // For type "pluginConfig"/"keyedConfig": the name of the sibling field whose
+  // value drives this config form (plugin id, or a type discriminator).
   dependsOn?: string;
+  // For type "keyedConfig": config params keyed by the dependsOn field's value.
+  schemas?: Record<string, ConfigParam[]>;
 };
 
 export type Tone = "ok" | "warn" | "danger" | "muted" | "neutral";
+import type { ComponentType } from "react";
+
 export type Column<T> = { label: string; get: (item: T) => string; tone?: (item: T) => Tone; mono?: boolean };
 export type RowAction<T> = { label: string; run: (item: T) => Promise<void> };
+// Optional per-row read-only detail view, opened via a "Details" button.
+export type DetailComponent<T> = ComponentType<{ item: T }>;
 
 // Optional live updates: subscribe until `signal` aborts, calling `onUpdate` for
 // each changed item (merged into the list by id).
@@ -53,6 +78,8 @@ export type Resource<T> = {
   toForm?: (item: T) => FormValues;
   actions?: RowAction<T>[];
   stream?: StreamSubscribe<T>;
+  // Read-only detail view rendered in a modal via a "Details" button.
+  detail?: DetailComponent<T>;
   // Only shown to admin users (grouped under "Admin" in the nav).
   adminOnly?: boolean;
 };

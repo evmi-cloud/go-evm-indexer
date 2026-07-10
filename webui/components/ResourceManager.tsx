@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectError } from "@connectrpc/connect";
 import { client } from "@/lib/client";
-import type { Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
+import type { ConfigParam, Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
 
 function errorMessage(err: unknown): string {
   return err instanceof ConnectError ? err.message : err instanceof Error ? err.message : "error";
@@ -28,6 +28,7 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<T | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -216,6 +217,11 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                             {busy === `${a.label}-${id}` ? "…" : a.label}
                           </button>
                         ))}
+                        {resource.detail && (
+                          <button className="secondary small" onClick={() => setDetailItem(item)}>
+                            Details
+                          </button>
+                        )}
                         {resource.update && (
                           <button className="secondary small" onClick={() => openForm(item)}>
                             Edit
@@ -249,6 +255,14 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                   pluginId={String(values[f.dependsOn ?? "pluginId"] ?? "")}
                   onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
                 />
+              ) : f.type === "keyedConfig" ? (
+                <KeyedConfigInput
+                  key={f.name}
+                  field={f}
+                  value={String(values[f.name] ?? "")}
+                  typeKey={String(values[f.dependsOn ?? "type"] ?? "")}
+                  onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
+                />
               ) : (
                 <FieldInput
                   key={f.name}
@@ -269,6 +283,20 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {detailItem !== null && resource.detail && (
+        <div className="modal-backdrop" onClick={() => setDetailItem(null)}>
+          <div className="modal panel modal-wide" onClick={(e) => e.stopPropagation()}>
+            <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>Details</h3>
+              <button className="secondary small" onClick={() => setDetailItem(null)}>
+                Close
+              </button>
+            </div>
+            <resource.detail item={detailItem} />
+          </div>
         </div>
       )}
     </div>
@@ -441,6 +469,71 @@ function PluginConfigInput({
             </div>
           ),
         )}
+      </div>
+    </div>
+  );
+}
+
+// KeyedConfigInput renders a typed config form whose fields depend on the value
+// of a sibling discriminator field (e.g. the log-store type), from a static
+// schema map. Values are strings, serialized to a JSON object.
+function KeyedConfigInput({
+  field,
+  value,
+  typeKey,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  typeKey: string;
+  onChange: (v: string) => void;
+}) {
+  const params: ConfigParam[] = field.schemas?.[typeKey] ?? [];
+
+  const config = useMemo<Record<string, string>>(() => {
+    try {
+      return JSON.parse(value || "{}");
+    } catch {
+      return {};
+    }
+  }, [value]);
+
+  function setParam(name: string, v: string) {
+    const next = { ...config };
+    if (v === "") delete next[name];
+    else next[name] = v;
+    onChange(JSON.stringify(next));
+  }
+
+  if (params.length === 0) {
+    return (
+      <div>
+        <label>{field.label}</label>
+        <textarea value={value} placeholder="{}" rows={4} onChange={(e) => onChange(e.target.value)} />
+        <p className="field-help">Enter raw JSON config.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label>{field.label}</label>
+      <div className="config-schema">
+        {params.map((p) => (
+          <div key={p.name}>
+            <label>
+              {p.label ?? p.name}
+              {p.required && " *"}
+            </label>
+            <input
+              type={p.type ?? "text"}
+              value={config[p.name] ?? ""}
+              placeholder={p.placeholder}
+              onChange={(e) => setParam(p.name, e.target.value)}
+            />
+            {p.help && <p className="field-help">{p.help}</p>}
+          </div>
+        ))}
       </div>
     </div>
   );

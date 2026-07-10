@@ -539,6 +539,81 @@ code {
   max-width: 540px;
 }
 
+.modal-wide {
+  max-width: 760px;
+}
+
+/* ABI detail */
+.abi-detail {
+  font-size: 13px;
+}
+
+.abi-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.abi-head strong {
+  font-size: 16px;
+}
+
+.abi-section {
+  margin-top: 16px;
+}
+
+.abi-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.abi-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  margin-bottom: 6px;
+}
+
+.abi-sig {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.abi-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.abi-returns {
+  color: var(--muted);
+}
+
+.abi-raw {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  overflow-x: auto;
+  max-height: 300px;
+}
+
 .modal h3 {
   margin: 0 0 18px;
   font-size: 18px;

@@ -1,6 +1,36 @@
 import { client } from "@/lib/client";
 import type { EvmLogStore } from "@/gen/evm_indexer/v1/evm_indexer_pb";
-import { PAGE, str, type Resource } from "./types";
+import { PAGE, str, type ConfigParam, type Resource } from "./types";
+
+// Config parameters per store type, driving the dynamic form.
+const storeConfigSchemas: Record<string, ConfigParam[]> = {
+  clickhouse: [
+    { name: "addr", placeholder: "localhost:9000", help: "Comma-separated for multiple nodes", required: true },
+    { name: "database", placeholder: "evmi_cloud", required: true },
+    { name: "username", placeholder: "default" },
+    { name: "password", type: "password" },
+    { name: "logsTableName", placeholder: "logs" },
+    { name: "transactionsTableName", placeholder: "transactions" },
+  ],
+  parquet: [{ name: "path", placeholder: "/data/parquet", help: "Base directory for the .parquet files", required: true }],
+  elasticsearch: [
+    { name: "addresses", placeholder: "http://localhost:9200", help: "Comma-separated for multiple nodes", required: true },
+    { name: "username" },
+    { name: "password", type: "password" },
+    { name: "logsIndex", placeholder: "evmi_logs" },
+    { name: "transactionsIndex", placeholder: "evmi_transactions" },
+  ],
+  postgres: [
+    { name: "dsn", placeholder: "host=localhost user=evmi password=secret dbname=evmi port=5432 sslmode=disable", required: true },
+  ],
+  mysql: [{ name: "dsn", placeholder: "user:pass@tcp(localhost:3306)/evmi?parseTime=true", required: true }],
+  mongodb: [
+    { name: "uri", placeholder: "mongodb://localhost:27017", required: true },
+    { name: "database", placeholder: "evmi" },
+    { name: "logsCollection", placeholder: "logs" },
+    { name: "transactionsCollection", placeholder: "transactions" },
+  ],
+};
 
 export const stores: Resource<EvmLogStore> = {
   key: "stores",
@@ -24,16 +54,10 @@ export const stores: Resource<EvmLogStore> = {
     },
     {
       name: "storeConfigJson",
-      label: "Store config (JSON)",
-      type: "textarea",
-      placeholder:
-        '{ "addr": "localhost:9000", "database": "evmi_cloud", "logsTableName": "logs", "transactionsTableName": "transactions" }',
-      help:
-        'clickhouse: {addr, database, username, password, logsTableName, transactionsTableName} · ' +
-        'parquet: {path} · ' +
-        'elasticsearch: {addresses, username, password, logsIndex, transactionsIndex} · ' +
-        'postgres/mysql: {dsn} · ' +
-        'mongodb: {uri, database, logsCollection, transactionsCollection}',
+      label: "Store config",
+      type: "keyedConfig",
+      dependsOn: "storeType",
+      schemas: storeConfigSchemas,
     },
   ],
   columns: [
