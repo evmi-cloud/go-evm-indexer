@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,17 +11,66 @@ import (
 	"strings"
 
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	pluginsdk "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
 	"github.com/rs/zerolog"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // pluginCacheDir is where source repos are cloned and .so files are built.
 var pluginCacheDir = filepath.Join(os.TempDir(), "evmi-plugins")
 
+// ImportConfigPlugins imports the plugins declared in the server config as Plugin
+// rows on startup: each is created if a plugin with the same name does not exist,
+// then installed (built) if not already installed. Intended for git-hosted
+// plugins that should be available out of the box.
+func ImportConfigPlugins(db *evmi_database.EvmiDatabase, plugins []types.ConfigPlugin, logger zerolog.Logger) {
+	for _, cp := range plugins {
+		if cp.Name == "" || cp.GitUrl == "" {
+			logger.Warn().Msg("skipping config plugin without a name or gitUrl")
+			continue
+		}
+
+		var existing evmi_database.Plugin
+		err := db.Conn.Where("name = ?", cp.Name).First(&existing).Error
+		if err == nil {
+			if existing.Status != string(evmi_database.InstalledPluginStatus) {
+				installConfigPlugin(db, existing.ID, cp.Name, logger)
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Error().Msg("import config plugins: " + err.Error())
+			continue
+		}
+
+		plugin := evmi_database.Plugin{
+			Name:         cp.Name,
+			Description:  cp.Description,
+			GitUrl:       cp.GitUrl,
+			RelativePath: cp.RelativePath,
+			Status:       string(evmi_database.NotInstalledPluginStatus),
+		}
+		if err := db.Conn.Create(&plugin).Error; err != nil {
+			logger.Error().Str("plugin", cp.Name).Msg("config plugin create failed: " + err.Error())
+			continue
+		}
+		logger.Info().Str("plugin", cp.Name).Msg("imported plugin from config")
+		installConfigPlugin(db, plugin.ID, cp.Name, logger)
+	}
+}
+
+func installConfigPlugin(db *evmi_database.EvmiDatabase, id uint, name string, logger zerolog.Logger) {
+	if err := InstallPlugin(db, id, logger); err != nil {
+		logger.Error().Str("plugin", name).Msg("config plugin install failed: " + err.Error())
+	}
+}
+
 // VerifyPlugins is run at startup to make sure every installed plugin's shared
 // object is still on disk (the build cache is typically ephemeral across
 // restarts / container recreations). For a plugin whose .so is missing:
-//   - if it has a GitHub source, it is rebuilt (reinstalled);
+//   - if it has a git source, it is rebuilt (reinstalled);
 //   - otherwise it cannot be rebuilt, so it is marked FAILED.
 //
 // Plugins that were never installed (NOT_INSTALLED) or already FAILED are left
@@ -45,19 +95,19 @@ func VerifyPlugins(db *evmi_database.EvmiDatabase, logger zerolog.Logger) {
 		}
 
 		fields := map[string]interface{}{"plugin": p.Name, "id": p.ID}
-		if p.GithubUrl != "" {
-			logger.Warn().Fields(fields).Msg("plugin shared object missing; reinstalling from github")
+		if p.GitUrl != "" {
+			logger.Warn().Fields(fields).Msg("plugin shared object missing; reinstalling from git source")
 			if err := InstallPlugin(db, p.ID, logger); err != nil {
 				logger.Error().Fields(fields).Msg("plugin reinstall failed: " + err.Error())
 			}
 			continue
 		}
 
-		logger.Warn().Fields(fields).Msg("plugin shared object missing and no github source; marking failed")
+		logger.Warn().Fields(fields).Msg("plugin shared object missing and no git source; marking failed")
 		db.Conn.Model(&evmi_database.Plugin{}).Where("id = ?", p.ID).Updates(map[string]interface{}{
 			"status":  string(evmi_database.FailedPluginStatus),
 			"so_path": "",
-			"error":   "shared object missing on startup and no github source to rebuild",
+			"error":   "shared object missing on startup and no git source to rebuild",
 		})
 	}
 }
@@ -92,18 +142,38 @@ func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog
 	}
 
 	db.Conn.Model(&p).Updates(map[string]interface{}{
-		"status":  string(evmi_database.InstalledPluginStatus),
-		"so_path": soPath,
-		"error":   "",
+		"status":        string(evmi_database.InstalledPluginStatus),
+		"so_path":       soPath,
+		"config_schema": extractConfigSchema(soPath, logger),
+		"error":         "",
 	})
 	return nil
+}
+
+// extractConfigSchema loads the built plugin and, if it implements Configurable,
+// returns its declared config schema as JSON. Returns nil (no schema) otherwise.
+func extractConfigSchema(soPath string, logger zerolog.Logger) datatypes.JSON {
+	instance, err := openPlugin(soPath)
+	if err != nil {
+		logger.Warn().Str("so", soPath).Msg("could not open plugin to read config schema: " + err.Error())
+		return nil
+	}
+	configurable, ok := instance.(pluginsdk.Configurable)
+	if !ok {
+		return nil
+	}
+	raw, err := json.Marshal(configurable.ConfigSchema())
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(raw)
 }
 
 // buildPluginSharedObject resolves the plugin source to a .so path.
 //
 // Resolution order:
 //   - LocalPath ending in ".so": used directly (prebuilt).
-//   - GithubUrl set: cloned into the cache, then built.
+//   - GitUrl set (any git repo): cloned into the cache, then built.
 //   - LocalPath (a directory): used as the module root, then built.
 //
 // The package built is RelativePath, relative to the module root.
@@ -117,8 +187,8 @@ func buildPluginSharedObject(p evmi_database.Plugin, logger zerolog.Logger) (str
 
 	var moduleRoot string
 	switch {
-	case p.GithubUrl != "":
-		root, err := cloneRepo(p.GithubUrl, p.ID, logger)
+	case p.GitUrl != "":
+		root, err := cloneRepo(p.GitUrl, p.ID, logger)
 		if err != nil {
 			return "", err
 		}
@@ -126,7 +196,7 @@ func buildPluginSharedObject(p evmi_database.Plugin, logger zerolog.Logger) (str
 	case p.LocalPath != "":
 		moduleRoot = p.LocalPath
 	default:
-		return "", errors.New("plugin has no source: set LocalPath or GithubUrl")
+		return "", errors.New("plugin has no source: set LocalPath or GitUrl")
 	}
 
 	outPath := filepath.Join(pluginCacheDir, fmt.Sprintf("plugin-%d.so", p.ID))

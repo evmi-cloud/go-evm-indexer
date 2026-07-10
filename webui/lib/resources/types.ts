@@ -2,7 +2,16 @@
 // lives in its own file (blockchains.ts, abis.ts, …) and is assembled in
 // index.ts.
 
-export type FieldType = "text" | "textarea" | "number" | "bigint" | "checkbox" | "select";
+export type FieldType = "text" | "textarea" | "number" | "bigint" | "checkbox" | "select" | "pluginConfig";
+
+// One declared plugin config parameter (mirrors pkg/exporter.ConfigField).
+export type PluginConfigField = {
+  name: string;
+  type: "string" | "number" | "bool";
+  required?: boolean;
+  description?: string;
+  default?: string;
+};
 export type Option = { value: string; label: string };
 export type FormValues = Record<string, string | boolean>;
 
@@ -15,6 +24,9 @@ export type Field = {
   help?: string;
   options?: Option[];
   optionsFrom?: () => Promise<Option[]>;
+  // For type "pluginConfig": the name of the sibling field holding the plugin id
+  // whose schema drives this config form.
+  dependsOn?: string;
 };
 
 export type Tone = "ok" | "warn" | "danger" | "muted" | "neutral";

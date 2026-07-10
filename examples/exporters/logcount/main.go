@@ -31,6 +31,21 @@ type logCounter struct {
 
 func (e *logCounter) Name() string { return "logcount" }
 
+// ConfigSchema declares the config parameters EVMI validates exporter configs
+// against (and renders a form for in the UI). Implementing exporter.Configurable
+// is optional.
+func (e *logCounter) ConfigSchema() []exporter.ConfigField {
+	return []exporter.ConfigField{
+		{
+			Name:        "logEvery",
+			Type:        exporter.NumberField,
+			Required:    false,
+			Description: "Print a running total every N logs",
+			Default:     "100",
+		},
+	}
+}
+
 func (e *logCounter) Init(ctx exporter.Context) error {
 	e.name = ctx.ExporterName
 	e.byEvent = map[string]uint64{}

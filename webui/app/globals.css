@@ -487,6 +487,14 @@ label.checkbox input {
   color: var(--muted);
 }
 
+.config-schema {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 14px 2px;
+  margin-bottom: 14px;
+  background: var(--bg);
+}
+
 code {
   background: var(--bg);
   border: 1px solid var(--border);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectError } from "@connectrpc/connect";
-import type { Field, FormValues, Option, Resource } from "@/lib/resources";
+import { client } from "@/lib/client";
+import type { Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
 
 function errorMessage(err: unknown): string {
   return err instanceof ConnectError ? err.message : err instanceof Error ? err.message : "error";
@@ -218,15 +219,25 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
             <h3>
               {editing ? "Edit" : "New"} {resource.singular}
             </h3>
-            {resource.fields.map((f) => (
-              <FieldInput
-                key={f.name}
-                field={f}
-                value={values[f.name]}
-                options={f.options ?? options[f.name] ?? []}
-                onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
-              />
-            ))}
+            {resource.fields.map((f) =>
+              f.type === "pluginConfig" ? (
+                <PluginConfigInput
+                  key={f.name}
+                  field={f}
+                  value={String(values[f.name] ?? "")}
+                  pluginId={String(values[f.dependsOn ?? "pluginId"] ?? "")}
+                  onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
+                />
+              ) : (
+                <FieldInput
+                  key={f.name}
+                  field={f}
+                  value={values[f.name]}
+                  options={f.options ?? options[f.name] ?? []}
+                  onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
+                />
+              ),
+            )}
             {formError && <div className="error">{formError}</div>}
             <div className="row" style={{ marginTop: 12 }}>
               <button type="button" className="secondary" onClick={() => setEditing(undefined)}>
@@ -291,6 +302,119 @@ function FieldInput({
         />
       )}
       {field.help && <p className="field-help">{field.help}</p>}
+    </div>
+  );
+}
+
+// PluginConfigInput renders the config form for the selected plugin, driven by
+// that plugin's declared schema. Falls back to a raw JSON textarea when the
+// plugin declares no schema. The value is always a JSON string.
+function PluginConfigInput({
+  field,
+  value,
+  pluginId,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  pluginId: string;
+  onChange: (v: string) => void;
+}) {
+  // undefined = loading, null = no schema
+  const [schema, setSchema] = useState<PluginConfigField[] | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!pluginId || pluginId === "0") {
+      setSchema(null);
+      return;
+    }
+    let cancelled = false;
+    setSchema(undefined);
+    client
+      .getPlugin({ id: Number(pluginId) })
+      .then((r) => {
+        if (cancelled) return;
+        const raw = r.plugin?.configSchemaJson;
+        if (!raw) return setSchema(null);
+        try {
+          const parsed = JSON.parse(raw) as PluginConfigField[];
+          setSchema(Array.isArray(parsed) && parsed.length ? parsed : null);
+        } catch {
+          setSchema(null);
+        }
+      })
+      .catch(() => !cancelled && setSchema(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [pluginId]);
+
+  const config = useMemo<Record<string, unknown>>(() => {
+    try {
+      return JSON.parse(value || "{}");
+    } catch {
+      return {};
+    }
+  }, [value]);
+
+  function setParam(name: string, v: unknown) {
+    const next = { ...config };
+    if (v === "" || v === undefined) delete next[name];
+    else next[name] = v;
+    onChange(JSON.stringify(next));
+  }
+
+  if (schema === undefined) {
+    return (
+      <div>
+        <label>{field.label}</label>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Loading plugin config…
+        </p>
+      </div>
+    );
+  }
+
+  if (schema === null) {
+    return (
+      <div>
+        <label>{field.label}</label>
+        <textarea value={value} placeholder="{}" rows={4} onChange={(e) => onChange(e.target.value)} />
+        <p className="field-help">This plugin declares no config schema — enter raw JSON.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label>{field.label}</label>
+      <div className="config-schema">
+        {schema.map((p) =>
+          p.type === "bool" ? (
+            <label className="checkbox" key={p.name}>
+              <input type="checkbox" checked={Boolean(config[p.name])} onChange={(e) => setParam(p.name, e.target.checked)} />
+              {p.name}
+              {p.required && " *"}
+            </label>
+          ) : (
+            <div key={p.name}>
+              <label>
+                {p.name}
+                {p.required && " *"}
+              </label>
+              <input
+                type={p.type === "number" ? "number" : "text"}
+                value={config[p.name] === undefined ? "" : String(config[p.name])}
+                placeholder={p.default}
+                onChange={(e) =>
+                  setParam(p.name, p.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value)
+                }
+              />
+              {p.description && <p className="field-help">{p.description}</p>}
+            </div>
+          ),
+        )}
+      </div>
     </div>
   );
 }

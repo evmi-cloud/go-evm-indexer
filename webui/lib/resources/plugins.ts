@@ -15,13 +15,13 @@ export const plugins: Resource<Plugin> = {
       type: "text",
       help: "A prebuilt .so is used directly; a directory is built.",
     },
-    { name: "githubUrl", label: "GitHub URL", type: "text", help: "Cloned and built if no .so is given" },
+    { name: "gitUrl", label: "Git URL", type: "text", help: "Any git repo — cloned and built if no .so is given" },
     { name: "relativePath", label: "Package path", type: "text", help: "Package within the module to build" },
   ],
   columns: [
     { label: "ID", get: (p) => String(p.id ?? "") },
     { label: "Name", get: (p) => p.name },
-    { label: "Source", get: (p) => p.localPath || p.githubUrl || "—", mono: true },
+    { label: "Source", get: (p) => p.localPath || p.gitUrl || "—", mono: true },
     {
       label: "Status",
       get: (p) => p.status || "NOT_INSTALLED",
@@ -50,7 +50,7 @@ export const plugins: Resource<Plugin> = {
     name: p.name,
     description: p.description,
     localPath: p.localPath,
-    githubUrl: p.githubUrl,
+    gitUrl: p.gitUrl,
     relativePath: p.relativePath,
   }),
   actions: [
@@ -64,7 +64,7 @@ function pluginFromForm(v: Parameters<Resource<Plugin>["create"]>[0]) {
     name: str(v, "name"),
     description: str(v, "description"),
     localPath: str(v, "localPath"),
-    githubUrl: str(v, "githubUrl"),
+    gitUrl: str(v, "gitUrl"),
     relativePath: str(v, "relativePath"),
   };
 }

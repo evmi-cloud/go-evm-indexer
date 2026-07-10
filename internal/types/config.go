@@ -11,6 +11,17 @@ type Config struct {
 		Path    string `json:"path"`
 		Port    uint64 `json:"port"`
 	} `json:"metrics"`
+
+	// Plugins are git repositories imported as Plugin rows on startup (created if
+	// absent, matched by name) and installed.
+	Plugins []ConfigPlugin `json:"plugins"`
+}
+
+type ConfigPlugin struct {
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	GitUrl       string `json:"gitUrl"`
+	RelativePath string `json:"relativePath"`
 }
 
 type IndexerConfig struct {

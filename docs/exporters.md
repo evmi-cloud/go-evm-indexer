@@ -101,16 +101,25 @@ A `Plugin` row (managed via the API / the web UI's **Plugins** tab):
 |----------------|----------------------------------------------------------------|
 | `Name`         | display name (shown in the exporter's plugin picker)           |
 | `LocalPath`    | prebuilt `.so`, **or** a module root to build from             |
-| `GithubUrl`    | repo to clone and build (used when no `.so` is given)          |
+| `GitUrl`    | any git repo to clone and build (used when no `.so` is given)          |
 | `RelativePath` | package to build within the module root                        |
 | `SoPath`       | the resolved/compiled `.so` (set on install)                   |
 | `Status`       | `NOT_INSTALLED` → `INSTALLING` → `INSTALLED` / `FAILED`         |
 
 **Install** (`InstallPlugin` RPC → `exporter.InstallPlugin`) resolves the source
 to a `.so` and records the result: a `LocalPath` ending in `.so` is used directly;
-otherwise the server builds from `GithubUrl` (cloned) or `LocalPath` (module
+otherwise the server builds from `GitUrl` (cloned) or `LocalPath` (module
 root), compiling the `RelativePath` package. Editing a plugin's source resets it
 to `NOT_INSTALLED`.
+
+**Config schema.** If the plugin implements the optional `Configurable`
+interface, install also extracts its declared config schema (a JSON array of
+`{name,type,required,description,default}`) into `Plugin.ConfigSchema`. When an
+exporter is created/updated, `CreateEvmiExporter`/`UpdateEvmiExporter` validate
+its `PluginConfig` against that schema (`exporter.ValidatePluginConfig`) —
+required fields present, correct JSON types — returning `InvalidArgument` on
+mismatch. The web UI renders a typed form from the schema. Plugins without a
+schema accept any config.
 
 An `EvmiExporter` row then binds it to a pipeline:
 
@@ -129,9 +138,15 @@ to start with "plugin is not installed".
 **Startup verification.** The build cache (`$TMPDIR/evmi-plugins`) is typically
 wiped across restarts / container recreations, so on every boot
 `exporter.VerifyPlugins` checks that each `INSTALLED` plugin's `SoPath` still
-exists on disk. If it is missing: a plugin with a `GithubUrl` is **rebuilt**
+exists on disk. If it is missing: a plugin with a `GitUrl` is **rebuilt**
 automatically; a plugin without one (a prebuilt `.so` or local dir that is gone)
 is set to **`FAILED`**, since it cannot be rebuilt from a remote source.
+
+**Config-declared plugins.** The server config may include a `plugins` array,
+each entry `{name, description, gitUrl, relativePath}`. On startup
+`exporter.ImportConfigPlugins` creates a `Plugin` row for any that don't exist yet
+(matched by name) and installs them — so git-hosted plugins are available out of
+the box. See `configs/exemple-postgres.config.json`.
 
 ## Operational caveats (native plugins)
 
@@ -166,7 +181,7 @@ deliberately does not touch the server-managed cursor (`sync_block`,
 
 ## Not yet implemented (Phase 2)
 
-- Git ref/commit pinning for `PluginGithubUrl` (v1 shallow-clones the default
+- Git ref/commit pinning for `GitUrl` (v1 shallow-clones the default
   branch and reuses the cached checkout).
 - Confirmation-depth lag and reorg-aware rollback.
 - Prometheus metrics dedicated to exporter progress (v1 reuses the

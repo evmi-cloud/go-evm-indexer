@@ -17,7 +17,7 @@ func (e *EvmIndexerServer) CreatePlugin(ctx context.Context, req *connect.Reques
 	plugin := evmi_database.Plugin{
 		Name:         req.Msg.Plugin.Name,
 		Description:  req.Msg.Plugin.Description,
-		GithubUrl:    req.Msg.Plugin.GithubUrl,
+		GitUrl:       req.Msg.Plugin.GitUrl,
 		RelativePath: req.Msg.Plugin.RelativePath,
 		LocalPath:    req.Msg.Plugin.LocalPath,
 		Status:       string(evmi_database.NotInstalledPluginStatus),
@@ -45,19 +45,20 @@ func (e *EvmIndexerServer) UpdatePlugin(ctx context.Context, req *connect.Reques
 		return nil, result.Error
 	}
 
-	sourceChanged := plugin.GithubUrl != req.Msg.Plugin.GithubUrl ||
+	sourceChanged := plugin.GitUrl != req.Msg.Plugin.GitUrl ||
 		plugin.RelativePath != req.Msg.Plugin.RelativePath ||
 		plugin.LocalPath != req.Msg.Plugin.LocalPath
 
 	plugin.Name = req.Msg.Plugin.Name
 	plugin.Description = req.Msg.Plugin.Description
-	plugin.GithubUrl = req.Msg.Plugin.GithubUrl
+	plugin.GitUrl = req.Msg.Plugin.GitUrl
 	plugin.RelativePath = req.Msg.Plugin.RelativePath
 	plugin.LocalPath = req.Msg.Plugin.LocalPath
 	if sourceChanged {
 		plugin.Status = string(evmi_database.NotInstalledPluginStatus)
 		plugin.SoPath = ""
 		plugin.Error = ""
+		plugin.ConfigSchema = nil
 	}
 
 	if result := e.db.Conn.Save(&plugin); result.Error != nil {
@@ -129,17 +130,18 @@ func toGrpcPlugin(p evmi_database.Plugin) *evm_indexerv1.Plugin {
 	deletedAt := uint32(p.DeletedAt.Time.Unix())
 
 	return &evm_indexerv1.Plugin{
-		Id:           &id,
-		Name:         p.Name,
-		Description:  p.Description,
-		GithubUrl:    p.GithubUrl,
-		RelativePath: p.RelativePath,
-		LocalPath:    p.LocalPath,
-		SoPath:       p.SoPath,
-		Status:       p.Status,
-		Error:        p.Error,
-		CreatedAt:    &createdAt,
-		UpdatedAt:    &updatedAt,
-		DeletedAt:    &deletedAt,
+		Id:               &id,
+		Name:             p.Name,
+		Description:      p.Description,
+		GitUrl:           p.GitUrl,
+		RelativePath:     p.RelativePath,
+		LocalPath:        p.LocalPath,
+		SoPath:           p.SoPath,
+		Status:           p.Status,
+		Error:            p.Error,
+		ConfigSchemaJson: string(p.ConfigSchema),
+		CreatedAt:        &createdAt,
+		UpdatedAt:        &updatedAt,
+		DeletedAt:        &deletedAt,
 	}
 }

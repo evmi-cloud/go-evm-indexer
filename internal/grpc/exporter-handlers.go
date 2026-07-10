@@ -7,15 +7,34 @@ import (
 	"connectrpc.com/connect"
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
+	exporterpkg "github.com/evmi-cloud/go-evm-indexer/internal/exporter"
 	evm_indexerv1 "github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1"
 	"gorm.io/datatypes"
 )
+
+// validateExporterConfig checks the exporter's config JSON against the referenced
+// plugin's declared schema. It is a no-op if the plugin (or its schema) is absent,
+// so an exporter can still be created before its plugin is installed.
+func validateExporterConfig(e *EvmIndexerServer, pluginID uint, configJSON string) error {
+	var plugin evmi_database.Plugin
+	if err := e.db.Conn.First(&plugin, pluginID).Error; err != nil {
+		return nil
+	}
+	if err := exporterpkg.ValidatePluginConfig(plugin.ConfigSchema, []byte(configJSON)); err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	return nil
+}
 
 // CreateEvmiExporter implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) CreateEvmiExporter(ctx context.Context, req *connect.Request[evm_indexerv1.CreateEvmiExporterRequest]) (*connect.Response[evm_indexerv1.CreateEvmiExporterResponse], error) {
 	config := req.Msg.Exporter.PluginConfigJson
 	if config == "" {
 		config = "{}"
+	}
+
+	if err := validateExporterConfig(e, uint(req.Msg.Exporter.PluginId), config); err != nil {
+		return nil, err
 	}
 
 	newExporter := evmi_database.EvmiExporter{
@@ -62,6 +81,10 @@ func (e *EvmIndexerServer) UpdateEvmiExporter(ctx context.Context, req *connect.
 	config := req.Msg.Exporter.PluginConfigJson
 	if config == "" {
 		config = "{}"
+	}
+
+	if err := validateExporterConfig(e, uint(req.Msg.Exporter.PluginId), config); err != nil {
+		return nil, err
 	}
 
 	exporter.Name = req.Msg.Exporter.Name

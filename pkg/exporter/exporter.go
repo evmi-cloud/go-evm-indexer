@@ -67,3 +67,33 @@ type Exporter interface {
 
 // Factory is the type of the exported `New` symbol the server looks up.
 type Factory = func() Exporter
+
+// ConfigFieldType enumerates the supported configuration parameter types. The
+// value in the exporter's config JSON must be a JSON string / number / boolean
+// respectively.
+type ConfigFieldType string
+
+const (
+	StringField ConfigFieldType = "string"
+	NumberField ConfigFieldType = "number"
+	BoolField   ConfigFieldType = "bool"
+)
+
+// ConfigField describes one configuration parameter a plugin expects. EVMI
+// extracts the schema at install time, and validates each exporter's config
+// against it when the exporter is created or updated.
+type ConfigField struct {
+	Name        string          `json:"name"`
+	Type        ConfigFieldType `json:"type"`
+	Required    bool            `json:"required"`
+	Description string          `json:"description,omitempty"`
+	Default     string          `json:"default,omitempty"`
+}
+
+// Configurable is an optional interface. A plugin implementing it declares the
+// configuration parameters it accepts; EVMI stores this schema on the Plugin and
+// validates exporter configs against it. Plugins that do not implement it accept
+// any config (no validation).
+type Configurable interface {
+	ConfigSchema() []ConfigField
+}

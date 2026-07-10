@@ -31,6 +31,28 @@ and exports a factory symbol EVMI looks up by name:
 func New() exporter.Exporter { return &myExporter{} }
 ```
 
+### Declaring your config parameters (recommended)
+
+Implement the optional `Configurable` interface to **declare the config your
+plugin expects**. EVMI extracts this schema when the plugin is installed, renders
+a typed form for it in the exporter UI, and **validates each exporter's config
+against it** (required fields present, correct types) when the exporter is
+created or updated. Plugins that don't implement it accept any config.
+
+```go
+func (e *myExporter) ConfigSchema() []exporter.ConfigField {
+    return []exporter.ConfigField{
+        {Name: "dsn", Type: exporter.StringField, Required: true, Description: "Postgres DSN"},
+        {Name: "token", Type: exporter.StringField, Required: true, Description: "ERC-20 address"},
+        {Name: "decimals", Type: exporter.NumberField, Required: false, Default: "18"},
+    }
+}
+```
+
+Types: `StringField` → JSON string, `NumberField` → JSON number, `BoolField` →
+JSON boolean. The values arrive in `Context.Config` (the raw JSON you decode in
+`Init`).
+
 `Init` receives a `Context`:
 
 ```go
@@ -285,14 +307,18 @@ A `Plugin` record holds the code source:
 |----------------|------------------------------------------------------------|
 | `Name`         | display name (shown in the exporter's plugin picker)       |
 | `LocalPath`    | path to your `.so`, **or** a module root for EVMI to build |
-| `GithubUrl`    | a repo EVMI clones and builds (when no `.so` is given)     |
+| `GitUrl`       | any git repo EVMI clones and builds (when no `.so` is given) |
 | `RelativePath` | package to build within the module root                    |
 
 Then **Install** it. EVMI resolves the source in this order and stores the result:
 
 1. `LocalPath` ending in `.so` → used directly (you built it).
-2. `GithubUrl` set → cloned, then built (`RelativePath` is the package).
+2. `GitUrl` set → cloned (any git repository), then built (`RelativePath` is the package).
 3. `LocalPath` as a directory → treated as the module root and built.
+
+Plugins can also be **declared in the server config** to be imported and installed
+on startup — add a `plugins` array (each entry `{name, description, gitUrl,
+relativePath}`); each is created if absent (matched by name) and installed.
 
 Installing sets the plugin's status to `INSTALLED` (or `FAILED` with the build
 error). Editing the source resets it to `NOT_INSTALLED` — reinstall to rebuild.

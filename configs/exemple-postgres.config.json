@@ -9,5 +9,13 @@
         "enabled": true,
         "path": "/metrics",
         "port": 9090
-    }
+    },
+    "plugins": [
+        {
+            "name": "erc20-balances",
+            "description": "Track ERC-20 balances",
+            "gitUrl": "https://github.com/your-org/your-plugin.git",
+            "relativePath": "cmd/plugin"
+        }
+    ]
 }

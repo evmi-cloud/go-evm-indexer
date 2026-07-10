@@ -114,9 +114,9 @@ type Plugin struct {
 	Description string
 
 	// Source. If LocalPath points at a prebuilt ".so" it is used directly.
-	// Otherwise the server builds from GithubUrl (cloned) or LocalPath (module
-	// root), compiling the RelativePath package.
-	GithubUrl    string
+	// Otherwise the server builds from GitUrl (any git repository, cloned) or
+	// LocalPath (module root), compiling the RelativePath package.
+	GitUrl       string
 	RelativePath string
 	LocalPath    string
 
@@ -125,6 +125,11 @@ type Plugin struct {
 	SoPath string
 	Status string
 	Error  string
+
+	// ConfigSchema is the plugin's declared config parameter schema (a JSON array
+	// of exporter.ConfigField), extracted from the plugin at install time. Empty
+	// when the plugin does not declare one.
+	ConfigSchema datatypes.JSON
 }
 
 type EvmiInstance struct {

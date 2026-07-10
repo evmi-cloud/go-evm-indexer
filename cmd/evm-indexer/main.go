@@ -130,6 +130,9 @@ func main() {
 						logger.Fatal().Msg(err.Error())
 					}
 
+					logger.Info().Msg("Import config plugins")
+					exporter.ImportConfigPlugins(database, config.Plugins, logger)
+
 					logger.Info().Msg("Verify installed plugins")
 					exporter.VerifyPlugins(database, logger)
 

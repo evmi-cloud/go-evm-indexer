@@ -13,7 +13,7 @@ export const exporters: Resource<EvmiExporter> = {
     { name: "pluginId", label: "Plugin", type: "select", optionsFrom: pluginOptions, help: "Install plugins on the Plugins tab first" },
     { name: "enabled", label: "Enabled", type: "checkbox" },
     { name: "startBlock", label: "Start block", type: "bigint" },
-    { name: "pluginConfigJson", label: "Plugin config (JSON)", type: "textarea", placeholder: "{}" },
+    { name: "pluginConfigJson", label: "Plugin config", type: "pluginConfig", dependsOn: "pluginId" },
   ],
   columns: [
     { label: "ID", get: (e) => String(e.id ?? "") },

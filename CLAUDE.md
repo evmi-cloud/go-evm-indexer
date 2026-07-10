@@ -127,7 +127,11 @@ plugin repos can import it — `internal/` can't be imported out-of-module) and 
 exporter field: `exporter.InstallPlugin` (via the `InstallPlugin` RPC) resolves the source and
 builds the `.so` with `-buildmode=plugin`, recording `SoPath`/`Status` on the `Plugin` row; an
 exporter references it by `PluginID` and `loader.go:loadInstalledPlugin` opens the installed
-`.so` via `plugin.Open` (an exporter only starts if its plugin is `INSTALLED`). Wired into
+`.so` via `plugin.Open` (an exporter only starts if its plugin is `INSTALLED`). A plugin may
+implement the optional `pkg/exporter.Configurable` interface to declare a config schema;
+install extracts it into `Plugin.ConfigSchema`, the exporter handlers validate `PluginConfig`
+against it (`exporter.ValidatePluginConfig`, → `InvalidArgument`), and the web UI renders a
+typed config form from it. Wired into
 `main.go` after the indexer, which first calls `exporter.VerifyPlugins` — the `.so` build cache
 is ephemeral across restarts, so each boot re-checks every `INSTALLED` plugin's `SoPath` and
 rebuilds missing GitHub-sourced plugins (or marks non-GitHub ones `FAILED`). **Design + native-plugin caveats (CGO, toolchain/version match, no
@@ -164,10 +168,13 @@ auth guard + sidebar), plus `/login`. Each entity is defined declaratively one-p
 ## Config file vs. runtime topology
 
 The config file is deliberately tiny. The Go `Config` struct (`internal/types/config.go`)
-only unmarshals two keys:
+only unmarshals three keys:
 - `database` — `type` = `SQLITE`/`POSTGRES`/`MYSQL`, plus a `config` string map. SQLite reads
   `config.filename`; Postgres/MySQL read `config.dsn`.
 - `metrics` — `enabled` / `path` / `port`.
+- `plugins` — a list of `{name, description, gitUrl, relativePath}` git-hosted exporter plugins
+  imported (created if absent, matched by name) and installed on startup by
+  `exporter.ImportConfigPlugins`.
 
 Everything else — blockchains, ABIs, log stores, pipelines, sources — lives in the metadata
 DB and is created through the gRPC API at runtime, **not** in the config file. Accurate
