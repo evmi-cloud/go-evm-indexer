@@ -34,7 +34,7 @@ export const sources: Resource<EvmLogSource> = {
     { name: "topic0", label: "Topic0", type: "text", help: "Event signature hash", showIf: forType("TOPIC") },
     { name: "topicFilters", label: "Topic filters", type: "textarea", help: "One per line", showIf: forType("TOPIC") },
     // Factory: how to discover child contracts.
-    { name: "factoryChildEvmJsonAbi", label: "Child contract ABI id", type: "number", showIf: forType("FACTORY") },
+    { name: "factoryChildEvmJsonAbi", label: "Child contract ABI", type: "select", optionsFrom: abiOptions, showIf: forType("FACTORY") },
     { name: "factoryCreationFunctionName", label: "Creation event name", type: "text", showIf: forType("FACTORY") },
     { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "text", showIf: forType("FACTORY") },
   ],
