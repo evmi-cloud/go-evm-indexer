@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	clickhouse_store "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores/clickhouse"
+	elasticsearch_store "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores/elasticsearch"
+	parquet_store "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores/parquet"
 	"github.com/rs/zerolog"
 )
 
@@ -22,23 +24,25 @@ func NewIndexerStore(storage EvmIndexerStorage) *IndexerStore {
 }
 
 func LoadStore(storeType string, config map[string]string, logger zerolog.Logger) (*IndexerStore, error) {
-	if storeType == "clickhouse" {
+	var storage EvmIndexerStorage
+	var err error
 
-		storage, err := clickhouse_store.NewClickHouseStore(logger)
-		if err != nil {
-			return nil, err
-		}
-
-		err = storage.Init(config)
-		if err != nil {
-			return nil, err
-		}
-
-		return &IndexerStore{
-			storage: storage,
-		}, nil
-
+	switch storeType {
+	case "clickhouse":
+		storage, err = clickhouse_store.NewClickHouseStore(logger)
+	case "parquet":
+		storage, err = parquet_store.NewParquetStore(logger)
+	case "elasticsearch":
+		storage, err = elasticsearch_store.NewElasticsearchStore(logger)
+	default:
+		return nil, errors.New("unknown store type: " + storeType)
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.New("unknown store type")
+	if err := storage.Init(config); err != nil {
+		return nil, err
+	}
+	return &IndexerStore{storage: storage}, nil
 }

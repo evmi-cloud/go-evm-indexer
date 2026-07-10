@@ -101,7 +101,12 @@ sync progress. Managed with GORM; `database.type` selects the backend:
 ### Log stores
 
 Where decoded logs and transactions are written, selected per store via `storeType`:
-- **ClickHouse** — the only implemented backend today
+- **ClickHouse** (`clickhouse`) — columnar SQL warehouse. Config: `addr`, `database`,
+  `username`, `password`, `logsTableName`, `transactionsTableName`.
+- **Parquet files** (`parquet`) — append-only Parquet files on disk, partitioned per source.
+  Config: `path`.
+- **Elasticsearch** (`elasticsearch`) — bulk-indexed documents with search queries. Config:
+  `addresses`, `username`, `password`, `logsIndex`, `transactionsIndex`.
 
 Additional backends can be added by implementing the `EvmIndexerStorage` interface in
 `internal/database/log-stores`.

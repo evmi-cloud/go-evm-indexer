@@ -9,13 +9,26 @@ export const stores: Resource<EvmLogStore> = {
   fields: [
     { name: "identifier", label: "Identifier", type: "text", required: true },
     { name: "description", label: "Description", type: "text" },
-    { name: "storeType", label: "Store type", type: "select", options: [{ value: "clickhouse", label: "ClickHouse" }] },
+    {
+      name: "storeType",
+      label: "Store type",
+      type: "select",
+      options: [
+        { value: "clickhouse", label: "ClickHouse" },
+        { value: "parquet", label: "Parquet files" },
+        { value: "elasticsearch", label: "Elasticsearch" },
+      ],
+    },
     {
       name: "storeConfigJson",
       label: "Store config (JSON)",
       type: "textarea",
       placeholder:
         '{ "addr": "localhost:9000", "database": "evmi_cloud", "logsTableName": "logs", "transactionsTableName": "transactions" }',
+      help:
+        'clickhouse: {addr, database, username, password, logsTableName, transactionsTableName} · ' +
+        'parquet: {path} · ' +
+        'elasticsearch: {addresses, username, password, logsIndex, transactionsIndex}',
     },
   ],
   columns: [
