@@ -107,6 +107,9 @@ Where decoded logs and transactions are written, selected per store via `storeTy
   Config: `path`.
 - **Elasticsearch** (`elasticsearch`) — bulk-indexed documents with search queries. Config:
   `addresses`, `username`, `password`, `logsIndex`, `transactionsIndex`.
+- **PostgreSQL** / **MySQL** (`postgres` / `mysql`) — relational tables via GORM. Config: `dsn`.
+- **MongoDB** (`mongodb`) — upserted documents. Config: `uri`, `database`, `logsCollection`,
+  `transactionsCollection`.
 
 Additional backends can be added by implementing the `EvmIndexerStorage` interface in
 `internal/database/log-stores`.

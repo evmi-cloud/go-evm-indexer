@@ -17,6 +17,9 @@ export const stores: Resource<EvmLogStore> = {
         { value: "clickhouse", label: "ClickHouse" },
         { value: "parquet", label: "Parquet files" },
         { value: "elasticsearch", label: "Elasticsearch" },
+        { value: "postgres", label: "PostgreSQL" },
+        { value: "mysql", label: "MySQL" },
+        { value: "mongodb", label: "MongoDB" },
       ],
     },
     {
@@ -28,7 +31,9 @@ export const stores: Resource<EvmLogStore> = {
       help:
         'clickhouse: {addr, database, username, password, logsTableName, transactionsTableName} · ' +
         'parquet: {path} · ' +
-        'elasticsearch: {addresses, username, password, logsIndex, transactionsIndex}',
+        'elasticsearch: {addresses, username, password, logsIndex, transactionsIndex} · ' +
+        'postgres/mysql: {dsn} · ' +
+        'mongodb: {uri, database, logsCollection, transactionsCollection}',
     },
   ],
   columns: [

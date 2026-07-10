@@ -12,7 +12,7 @@ RUN npm run build
 # CGO is required: the SQLite driver (mattn/go-sqlite3) and go-ethereum's crypto
 # use cgo, so this builds on Debian with gcc and links against glibc. The image
 # tag must satisfy the toolchain in go.mod (go 1.23).
-FROM golang:1.23-bookworm AS builder
+FROM golang:1.24-bookworm AS builder
 ENV CGO_ENABLED=1
 WORKDIR /app
 

@@ -48,11 +48,13 @@ event bus → start metrics → open metadata DB (auto-migrates GORM models) →
   `EvmLogSource.SyncBlock` is the per-source cursor persisted after every batch.
 - **Log store** (`internal/database/log-stores`): where decoded logs/transactions land.
   Pluggable behind the `EvmIndexerStorage` interface (`interface.go`); `LoadStore` dispatches
-  on `storeType`. Implemented backends: `clickhouse`, `parquet` (files on disk, partitioned
-  per source, read-and-filter queries), `elasticsearch` (bulk-indexed docs, search queries).
-  A store is selected per-`EvmLogStore` row via its `StoreType` + JSON `StoreConfig`, so
-  different pipelines can target different stores. The Parquet store has a self-contained unit
-  test; the Elasticsearch store has an integration test gated behind `ELASTICSEARCH_URL`.
+  on `storeType`. Implemented backends: `clickhouse`, `parquet` (files on disk, partitioned per
+  source, read-and-filter queries), `elasticsearch` (bulk-indexed docs), `postgres`/`mysql` (one
+  shared GORM store in `.../sql`, dialect-selected), and `mongodb` (upserted docs). A store is
+  selected per-`EvmLogStore` row via its `StoreType` + JSON `StoreConfig`, so different pipelines
+  can target different stores. The Parquet and SQL stores have self-contained unit tests (SQL via
+  SQLite); the Elasticsearch and MongoDB stores have integration tests gated behind
+  `ELASTICSEARCH_URL` / `MONGODB_URI`.
 
 **Indexing runtime** (`internal/indexer`): `IndexerService` (`service.go`) loads all
 pipelines/sources for this instance and, for each *enabled* source, adds a
