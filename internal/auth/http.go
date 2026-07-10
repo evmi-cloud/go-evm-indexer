@@ -29,18 +29,14 @@ func (h *httpHandlers) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login#oauth_error=1", http.StatusFound)
 	}
 
-	if err := h.a.VerifyOAuthState(r.URL.Query().Get("state")); err != nil {
-		fail("invalid state: " + err.Error())
-		return
-	}
-
+	state := r.URL.Query().Get("state")
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		fail("missing code")
 		return
 	}
 
-	plaintext, _, err := h.a.HandleOAuthCallback(r.Context(), code)
+	plaintext, _, err := h.a.HandleOAuthCallback(r.Context(), state, code)
 	if err != nil {
 		fail(err.Error())
 		return

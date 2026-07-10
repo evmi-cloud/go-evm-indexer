@@ -410,42 +410,79 @@ message RevokeAccessTokenRequest {
 }
 message RevokeAccessTokenResponse {}
 
-message OAuthConfigMessage {
-  bool enabled = 1;
-  string provider = 2;
-  string client_id = 3;
-  string auth_url = 4;
-  string token_url = 5;
-  string user_info_url = 6;
-  string redirect_url = 7;
-  string scopes = 8;
-}
-
-message GetOAuthConfigRequest {}
-message GetOAuthConfigResponse {
-  OAuthConfigMessage config = 1;
-}
-
-message UpdateOAuthConfigRequest {
-  bool enabled = 1;
-  string provider = 2;
-  string client_id = 3;
-  // client_secret is write-only; send empty to keep the stored value.
-  string client_secret = 4;
+// OAuthProvider. client_secret is never returned; it is set via the separate
+// client_secret field on create/update requests (empty on update keeps it).
+message OAuthProvider {
+  optional uint32 id = 1;
+  bool enabled = 2;
+  string name = 3;
+  string client_id = 4;
   string auth_url = 5;
   string token_url = 6;
   string user_info_url = 7;
   string redirect_url = 8;
   string scopes = 9;
 }
-message UpdateOAuthConfigResponse {
-  OAuthConfigMessage config = 1;
+
+message CreateOAuthProviderRequest {
+  OAuthProvider provider = 1;
+  string client_secret = 2;
+}
+message CreateOAuthProviderResponse {
+  uint32 id = 1;
+}
+message UpdateOAuthProviderRequest {
+  OAuthProvider provider = 1;
+  string client_secret = 2;
+}
+message UpdateOAuthProviderResponse {}
+message ListOAuthProvidersRequest {}
+message ListOAuthProvidersResponse {
+  repeated OAuthProvider providers = 1;
+}
+message DeleteOAuthProviderRequest {
+  uint32 id = 1;
+}
+message DeleteOAuthProviderResponse {}
+
+// Public: the enabled providers a user can sign in with.
+message OAuthLoginOption {
+  uint32 provider_id = 1;
+  string name = 2;
+  string url = 3;
+}
+message ListOAuthLoginUrlsRequest {}
+message ListOAuthLoginUrlsResponse {
+  repeated OAuthLoginOption options = 1;
 }
 
-message GetOAuthLoginUrlRequest {}
-message GetOAuthLoginUrlResponse {
-  string url = 1;
+// User management (admin).
+message ListUsersRequest {}
+message ListUsersResponse {
+  repeated AuthUser users = 1;
 }
+message CreateUserRequest {
+  string username = 1;
+  string password = 2;
+  string role = 3;
+  string email = 4;
+}
+message CreateUserResponse {
+  uint32 id = 1;
+}
+message UpdateUserRequest {
+  uint32 id = 1;
+  string username = 2;
+  string role = 3;
+  string email = 4;
+  // Optional: empty keeps the current password.
+  string password = 5;
+}
+message UpdateUserResponse {}
+message DeleteUserRequest {
+  uint32 id = 1;
+}
+message DeleteUserResponse {}
 
 // EvmiExporter
 message EvmiExporter {
@@ -619,13 +656,23 @@ service EvmIndexerService {
 
   // Auth (Login and GetOAuthLoginUrl are public; all others require a token)
   rpc Login(LoginRequest) returns (LoginResponse);
-  rpc GetOAuthLoginUrl(GetOAuthLoginUrlRequest) returns (GetOAuthLoginUrlResponse);
+  rpc ListOAuthLoginUrls(ListOAuthLoginUrlsRequest) returns (ListOAuthLoginUrlsResponse);
   rpc Me(MeRequest) returns (MeResponse);
   rpc CreateAccessToken(CreateAccessTokenRequest) returns (CreateAccessTokenResponse);
   rpc ListAccessTokens(ListAccessTokensRequest) returns (ListAccessTokensResponse);
   rpc RevokeAccessToken(RevokeAccessTokenRequest) returns (RevokeAccessTokenResponse);
-  rpc GetOAuthConfig(GetOAuthConfigRequest) returns (GetOAuthConfigResponse);
-  rpc UpdateOAuthConfig(UpdateOAuthConfigRequest) returns (UpdateOAuthConfigResponse);
+
+  // OAuth providers (admin)
+  rpc ListOAuthProviders(ListOAuthProvidersRequest) returns (ListOAuthProvidersResponse);
+  rpc CreateOAuthProvider(CreateOAuthProviderRequest) returns (CreateOAuthProviderResponse);
+  rpc UpdateOAuthProvider(UpdateOAuthProviderRequest) returns (UpdateOAuthProviderResponse);
+  rpc DeleteOAuthProvider(DeleteOAuthProviderRequest) returns (DeleteOAuthProviderResponse);
+
+  // Users (admin)
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
   // EvmiExporter
   rpc CreateEvmiExporter(CreateEvmiExporterRequest) returns (CreateEvmiExporterResponse);

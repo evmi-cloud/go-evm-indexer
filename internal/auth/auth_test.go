@@ -20,7 +20,7 @@ func newTestAuth(t *testing.T) (*Authenticator, *evmi_database.User) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&evmi_database.User{}, &evmi_database.AccessToken{}, &evmi_database.OAuthConfig{}); err != nil {
+	if err := db.AutoMigrate(&evmi_database.User{}, &evmi_database.AccessToken{}, &evmi_database.OAuthProvider{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 
@@ -180,7 +180,10 @@ func TestInterceptorSkipsPublicProcedure(t *testing.T) {
 func TestOAuthStateSignAndVerify(t *testing.T) {
 	secret := []byte("hmac-secret")
 
-	state := signState(secret, time.Minute)
+	state := signState(secret, 7, time.Minute)
+	if id, err := stateProviderID(state); err != nil || id != 7 {
+		t.Fatalf("stateProviderID = %d, err %v (want 7)", id, err)
+	}
 	if err := verifyState(secret, state); err != nil {
 		t.Fatalf("valid state rejected: %v", err)
 	}
@@ -190,45 +193,42 @@ func TestOAuthStateSignAndVerify(t *testing.T) {
 	if err := verifyState([]byte("other-secret"), state); err == nil {
 		t.Error("state signed with a different secret accepted")
 	}
-	if err := verifyState(secret, signState(secret, -time.Minute)); err == nil {
+	if err := verifyState(secret, signState(secret, 7, -time.Minute)); err == nil {
 		t.Error("expired state accepted")
 	}
 }
 
-func TestOAuthAuthCodeURLRoundTrip(t *testing.T) {
+func TestOAuthLoginOptionsRoundTrip(t *testing.T) {
 	a, _ := newTestAuth(t)
 
-	// Disabled by default.
-	if _, err := a.OAuthAuthCodeURL(); err != ErrOAuthDisabled {
-		t.Fatalf("want ErrOAuthDisabled, got %v", err)
+	// No providers yet.
+	if opts, err := a.OAuthLoginOptions(); err != nil || len(opts) != 0 {
+		t.Fatalf("expected no options, got %d err %v", len(opts), err)
 	}
 
-	if _, err := a.UpdateOAuthConfig(evmi_database.OAuthConfig{
-		Enabled:     true,
-		ClientID:    "cid",
-		AuthURL:     "https://provider/auth",
-		TokenURL:    "https://provider/token",
-		UserInfoURL: "https://provider/me",
-		RedirectURL: "https://app/auth/oauth/callback",
-		Scopes:      "openid email",
+	if _, err := a.CreateOAuthProvider(evmi_database.OAuthProvider{
+		Enabled: true, Name: "google", ClientID: "cid",
+		AuthURL: "https://provider/auth", TokenURL: "https://provider/token",
+		UserInfoURL: "https://provider/me", RedirectURL: "https://app/auth/oauth/callback", Scopes: "openid email",
 	}); err != nil {
-		t.Fatalf("update config: %v", err)
+		t.Fatalf("create provider: %v", err)
 	}
 
-	rawURL, err := a.OAuthAuthCodeURL()
-	if err != nil {
-		t.Fatalf("auth code url: %v", err)
+	opts, err := a.OAuthLoginOptions()
+	if err != nil || len(opts) != 1 {
+		t.Fatalf("expected 1 option, got %d err %v", len(opts), err)
 	}
-	u, err := url.Parse(rawURL)
+	if opts[0].Name != "google" {
+		t.Errorf("option name = %q", opts[0].Name)
+	}
+
+	u, err := url.Parse(opts[0].URL)
 	if err != nil {
 		t.Fatalf("parse url: %v", err)
 	}
 	state := u.Query().Get("state")
-	if state == "" {
-		t.Fatal("authorization URL has no state parameter")
-	}
-	if err := a.VerifyOAuthState(state); err != nil {
-		t.Errorf("issued state failed verification: %v", err)
+	if id, err := stateProviderID(state); err != nil || id != opts[0].ProviderID {
+		t.Errorf("state provider id = %d, err %v (want %d)", id, err, opts[0].ProviderID)
 	}
 }
 

@@ -53,17 +53,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="brand">EVMI</div>
           <nav>
             <div className="nav-label">Configuration</div>
-            {resources.map((r) => (
-              <Link key={r.key} href={`/${r.key}`} className={isActive(`/${r.key}`) ? "active" : ""}>
-                {r.title}
-              </Link>
-            ))}
+            {resources
+              .filter((r) => !r.adminOnly)
+              .map((r) => (
+                <Link key={r.key} href={`/${r.key}`} className={isActive(`/${r.key}`) ? "active" : ""}>
+                  {r.title}
+                </Link>
+              ))}
             {isAdmin(user) && (
               <>
                 <div className="nav-label">Admin</div>
-                <Link href="/settings" className={isActive("/settings") ? "active" : ""}>
-                  Settings
-                </Link>
+                {resources
+                  .filter((r) => r.adminOnly)
+                  .map((r) => (
+                    <Link key={r.key} href={`/${r.key}`} className={isActive(`/${r.key}`) ? "active" : ""}>
+                      {r.title}
+                    </Link>
+                  ))}
               </>
             )}
           </nav>

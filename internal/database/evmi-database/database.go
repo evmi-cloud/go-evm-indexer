@@ -114,7 +114,7 @@ func LoadDatabase(dbType DatabaseType, config map[string]string, logger zerolog.
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&User{}, &AccessToken{}, &OAuthConfig{})
+	err = db.AutoMigrate(&User{}, &AccessToken{}, &OAuthProvider{})
 	if err != nil {
 		return nil, err
 	}

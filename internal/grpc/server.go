@@ -44,7 +44,7 @@ func StartGrpcServer(
 		indexer,
 		connect.WithInterceptors(authenticator.Interceptor(
 			evm_indexerv1connect.EvmIndexerServiceLoginProcedure,
-			evm_indexerv1connect.EvmIndexerServiceGetOAuthLoginUrlProcedure,
+			evm_indexerv1connect.EvmIndexerServiceListOAuthLoginUrlsProcedure,
 		)),
 	)
 	mux.Handle(path, handler)

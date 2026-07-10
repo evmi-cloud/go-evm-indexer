@@ -12,8 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [oauthUrl, setOauthUrl] = useState<string | null>(null);
-  const [oauthProvider, setOauthProvider] = useState<string>("");
+  const [providers, setProviders] = useState<{ providerId: number; name: string; url: string }[]>([]);
 
   const home = `/${resources[0].key}`;
 
@@ -39,16 +38,12 @@ export default function LoginPage() {
     }
   }, [router, home]);
 
-  // Offer OAuth only when a provider is configured.
+  // Offer a sign-in button per configured OAuth provider.
   useEffect(() => {
     client
-      .getOAuthLoginUrl({})
-      .then((r) => setOauthUrl(r.url))
-      .catch(() => setOauthUrl(null));
-    client
-      .getOAuthConfig({})
-      .then((r) => setOauthProvider(r.config?.provider ?? ""))
-      .catch(() => {});
+      .listOAuthLoginUrls({})
+      .then((r) => setProviders(r.options.map((o) => ({ providerId: o.providerId, name: o.name, url: o.url }))))
+      .catch(() => setProviders([]));
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -93,14 +88,23 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {oauthUrl && (
+        {providers.length > 0 && (
           <>
             <div className="or-divider">
               <span>or</span>
             </div>
-            <button className="secondary" style={{ width: "100%" }} onClick={() => (window.location.href = oauthUrl)}>
-              Sign in with {oauthProvider || "OAuth"}
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {providers.map((p) => (
+                <button
+                  key={p.providerId}
+                  className="secondary"
+                  style={{ width: "100%" }}
+                  onClick={() => (window.location.href = p.url)}
+                >
+                  Sign in with {p.name || "OAuth"}
+                </button>
+              ))}
+            </div>
           </>
         )}
 

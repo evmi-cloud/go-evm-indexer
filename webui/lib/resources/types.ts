@@ -2,7 +2,7 @@
 // lives in its own file (blockchains.ts, abis.ts, …) and is assembled in
 // index.ts.
 
-export type FieldType = "text" | "textarea" | "number" | "bigint" | "checkbox" | "select" | "pluginConfig";
+export type FieldType = "text" | "password" | "textarea" | "number" | "bigint" | "checkbox" | "select" | "pluginConfig";
 
 // One declared plugin config parameter (mirrors pkg/exporter.ConfigField).
 export type PluginConfigField = {
@@ -45,12 +45,16 @@ export type Resource<T> = {
   columns: Column<T>[];
   idOf: (item: T) => number;
   list: () => Promise<T[]>;
-  create: (values: FormValues) => Promise<void>;
-  update: (id: number, values: FormValues) => Promise<void>;
+  // Returning a string surfaces it as a one-time secret to copy (e.g. a token).
+  create: (values: FormValues) => Promise<string | void>;
+  // Omit update to make the resource create-only (hides the Edit action).
+  update?: (id: number, values: FormValues) => Promise<void>;
   remove: (id: number) => Promise<void>;
-  toForm: (item: T) => FormValues;
+  toForm?: (item: T) => FormValues;
   actions?: RowAction<T>[];
   stream?: StreamSubscribe<T>;
+  // Only shown to admin users (grouped under "Admin" in the nav).
+  adminOnly?: boolean;
 };
 
 // Standard pagination for list calls.

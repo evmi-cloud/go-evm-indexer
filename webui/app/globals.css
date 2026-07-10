@@ -495,6 +495,23 @@ label.checkbox input {
   background: var(--bg);
 }
 
+.secret-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.secret-banner code {
+  margin-top: 6px;
+  display: inline-block;
+}
+
 code {
   background: var(--bg);
   border: 1px solid var(--border);

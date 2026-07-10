@@ -134,9 +134,9 @@ const (
 	EvmIndexerServiceListEvmTransactionsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmTransactions"
 	// EvmIndexerServiceLoginProcedure is the fully-qualified name of the EvmIndexerService's Login RPC.
 	EvmIndexerServiceLoginProcedure = "/evm_indexer.v1.EvmIndexerService/Login"
-	// EvmIndexerServiceGetOAuthLoginUrlProcedure is the fully-qualified name of the EvmIndexerService's
-	// GetOAuthLoginUrl RPC.
-	EvmIndexerServiceGetOAuthLoginUrlProcedure = "/evm_indexer.v1.EvmIndexerService/GetOAuthLoginUrl"
+	// EvmIndexerServiceListOAuthLoginUrlsProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListOAuthLoginUrls RPC.
+	EvmIndexerServiceListOAuthLoginUrlsProcedure = "/evm_indexer.v1.EvmIndexerService/ListOAuthLoginUrls"
 	// EvmIndexerServiceMeProcedure is the fully-qualified name of the EvmIndexerService's Me RPC.
 	EvmIndexerServiceMeProcedure = "/evm_indexer.v1.EvmIndexerService/Me"
 	// EvmIndexerServiceCreateAccessTokenProcedure is the fully-qualified name of the
@@ -148,12 +148,30 @@ const (
 	// EvmIndexerServiceRevokeAccessTokenProcedure is the fully-qualified name of the
 	// EvmIndexerService's RevokeAccessToken RPC.
 	EvmIndexerServiceRevokeAccessTokenProcedure = "/evm_indexer.v1.EvmIndexerService/RevokeAccessToken"
-	// EvmIndexerServiceGetOAuthConfigProcedure is the fully-qualified name of the EvmIndexerService's
-	// GetOAuthConfig RPC.
-	EvmIndexerServiceGetOAuthConfigProcedure = "/evm_indexer.v1.EvmIndexerService/GetOAuthConfig"
-	// EvmIndexerServiceUpdateOAuthConfigProcedure is the fully-qualified name of the
-	// EvmIndexerService's UpdateOAuthConfig RPC.
-	EvmIndexerServiceUpdateOAuthConfigProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateOAuthConfig"
+	// EvmIndexerServiceListOAuthProvidersProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListOAuthProviders RPC.
+	EvmIndexerServiceListOAuthProvidersProcedure = "/evm_indexer.v1.EvmIndexerService/ListOAuthProviders"
+	// EvmIndexerServiceCreateOAuthProviderProcedure is the fully-qualified name of the
+	// EvmIndexerService's CreateOAuthProvider RPC.
+	EvmIndexerServiceCreateOAuthProviderProcedure = "/evm_indexer.v1.EvmIndexerService/CreateOAuthProvider"
+	// EvmIndexerServiceUpdateOAuthProviderProcedure is the fully-qualified name of the
+	// EvmIndexerService's UpdateOAuthProvider RPC.
+	EvmIndexerServiceUpdateOAuthProviderProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateOAuthProvider"
+	// EvmIndexerServiceDeleteOAuthProviderProcedure is the fully-qualified name of the
+	// EvmIndexerService's DeleteOAuthProvider RPC.
+	EvmIndexerServiceDeleteOAuthProviderProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteOAuthProvider"
+	// EvmIndexerServiceListUsersProcedure is the fully-qualified name of the EvmIndexerService's
+	// ListUsers RPC.
+	EvmIndexerServiceListUsersProcedure = "/evm_indexer.v1.EvmIndexerService/ListUsers"
+	// EvmIndexerServiceCreateUserProcedure is the fully-qualified name of the EvmIndexerService's
+	// CreateUser RPC.
+	EvmIndexerServiceCreateUserProcedure = "/evm_indexer.v1.EvmIndexerService/CreateUser"
+	// EvmIndexerServiceUpdateUserProcedure is the fully-qualified name of the EvmIndexerService's
+	// UpdateUser RPC.
+	EvmIndexerServiceUpdateUserProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateUser"
+	// EvmIndexerServiceDeleteUserProcedure is the fully-qualified name of the EvmIndexerService's
+	// DeleteUser RPC.
+	EvmIndexerServiceDeleteUserProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteUser"
 	// EvmIndexerServiceCreateEvmiExporterProcedure is the fully-qualified name of the
 	// EvmIndexerService's CreateEvmiExporter RPC.
 	EvmIndexerServiceCreateEvmiExporterProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmiExporter"
@@ -235,13 +253,19 @@ var (
 	evmIndexerServiceListLatestEvmLogsMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListLatestEvmLogs")
 	evmIndexerServiceListEvmTransactionsMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmTransactions")
 	evmIndexerServiceLoginMethodDescriptor                     = evmIndexerServiceServiceDescriptor.Methods().ByName("Login")
-	evmIndexerServiceGetOAuthLoginUrlMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("GetOAuthLoginUrl")
+	evmIndexerServiceListOAuthLoginUrlsMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("ListOAuthLoginUrls")
 	evmIndexerServiceMeMethodDescriptor                        = evmIndexerServiceServiceDescriptor.Methods().ByName("Me")
 	evmIndexerServiceCreateAccessTokenMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateAccessToken")
 	evmIndexerServiceListAccessTokensMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("ListAccessTokens")
 	evmIndexerServiceRevokeAccessTokenMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("RevokeAccessToken")
-	evmIndexerServiceGetOAuthConfigMethodDescriptor            = evmIndexerServiceServiceDescriptor.Methods().ByName("GetOAuthConfig")
-	evmIndexerServiceUpdateOAuthConfigMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateOAuthConfig")
+	evmIndexerServiceListOAuthProvidersMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("ListOAuthProviders")
+	evmIndexerServiceCreateOAuthProviderMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateOAuthProvider")
+	evmIndexerServiceUpdateOAuthProviderMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateOAuthProvider")
+	evmIndexerServiceDeleteOAuthProviderMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteOAuthProvider")
+	evmIndexerServiceListUsersMethodDescriptor                 = evmIndexerServiceServiceDescriptor.Methods().ByName("ListUsers")
+	evmIndexerServiceCreateUserMethodDescriptor                = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateUser")
+	evmIndexerServiceUpdateUserMethodDescriptor                = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateUser")
+	evmIndexerServiceDeleteUserMethodDescriptor                = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteUser")
 	evmIndexerServiceCreateEvmiExporterMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmiExporter")
 	evmIndexerServiceGetEvmiExporterMethodDescriptor           = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmiExporter")
 	evmIndexerServiceUpdateEvmiExporterMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmiExporter")
@@ -304,13 +328,21 @@ type EvmIndexerServiceClient interface {
 	ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error)
 	// Auth (Login and GetOAuthLoginUrl are public; all others require a token)
 	Login(context.Context, *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error)
-	GetOAuthLoginUrl(context.Context, *connect.Request[v1.GetOAuthLoginUrlRequest]) (*connect.Response[v1.GetOAuthLoginUrlResponse], error)
+	ListOAuthLoginUrls(context.Context, *connect.Request[v1.ListOAuthLoginUrlsRequest]) (*connect.Response[v1.ListOAuthLoginUrlsResponse], error)
 	Me(context.Context, *connect.Request[v1.MeRequest]) (*connect.Response[v1.MeResponse], error)
 	CreateAccessToken(context.Context, *connect.Request[v1.CreateAccessTokenRequest]) (*connect.Response[v1.CreateAccessTokenResponse], error)
 	ListAccessTokens(context.Context, *connect.Request[v1.ListAccessTokensRequest]) (*connect.Response[v1.ListAccessTokensResponse], error)
 	RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error)
-	GetOAuthConfig(context.Context, *connect.Request[v1.GetOAuthConfigRequest]) (*connect.Response[v1.GetOAuthConfigResponse], error)
-	UpdateOAuthConfig(context.Context, *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error)
+	// OAuth providers (admin)
+	ListOAuthProviders(context.Context, *connect.Request[v1.ListOAuthProvidersRequest]) (*connect.Response[v1.ListOAuthProvidersResponse], error)
+	CreateOAuthProvider(context.Context, *connect.Request[v1.CreateOAuthProviderRequest]) (*connect.Response[v1.CreateOAuthProviderResponse], error)
+	UpdateOAuthProvider(context.Context, *connect.Request[v1.UpdateOAuthProviderRequest]) (*connect.Response[v1.UpdateOAuthProviderResponse], error)
+	DeleteOAuthProvider(context.Context, *connect.Request[v1.DeleteOAuthProviderRequest]) (*connect.Response[v1.DeleteOAuthProviderResponse], error)
+	// Users (admin)
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
 	// EvmiExporter
 	CreateEvmiExporter(context.Context, *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error)
 	GetEvmiExporter(context.Context, *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error)
@@ -544,10 +576,10 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceLoginMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		getOAuthLoginUrl: connect.NewClient[v1.GetOAuthLoginUrlRequest, v1.GetOAuthLoginUrlResponse](
+		listOAuthLoginUrls: connect.NewClient[v1.ListOAuthLoginUrlsRequest, v1.ListOAuthLoginUrlsResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceGetOAuthLoginUrlProcedure,
-			connect.WithSchema(evmIndexerServiceGetOAuthLoginUrlMethodDescriptor),
+			baseURL+EvmIndexerServiceListOAuthLoginUrlsProcedure,
+			connect.WithSchema(evmIndexerServiceListOAuthLoginUrlsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		me: connect.NewClient[v1.MeRequest, v1.MeResponse](
@@ -574,16 +606,52 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceRevokeAccessTokenMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		getOAuthConfig: connect.NewClient[v1.GetOAuthConfigRequest, v1.GetOAuthConfigResponse](
+		listOAuthProviders: connect.NewClient[v1.ListOAuthProvidersRequest, v1.ListOAuthProvidersResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceGetOAuthConfigProcedure,
-			connect.WithSchema(evmIndexerServiceGetOAuthConfigMethodDescriptor),
+			baseURL+EvmIndexerServiceListOAuthProvidersProcedure,
+			connect.WithSchema(evmIndexerServiceListOAuthProvidersMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		updateOAuthConfig: connect.NewClient[v1.UpdateOAuthConfigRequest, v1.UpdateOAuthConfigResponse](
+		createOAuthProvider: connect.NewClient[v1.CreateOAuthProviderRequest, v1.CreateOAuthProviderResponse](
 			httpClient,
-			baseURL+EvmIndexerServiceUpdateOAuthConfigProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateOAuthConfigMethodDescriptor),
+			baseURL+EvmIndexerServiceCreateOAuthProviderProcedure,
+			connect.WithSchema(evmIndexerServiceCreateOAuthProviderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateOAuthProvider: connect.NewClient[v1.UpdateOAuthProviderRequest, v1.UpdateOAuthProviderResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateOAuthProviderProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateOAuthProviderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteOAuthProvider: connect.NewClient[v1.DeleteOAuthProviderRequest, v1.DeleteOAuthProviderResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteOAuthProviderProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteOAuthProviderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListUsersProcedure,
+			connect.WithSchema(evmIndexerServiceListUsersMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createUser: connect.NewClient[v1.CreateUserRequest, v1.CreateUserResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreateUserProcedure,
+			connect.WithSchema(evmIndexerServiceCreateUserMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateUser: connect.NewClient[v1.UpdateUserRequest, v1.UpdateUserResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateUserProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateUserMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteUser: connect.NewClient[v1.DeleteUserRequest, v1.DeleteUserResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteUserProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteUserMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmiExporter: connect.NewClient[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse](
@@ -709,13 +777,19 @@ type evmIndexerServiceClient struct {
 	listLatestEvmLogs         *connect.Client[v1.ListLatestEvmLogsRequest, v1.ListLatestEvmLogsResponse]
 	listEvmTransactions       *connect.Client[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse]
 	login                     *connect.Client[v1.LoginRequest, v1.LoginResponse]
-	getOAuthLoginUrl          *connect.Client[v1.GetOAuthLoginUrlRequest, v1.GetOAuthLoginUrlResponse]
+	listOAuthLoginUrls        *connect.Client[v1.ListOAuthLoginUrlsRequest, v1.ListOAuthLoginUrlsResponse]
 	me                        *connect.Client[v1.MeRequest, v1.MeResponse]
 	createAccessToken         *connect.Client[v1.CreateAccessTokenRequest, v1.CreateAccessTokenResponse]
 	listAccessTokens          *connect.Client[v1.ListAccessTokensRequest, v1.ListAccessTokensResponse]
 	revokeAccessToken         *connect.Client[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse]
-	getOAuthConfig            *connect.Client[v1.GetOAuthConfigRequest, v1.GetOAuthConfigResponse]
-	updateOAuthConfig         *connect.Client[v1.UpdateOAuthConfigRequest, v1.UpdateOAuthConfigResponse]
+	listOAuthProviders        *connect.Client[v1.ListOAuthProvidersRequest, v1.ListOAuthProvidersResponse]
+	createOAuthProvider       *connect.Client[v1.CreateOAuthProviderRequest, v1.CreateOAuthProviderResponse]
+	updateOAuthProvider       *connect.Client[v1.UpdateOAuthProviderRequest, v1.UpdateOAuthProviderResponse]
+	deleteOAuthProvider       *connect.Client[v1.DeleteOAuthProviderRequest, v1.DeleteOAuthProviderResponse]
+	listUsers                 *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	createUser                *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	updateUser                *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
+	deleteUser                *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
 	createEvmiExporter        *connect.Client[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse]
 	getEvmiExporter           *connect.Client[v1.GetEvmiExporterRequest, v1.GetEvmiExporterResponse]
 	updateEvmiExporter        *connect.Client[v1.UpdateEvmiExporterRequest, v1.UpdateEvmiExporterResponse]
@@ -902,9 +976,9 @@ func (c *evmIndexerServiceClient) Login(ctx context.Context, req *connect.Reques
 	return c.login.CallUnary(ctx, req)
 }
 
-// GetOAuthLoginUrl calls evm_indexer.v1.EvmIndexerService.GetOAuthLoginUrl.
-func (c *evmIndexerServiceClient) GetOAuthLoginUrl(ctx context.Context, req *connect.Request[v1.GetOAuthLoginUrlRequest]) (*connect.Response[v1.GetOAuthLoginUrlResponse], error) {
-	return c.getOAuthLoginUrl.CallUnary(ctx, req)
+// ListOAuthLoginUrls calls evm_indexer.v1.EvmIndexerService.ListOAuthLoginUrls.
+func (c *evmIndexerServiceClient) ListOAuthLoginUrls(ctx context.Context, req *connect.Request[v1.ListOAuthLoginUrlsRequest]) (*connect.Response[v1.ListOAuthLoginUrlsResponse], error) {
+	return c.listOAuthLoginUrls.CallUnary(ctx, req)
 }
 
 // Me calls evm_indexer.v1.EvmIndexerService.Me.
@@ -927,14 +1001,44 @@ func (c *evmIndexerServiceClient) RevokeAccessToken(ctx context.Context, req *co
 	return c.revokeAccessToken.CallUnary(ctx, req)
 }
 
-// GetOAuthConfig calls evm_indexer.v1.EvmIndexerService.GetOAuthConfig.
-func (c *evmIndexerServiceClient) GetOAuthConfig(ctx context.Context, req *connect.Request[v1.GetOAuthConfigRequest]) (*connect.Response[v1.GetOAuthConfigResponse], error) {
-	return c.getOAuthConfig.CallUnary(ctx, req)
+// ListOAuthProviders calls evm_indexer.v1.EvmIndexerService.ListOAuthProviders.
+func (c *evmIndexerServiceClient) ListOAuthProviders(ctx context.Context, req *connect.Request[v1.ListOAuthProvidersRequest]) (*connect.Response[v1.ListOAuthProvidersResponse], error) {
+	return c.listOAuthProviders.CallUnary(ctx, req)
 }
 
-// UpdateOAuthConfig calls evm_indexer.v1.EvmIndexerService.UpdateOAuthConfig.
-func (c *evmIndexerServiceClient) UpdateOAuthConfig(ctx context.Context, req *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error) {
-	return c.updateOAuthConfig.CallUnary(ctx, req)
+// CreateOAuthProvider calls evm_indexer.v1.EvmIndexerService.CreateOAuthProvider.
+func (c *evmIndexerServiceClient) CreateOAuthProvider(ctx context.Context, req *connect.Request[v1.CreateOAuthProviderRequest]) (*connect.Response[v1.CreateOAuthProviderResponse], error) {
+	return c.createOAuthProvider.CallUnary(ctx, req)
+}
+
+// UpdateOAuthProvider calls evm_indexer.v1.EvmIndexerService.UpdateOAuthProvider.
+func (c *evmIndexerServiceClient) UpdateOAuthProvider(ctx context.Context, req *connect.Request[v1.UpdateOAuthProviderRequest]) (*connect.Response[v1.UpdateOAuthProviderResponse], error) {
+	return c.updateOAuthProvider.CallUnary(ctx, req)
+}
+
+// DeleteOAuthProvider calls evm_indexer.v1.EvmIndexerService.DeleteOAuthProvider.
+func (c *evmIndexerServiceClient) DeleteOAuthProvider(ctx context.Context, req *connect.Request[v1.DeleteOAuthProviderRequest]) (*connect.Response[v1.DeleteOAuthProviderResponse], error) {
+	return c.deleteOAuthProvider.CallUnary(ctx, req)
+}
+
+// ListUsers calls evm_indexer.v1.EvmIndexerService.ListUsers.
+func (c *evmIndexerServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return c.listUsers.CallUnary(ctx, req)
+}
+
+// CreateUser calls evm_indexer.v1.EvmIndexerService.CreateUser.
+func (c *evmIndexerServiceClient) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return c.createUser.CallUnary(ctx, req)
+}
+
+// UpdateUser calls evm_indexer.v1.EvmIndexerService.UpdateUser.
+func (c *evmIndexerServiceClient) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return c.updateUser.CallUnary(ctx, req)
+}
+
+// DeleteUser calls evm_indexer.v1.EvmIndexerService.DeleteUser.
+func (c *evmIndexerServiceClient) DeleteUser(ctx context.Context, req *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return c.deleteUser.CallUnary(ctx, req)
 }
 
 // CreateEvmiExporter calls evm_indexer.v1.EvmIndexerService.CreateEvmiExporter.
@@ -1053,13 +1157,21 @@ type EvmIndexerServiceHandler interface {
 	ListEvmTransactions(context.Context, *connect.Request[v1.ListEvmTransactionsRequest]) (*connect.Response[v1.ListEvmTransactionsResponse], error)
 	// Auth (Login and GetOAuthLoginUrl are public; all others require a token)
 	Login(context.Context, *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error)
-	GetOAuthLoginUrl(context.Context, *connect.Request[v1.GetOAuthLoginUrlRequest]) (*connect.Response[v1.GetOAuthLoginUrlResponse], error)
+	ListOAuthLoginUrls(context.Context, *connect.Request[v1.ListOAuthLoginUrlsRequest]) (*connect.Response[v1.ListOAuthLoginUrlsResponse], error)
 	Me(context.Context, *connect.Request[v1.MeRequest]) (*connect.Response[v1.MeResponse], error)
 	CreateAccessToken(context.Context, *connect.Request[v1.CreateAccessTokenRequest]) (*connect.Response[v1.CreateAccessTokenResponse], error)
 	ListAccessTokens(context.Context, *connect.Request[v1.ListAccessTokensRequest]) (*connect.Response[v1.ListAccessTokensResponse], error)
 	RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error)
-	GetOAuthConfig(context.Context, *connect.Request[v1.GetOAuthConfigRequest]) (*connect.Response[v1.GetOAuthConfigResponse], error)
-	UpdateOAuthConfig(context.Context, *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error)
+	// OAuth providers (admin)
+	ListOAuthProviders(context.Context, *connect.Request[v1.ListOAuthProvidersRequest]) (*connect.Response[v1.ListOAuthProvidersResponse], error)
+	CreateOAuthProvider(context.Context, *connect.Request[v1.CreateOAuthProviderRequest]) (*connect.Response[v1.CreateOAuthProviderResponse], error)
+	UpdateOAuthProvider(context.Context, *connect.Request[v1.UpdateOAuthProviderRequest]) (*connect.Response[v1.UpdateOAuthProviderResponse], error)
+	DeleteOAuthProvider(context.Context, *connect.Request[v1.DeleteOAuthProviderRequest]) (*connect.Response[v1.DeleteOAuthProviderResponse], error)
+	// Users (admin)
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
 	// EvmiExporter
 	CreateEvmiExporter(context.Context, *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error)
 	GetEvmiExporter(context.Context, *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error)
@@ -1289,10 +1401,10 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceLoginMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceGetOAuthLoginUrlHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceGetOAuthLoginUrlProcedure,
-		svc.GetOAuthLoginUrl,
-		connect.WithSchema(evmIndexerServiceGetOAuthLoginUrlMethodDescriptor),
+	evmIndexerServiceListOAuthLoginUrlsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListOAuthLoginUrlsProcedure,
+		svc.ListOAuthLoginUrls,
+		connect.WithSchema(evmIndexerServiceListOAuthLoginUrlsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceMeHandler := connect.NewUnaryHandler(
@@ -1319,16 +1431,52 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceRevokeAccessTokenMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceGetOAuthConfigHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceGetOAuthConfigProcedure,
-		svc.GetOAuthConfig,
-		connect.WithSchema(evmIndexerServiceGetOAuthConfigMethodDescriptor),
+	evmIndexerServiceListOAuthProvidersHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListOAuthProvidersProcedure,
+		svc.ListOAuthProviders,
+		connect.WithSchema(evmIndexerServiceListOAuthProvidersMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	evmIndexerServiceUpdateOAuthConfigHandler := connect.NewUnaryHandler(
-		EvmIndexerServiceUpdateOAuthConfigProcedure,
-		svc.UpdateOAuthConfig,
-		connect.WithSchema(evmIndexerServiceUpdateOAuthConfigMethodDescriptor),
+	evmIndexerServiceCreateOAuthProviderHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateOAuthProviderProcedure,
+		svc.CreateOAuthProvider,
+		connect.WithSchema(evmIndexerServiceCreateOAuthProviderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateOAuthProviderHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateOAuthProviderProcedure,
+		svc.UpdateOAuthProvider,
+		connect.WithSchema(evmIndexerServiceUpdateOAuthProviderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteOAuthProviderHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteOAuthProviderProcedure,
+		svc.DeleteOAuthProvider,
+		connect.WithSchema(evmIndexerServiceDeleteOAuthProviderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListUsersHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListUsersProcedure,
+		svc.ListUsers,
+		connect.WithSchema(evmIndexerServiceListUsersMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceCreateUserHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateUserProcedure,
+		svc.CreateUser,
+		connect.WithSchema(evmIndexerServiceCreateUserMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateUserHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateUserProcedure,
+		svc.UpdateUser,
+		connect.WithSchema(evmIndexerServiceUpdateUserMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteUserHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteUserProcedure,
+		svc.DeleteUser,
+		connect.WithSchema(evmIndexerServiceDeleteUserMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmiExporterHandler := connect.NewUnaryHandler(
@@ -1485,8 +1633,8 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceListEvmTransactionsHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceLoginProcedure:
 			evmIndexerServiceLoginHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceGetOAuthLoginUrlProcedure:
-			evmIndexerServiceGetOAuthLoginUrlHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListOAuthLoginUrlsProcedure:
+			evmIndexerServiceListOAuthLoginUrlsHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceMeProcedure:
 			evmIndexerServiceMeHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceCreateAccessTokenProcedure:
@@ -1495,10 +1643,22 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceListAccessTokensHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceRevokeAccessTokenProcedure:
 			evmIndexerServiceRevokeAccessTokenHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceGetOAuthConfigProcedure:
-			evmIndexerServiceGetOAuthConfigHandler.ServeHTTP(w, r)
-		case EvmIndexerServiceUpdateOAuthConfigProcedure:
-			evmIndexerServiceUpdateOAuthConfigHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListOAuthProvidersProcedure:
+			evmIndexerServiceListOAuthProvidersHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateOAuthProviderProcedure:
+			evmIndexerServiceCreateOAuthProviderHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateOAuthProviderProcedure:
+			evmIndexerServiceUpdateOAuthProviderHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteOAuthProviderProcedure:
+			evmIndexerServiceDeleteOAuthProviderHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListUsersProcedure:
+			evmIndexerServiceListUsersHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateUserProcedure:
+			evmIndexerServiceCreateUserHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateUserProcedure:
+			evmIndexerServiceUpdateUserHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteUserProcedure:
+			evmIndexerServiceDeleteUserHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceCreateEvmiExporterProcedure:
 			evmIndexerServiceCreateEvmiExporterHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceGetEvmiExporterProcedure:
@@ -1672,8 +1832,8 @@ func (UnimplementedEvmIndexerServiceHandler) Login(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.Login is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) GetOAuthLoginUrl(context.Context, *connect.Request[v1.GetOAuthLoginUrlRequest]) (*connect.Response[v1.GetOAuthLoginUrlResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetOAuthLoginUrl is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) ListOAuthLoginUrls(context.Context, *connect.Request[v1.ListOAuthLoginUrlsRequest]) (*connect.Response[v1.ListOAuthLoginUrlsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListOAuthLoginUrls is not implemented"))
 }
 
 func (UnimplementedEvmIndexerServiceHandler) Me(context.Context, *connect.Request[v1.MeRequest]) (*connect.Response[v1.MeResponse], error) {
@@ -1692,12 +1852,36 @@ func (UnimplementedEvmIndexerServiceHandler) RevokeAccessToken(context.Context, 
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.RevokeAccessToken is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) GetOAuthConfig(context.Context, *connect.Request[v1.GetOAuthConfigRequest]) (*connect.Response[v1.GetOAuthConfigResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetOAuthConfig is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) ListOAuthProviders(context.Context, *connect.Request[v1.ListOAuthProvidersRequest]) (*connect.Response[v1.ListOAuthProvidersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListOAuthProviders is not implemented"))
 }
 
-func (UnimplementedEvmIndexerServiceHandler) UpdateOAuthConfig(context.Context, *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateOAuthConfig is not implemented"))
+func (UnimplementedEvmIndexerServiceHandler) CreateOAuthProvider(context.Context, *connect.Request[v1.CreateOAuthProviderRequest]) (*connect.Response[v1.CreateOAuthProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateOAuthProvider is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateOAuthProvider(context.Context, *connect.Request[v1.UpdateOAuthProviderRequest]) (*connect.Response[v1.UpdateOAuthProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateOAuthProvider is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteOAuthProvider(context.Context, *connect.Request[v1.DeleteOAuthProviderRequest]) (*connect.Response[v1.DeleteOAuthProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteOAuthProvider is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListUsers is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateUser is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateUser is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteUser is not implemented"))
 }
 
 func (UnimplementedEvmIndexerServiceHandler) CreateEvmiExporter(context.Context, *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error) {

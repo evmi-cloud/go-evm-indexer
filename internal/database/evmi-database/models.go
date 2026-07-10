@@ -51,13 +51,14 @@ type AccessToken struct {
 	LastUsedAt *time.Time
 }
 
-// OAuthConfig is a singleton row holding the admin-configured OAuth2/OIDC
-// provider used for login.
-type OAuthConfig struct {
+// OAuthProvider is an admin-configured OAuth2/OIDC provider used for login. There
+// may be several; the signed OAuth state parameter carries the provider id so the
+// callback knows which one to use.
+type OAuthProvider struct {
 	gorm.Model
 
 	Enabled      bool
-	Provider     string
+	Name         string
 	ClientID     string
 	ClientSecret string
 	AuthURL      string
@@ -66,8 +67,8 @@ type OAuthConfig struct {
 	RedirectURL  string
 	// Scopes is a space-separated list.
 	Scopes string
-	// StateSecret is an auto-generated HMAC key for signing the OAuth state
-	// parameter (stateless CSRF protection). Never returned to clients.
+	// StateSecret is an auto-generated per-provider HMAC key for signing the
+	// OAuth state parameter (stateless CSRF protection). Never returned to clients.
 	StateSecret string
 }
 

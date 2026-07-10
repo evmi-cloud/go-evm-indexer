@@ -27,6 +27,7 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
   const [options, setOptions] = useState<Record<string, Option[]>>({});
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [secret, setSecret] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -63,7 +64,7 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
 
   async function openForm(item: T | null) {
     setFormError(null);
-    setValues(item ? { ...defaults(resource.fields), ...resource.toForm(item) } : defaults(resource.fields));
+    setValues(item ? { ...defaults(resource.fields), ...(resource.toForm?.(item) ?? {}) } : defaults(resource.fields));
     setEditing(item);
 
     // Load relation dropdowns and default empty selects to the first option.
@@ -97,8 +98,12 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
     setSaving(true);
     setFormError(null);
     try {
-      if (editing) await resource.update(resource.idOf(editing), values);
-      else await resource.create(values);
+      if (editing) {
+        if (resource.update) await resource.update(resource.idOf(editing), values);
+      } else {
+        const result = await resource.create(values);
+        if (typeof result === "string") setSecret(result);
+      }
       setEditing(undefined);
       await refresh();
     } catch (err) {
@@ -154,6 +159,20 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
 
       {error && <div className="error banner">{error}</div>}
 
+      {secret && (
+        <div className="secret-banner">
+          <div>
+            <strong>Copy it now — it won&apos;t be shown again:</strong>
+            <div>
+              <code>{secret}</code>
+            </div>
+          </div>
+          <button className="secondary small" onClick={() => setSecret(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="empty muted">Loading…</div>
       ) : items.length === 0 ? (
@@ -197,9 +216,11 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                             {busy === `${a.label}-${id}` ? "…" : a.label}
                           </button>
                         ))}
-                        <button className="secondary small" onClick={() => openForm(item)}>
-                          Edit
-                        </button>
+                        {resource.update && (
+                          <button className="secondary small" onClick={() => openForm(item)}>
+                            Edit
+                          </button>
+                        )}
                         <button className="danger small" disabled={busy === `del-${id}`} onClick={() => remove(item)}>
                           Delete
                         </button>
@@ -295,7 +316,13 @@ function FieldInput({
         </select>
       ) : (
         <input
-          type={field.type === "number" || field.type === "bigint" ? "number" : "text"}
+          type={
+            field.type === "number" || field.type === "bigint"
+              ? "number"
+              : field.type === "password"
+                ? "password"
+                : "text"
+          }
           value={String(value ?? "")}
           placeholder={field.placeholder}
           onChange={(e) => onChange(e.target.value)}

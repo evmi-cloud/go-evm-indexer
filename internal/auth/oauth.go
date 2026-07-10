@@ -21,117 +21,189 @@ import (
 
 const oauthStateTTL = 10 * time.Minute
 
-// ErrOAuthDisabled is returned when an OAuth flow is attempted but no enabled
-// provider is configured.
-var ErrOAuthDisabled = errors.New("oauth is not configured")
+// ErrOAuthDisabled is returned when an OAuth flow is attempted but no matching
+// enabled provider is configured.
+var ErrOAuthDisabled = errors.New("oauth provider is not configured or disabled")
 
-// OAuthConfig returns the stored (singleton) OAuth configuration, or nil if none
-// has been set.
-func (a *Authenticator) OAuthConfig() (*evmi_database.OAuthConfig, error) {
-	var cfg evmi_database.OAuthConfig
-	err := a.db.Conn.First(&cfg).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+// --- provider CRUD ---------------------------------------------------------
+
+func (a *Authenticator) ListOAuthProviders() ([]evmi_database.OAuthProvider, error) {
+	var providers []evmi_database.OAuthProvider
+	err := a.db.Conn.Order("id asc").Find(&providers).Error
+	return providers, err
+}
+
+func (a *Authenticator) GetOAuthProvider(id uint) (*evmi_database.OAuthProvider, error) {
+	var p evmi_database.OAuthProvider
+	if err := a.db.Conn.First(&p, id).Error; err != nil {
+		return nil, err
 	}
+	return &p, nil
+}
+
+// CreateOAuthProvider stores a new provider, generating its state-signing secret.
+func (a *Authenticator) CreateOAuthProvider(p evmi_database.OAuthProvider) (*evmi_database.OAuthProvider, error) {
+	secret, _, err := generateToken()
 	if err != nil {
 		return nil, err
 	}
-	return &cfg, nil
-}
-
-// UpdateOAuthConfig upserts the singleton OAuth configuration.
-func (a *Authenticator) UpdateOAuthConfig(in evmi_database.OAuthConfig) (*evmi_database.OAuthConfig, error) {
-	existing, err := a.OAuthConfig()
-	if err != nil {
+	p.StateSecret = secret
+	if err := a.db.Conn.Create(&p).Error; err != nil {
 		return nil, err
 	}
-	if existing != nil {
-		in.ID = existing.ID
-	}
-	if err := a.db.Conn.Save(&in).Error; err != nil {
-		return nil, err
-	}
-	return &in, nil
+	return &p, nil
 }
 
-func (a *Authenticator) oauth2Config(cfg *evmi_database.OAuthConfig) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     cfg.ClientID,
-		ClientSecret: cfg.ClientSecret,
-		RedirectURL:  cfg.RedirectURL,
-		Scopes:       strings.Fields(cfg.Scopes),
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  cfg.AuthURL,
-			TokenURL: cfg.TokenURL,
-		},
-	}
-}
-
-// OAuthAuthCodeURL returns the provider authorization URL with a freshly signed,
-// self-contained state parameter (stateless CSRF protection — no server session
-// or cookie needed). Returns ErrOAuthDisabled if OAuth is not enabled.
-func (a *Authenticator) OAuthAuthCodeURL() (string, error) {
-	cfg, err := a.OAuthConfig()
-	if err != nil {
-		return "", err
-	}
-	if cfg == nil || !cfg.Enabled {
-		return "", ErrOAuthDisabled
-	}
-	secret, err := a.stateSecret()
-	if err != nil {
-		return "", err
-	}
-	state := signState(secret, oauthStateTTL)
-	return a.oauth2Config(cfg).AuthCodeURL(state, oauth2.AccessTypeOffline), nil
-}
-
-// VerifyOAuthState validates a state parameter returned to the callback.
-func (a *Authenticator) VerifyOAuthState(state string) error {
-	secret, err := a.stateSecret()
-	if err != nil {
+// UpdateOAuthProvider updates a provider. An empty clientSecret keeps the stored
+// one; the state secret is preserved.
+func (a *Authenticator) UpdateOAuthProvider(in evmi_database.OAuthProvider, clientSecret string) error {
+	var existing evmi_database.OAuthProvider
+	if err := a.db.Conn.First(&existing, in.ID).Error; err != nil {
 		return err
 	}
-	return verifyState(secret, state)
+
+	existing.Enabled = in.Enabled
+	existing.Name = in.Name
+	existing.ClientID = in.ClientID
+	existing.AuthURL = in.AuthURL
+	existing.TokenURL = in.TokenURL
+	existing.UserInfoURL = in.UserInfoURL
+	existing.RedirectURL = in.RedirectURL
+	existing.Scopes = in.Scopes
+	if clientSecret != "" {
+		existing.ClientSecret = clientSecret
+	}
+	return a.db.Conn.Save(&existing).Error
 }
 
-// stateSecret returns the HMAC key used to sign OAuth state, generating and
-// persisting one on first use.
-func (a *Authenticator) stateSecret() ([]byte, error) {
-	cfg, err := a.OAuthConfig()
-	if err != nil {
+func (a *Authenticator) DeleteOAuthProvider(id uint) error {
+	return a.db.Conn.Delete(&evmi_database.OAuthProvider{}, id).Error
+}
+
+// --- login flow ------------------------------------------------------------
+
+// OAuthLoginOption is one enabled provider the login page can offer.
+type OAuthLoginOption struct {
+	ProviderID uint
+	Name       string
+	URL        string
+}
+
+// OAuthLoginOptions returns, for every enabled provider, its authorization URL
+// with a freshly signed state parameter (which carries the provider id).
+func (a *Authenticator) OAuthLoginOptions() ([]OAuthLoginOption, error) {
+	var providers []evmi_database.OAuthProvider
+	if err := a.db.Conn.Where("enabled = ?", true).Order("id asc").Find(&providers).Error; err != nil {
 		return nil, err
 	}
-	if cfg == nil {
-		return nil, ErrOAuthDisabled
+
+	options := make([]OAuthLoginOption, 0, len(providers))
+	for i := range providers {
+		p := &providers[i]
+		secret, err := a.ensureStateSecret(p)
+		if err != nil {
+			return nil, err
+		}
+		state := signState(secret, p.ID, oauthStateTTL)
+		options = append(options, OAuthLoginOption{
+			ProviderID: p.ID,
+			Name:       p.Name,
+			URL:        a.oauth2Config(p).AuthCodeURL(state, oauth2.AccessTypeOffline),
+		})
 	}
-	if cfg.StateSecret == "" {
+	return options, nil
+}
+
+// HandleOAuthCallback validates the state, resolves the provider it encodes,
+// exchanges the code, resolves the user (creating one on first login), and issues
+// a session token.
+func (a *Authenticator) HandleOAuthCallback(ctx context.Context, state, code string) (string, *evmi_database.AccessToken, error) {
+	providerID, err := stateProviderID(state)
+	if err != nil {
+		return "", nil, err
+	}
+	provider, err := a.GetOAuthProvider(providerID)
+	if err != nil {
+		return "", nil, ErrOAuthDisabled
+	}
+	if !provider.Enabled {
+		return "", nil, ErrOAuthDisabled
+	}
+	if err := verifyState([]byte(provider.StateSecret), state); err != nil {
+		return "", nil, err
+	}
+
+	oauthCfg := a.oauth2Config(provider)
+	token, err := oauthCfg.Exchange(ctx, code)
+	if err != nil {
+		return "", nil, fmt.Errorf("oauth code exchange failed: %w", err)
+	}
+
+	subject, email, err := fetchUserInfo(ctx, oauthCfg.Client(ctx, token), provider.UserInfoURL)
+	if err != nil {
+		return "", nil, err
+	}
+
+	user, err := a.upsertOAuthUser(subject, email)
+	if err != nil {
+		return "", nil, err
+	}
+	return a.issueToken(user.ID, "oauth-session", evmi_database.SessionTokenKind, DefaultSessionTTL)
+}
+
+func (a *Authenticator) oauth2Config(p *evmi_database.OAuthProvider) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     p.ClientID,
+		ClientSecret: p.ClientSecret,
+		RedirectURL:  p.RedirectURL,
+		Scopes:       strings.Fields(p.Scopes),
+		Endpoint:     oauth2.Endpoint{AuthURL: p.AuthURL, TokenURL: p.TokenURL},
+	}
+}
+
+func (a *Authenticator) ensureStateSecret(p *evmi_database.OAuthProvider) ([]byte, error) {
+	if p.StateSecret == "" {
 		secret, _, err := generateToken()
 		if err != nil {
 			return nil, err
 		}
-		if err := a.db.Conn.Model(cfg).Update("state_secret", secret).Error; err != nil {
+		if err := a.db.Conn.Model(p).Update("state_secret", secret).Error; err != nil {
 			return nil, err
 		}
-		cfg.StateSecret = secret
+		p.StateSecret = secret
 	}
-	return []byte(cfg.StateSecret), nil
+	return []byte(p.StateSecret), nil
 }
 
-// signState builds "<nonce>.<expiryUnix>.<hmac>".
-func signState(secret []byte, ttl time.Duration) string {
+// --- signed state ("<providerID>.<nonce>.<expiry>.<hmac>") ------------------
+
+func signState(secret []byte, providerID uint, ttl time.Duration) string {
 	nonce, _, _ := generateToken()
-	payload := nonce + "." + strconv.FormatInt(time.Now().Add(ttl).Unix(), 10)
+	payload := fmt.Sprintf("%d.%s.%d", providerID, nonce, time.Now().Add(ttl).Unix())
 	return payload + "." + stateSignature(secret, payload)
+}
+
+// stateProviderID extracts the (unverified) provider id from a state parameter,
+// so the caller can load the provider whose secret verifies the signature.
+func stateProviderID(state string) (uint, error) {
+	parts := strings.Split(state, ".")
+	if len(parts) != 4 {
+		return 0, errors.New("invalid oauth state")
+	}
+	id, err := strconv.ParseUint(parts[0], 10, 64)
+	if err != nil {
+		return 0, errors.New("invalid oauth state")
+	}
+	return uint(id), nil
 }
 
 func verifyState(secret []byte, state string) error {
 	parts := strings.Split(state, ".")
-	if len(parts) != 3 {
+	if len(parts) != 4 {
 		return errors.New("invalid oauth state")
 	}
-	payload := parts[0] + "." + parts[1]
-	got, err := hex.DecodeString(parts[2])
+	payload := parts[0] + "." + parts[1] + "." + parts[2]
+	got, err := hex.DecodeString(parts[3])
 	if err != nil {
 		return errors.New("invalid oauth state")
 	}
@@ -139,7 +211,7 @@ func verifyState(secret []byte, state string) error {
 	if err != nil || !hmac.Equal(want, got) {
 		return errors.New("invalid oauth state signature")
 	}
-	expiry, err := strconv.ParseInt(parts[1], 10, 64)
+	expiry, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
 		return errors.New("invalid oauth state")
 	}
@@ -155,39 +227,8 @@ func stateSignature(secret []byte, payload string) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// HandleOAuthCallback exchanges an authorization code, resolves the user from the
-// provider's userinfo endpoint (creating one on first login), and issues a
-// session token.
-func (a *Authenticator) HandleOAuthCallback(ctx context.Context, code string) (string, *evmi_database.AccessToken, error) {
-	cfg, err := a.OAuthConfig()
-	if err != nil {
-		return "", nil, err
-	}
-	if cfg == nil || !cfg.Enabled {
-		return "", nil, ErrOAuthDisabled
-	}
+// --- userinfo --------------------------------------------------------------
 
-	oauthCfg := a.oauth2Config(cfg)
-	token, err := oauthCfg.Exchange(ctx, code)
-	if err != nil {
-		return "", nil, fmt.Errorf("oauth code exchange failed: %w", err)
-	}
-
-	subject, email, err := fetchUserInfo(ctx, oauthCfg.Client(ctx, token), cfg.UserInfoURL)
-	if err != nil {
-		return "", nil, err
-	}
-
-	user, err := a.upsertOAuthUser(subject, email)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return a.issueToken(user.ID, "oauth-session", evmi_database.SessionTokenKind, DefaultSessionTTL)
-}
-
-// fetchUserInfo calls the provider userinfo endpoint and extracts a stable
-// subject and email. It accepts either "sub" or "id" as the subject claim.
 func fetchUserInfo(ctx context.Context, client *http.Client, userInfoURL string) (subject string, email string, err error) {
 	if userInfoURL == "" {
 		return "", "", errors.New("oauth userInfoURL is not configured")

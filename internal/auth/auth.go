@@ -238,3 +238,59 @@ func UserFromContext(ctx context.Context) (*evmi_database.User, bool) {
 	user, ok := ctx.Value(userContextKey).(*evmi_database.User)
 	return user, ok
 }
+
+// --- user management (admin) -----------------------------------------------
+
+func (a *Authenticator) ListUsers() ([]evmi_database.User, error) {
+	var users []evmi_database.User
+	err := a.db.Conn.Order("id asc").Find(&users).Error
+	return users, err
+}
+
+// CreateUser creates a password user (role defaults to "user").
+func (a *Authenticator) CreateUser(username, password, role, email string) (*evmi_database.User, error) {
+	if strings.TrimSpace(username) == "" {
+		return nil, errors.New("username is required")
+	}
+	if password == "" {
+		return nil, errors.New("password is required")
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	if role == "" {
+		role = string(evmi_database.RoleUser)
+	}
+	user := evmi_database.User{Username: username, Email: email, PasswordHash: hash, Role: role}
+	if err := a.db.Conn.Create(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateUser updates a user's username/email/role; an empty password keeps the
+// existing one.
+func (a *Authenticator) UpdateUser(id uint, username, role, email, password string) error {
+	var user evmi_database.User
+	if err := a.db.Conn.First(&user, id).Error; err != nil {
+		return err
+	}
+	user.Username = username
+	user.Email = email
+	if role != "" {
+		user.Role = role
+	}
+	if password != "" {
+		hash, err := HashPassword(password)
+		if err != nil {
+			return err
+		}
+		user.PasswordHash = hash
+	}
+	return a.db.Conn.Save(&user).Error
+}
+
+func (a *Authenticator) DeleteUser(id uint) error {
+	return a.db.Conn.Delete(&evmi_database.User{}, id).Error
+}
