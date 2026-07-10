@@ -442,6 +442,116 @@ message GetOAuthLoginUrlResponse {
   string url = 1;
 }
 
+// EvmiExporter
+message EvmiExporter {
+  optional uint32 id = 1;
+  string name = 2;
+  uint32 evm_log_pipeline_id = 3;
+  bool enabled = 4;
+  string status = 5;
+  uint64 start_block = 6;
+  uint64 sync_block = 7;
+  int64 sync_log_index = 8;
+  string plugin_config_json = 9;
+  uint32 plugin_id = 10;
+  optional uint32 created_at = 13;
+  optional uint32 updated_at = 14;
+  optional uint32 deleted_at = 15;
+}
+
+// Plugin
+message Plugin {
+  optional uint32 id = 1;
+  string name = 2;
+  string description = 3;
+  string github_url = 4;
+  string relative_path = 5;
+  string local_path = 6;
+  string so_path = 7;
+  string status = 8;
+  string error = 9;
+  optional uint32 created_at = 10;
+  optional uint32 updated_at = 11;
+  optional uint32 deleted_at = 12;
+}
+
+message CreatePluginRequest {
+  Plugin plugin = 1;
+}
+message CreatePluginResponse {
+  uint32 id = 1;
+}
+message GetPluginRequest {
+  uint32 id = 1;
+}
+message GetPluginResponse {
+  Plugin plugin = 1;
+}
+message UpdatePluginRequest {
+  Plugin plugin = 1;
+}
+message UpdatePluginResponse {}
+message ListPluginsRequest {
+  Pagination pagination = 1;
+}
+message ListPluginsResponse {
+  repeated Plugin plugins = 1;
+}
+message DeletePluginRequest {
+  uint32 id = 1;
+}
+message DeletePluginResponse {}
+message InstallPluginRequest {
+  uint32 id = 1;
+}
+message InstallPluginResponse {
+  bool success = 1;
+  string error = 2;
+  string status = 3;
+}
+
+message CreateEvmiExporterRequest {
+  EvmiExporter exporter = 1;
+}
+message CreateEvmiExporterResponse {
+  uint32 id = 1;
+}
+message GetEvmiExporterRequest {
+  uint32 id = 1;
+}
+message GetEvmiExporterResponse {
+  EvmiExporter exporter = 1;
+}
+message UpdateEvmiExporterRequest {
+  EvmiExporter exporter = 1;
+}
+message UpdateEvmiExporterResponse {}
+message ListEvmiExportersRequest {
+  Pagination pagination = 1;
+  uint32 pipeline_id = 2;
+}
+message ListEvmiExportersResponse {
+  repeated EvmiExporter exporters = 1;
+}
+message DeleteEvmiExporterRequest {
+  uint32 id = 1;
+}
+message DeleteEvmiExporterResponse {}
+message StartExporterRequest {
+  uint32 id = 1;
+}
+message StartExporterResponse {
+  bool success = 1;
+  string error = 2;
+}
+message StopExporterRequest {
+  uint32 id = 1;
+}
+message StopExporterResponse {
+  bool success = 1;
+  string error = 2;
+}
+
 
 service EvmIndexerService {
   // EvmiInstance
@@ -501,4 +611,21 @@ service EvmIndexerService {
   rpc RevokeAccessToken(RevokeAccessTokenRequest) returns (RevokeAccessTokenResponse);
   rpc GetOAuthConfig(GetOAuthConfigRequest) returns (GetOAuthConfigResponse);
   rpc UpdateOAuthConfig(UpdateOAuthConfigRequest) returns (UpdateOAuthConfigResponse);
+
+  // EvmiExporter
+  rpc CreateEvmiExporter(CreateEvmiExporterRequest) returns (CreateEvmiExporterResponse);
+  rpc GetEvmiExporter(GetEvmiExporterRequest) returns (GetEvmiExporterResponse);
+  rpc UpdateEvmiExporter(UpdateEvmiExporterRequest) returns (UpdateEvmiExporterResponse);
+  rpc ListEvmiExporters(ListEvmiExportersRequest) returns (ListEvmiExportersResponse);
+  rpc DeleteEvmiExporter(DeleteEvmiExporterRequest) returns (DeleteEvmiExporterResponse);
+  rpc StartExporter(StartExporterRequest) returns (StartExporterResponse);
+  rpc StopExporter(StopExporterRequest) returns (StopExporterResponse);
+
+  // Plugin
+  rpc CreatePlugin(CreatePluginRequest) returns (CreatePluginResponse);
+  rpc GetPlugin(GetPluginRequest) returns (GetPluginResponse);
+  rpc UpdatePlugin(UpdatePluginRequest) returns (UpdatePluginResponse);
+  rpc ListPlugins(ListPluginsRequest) returns (ListPluginsResponse);
+  rpc DeletePlugin(DeletePluginRequest) returns (DeletePluginResponse);
+  rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);
 }

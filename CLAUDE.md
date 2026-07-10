@@ -112,14 +112,43 @@ committing `EvmiExporter.SyncBlock` at block boundaries (at-least-once; plugins 
 stable `LogEvent.Id`). The safe export head is the *min* `SyncBlock` across the pipeline's
 sources. Plugins implement the public `pkg/exporter.Exporter` interface (public so external
 plugin repos can import it — `internal/` can't be imported out-of-module) and export a
-`func New() exporter.Exporter` symbol; `loader.go` builds the `.so` with `-buildmode=plugin`
-and loads it via `plugin.Open`. Wired into `main.go` after the indexer. **Design + native-
-plugin caveats (CGO, toolchain/version match, no isolation, scratch-image incompatibility)
-live in `docs/exporters.md` — read it before touching this subsystem.** Cross-source ordered
-reads use `EvmIndexerStorage.GetLogsForSources`.
+`func New() exporter.Exporter` symbol. **Plugin code is a separate `Plugin` entity**, not an
+exporter field: `exporter.InstallPlugin` (via the `InstallPlugin` RPC) resolves the source and
+builds the `.so` with `-buildmode=plugin`, recording `SoPath`/`Status` on the `Plugin` row; an
+exporter references it by `PluginID` and `loader.go:loadInstalledPlugin` opens the installed
+`.so` via `plugin.Open` (an exporter only starts if its plugin is `INSTALLED`). Wired into
+`main.go` after the indexer, which first calls `exporter.VerifyPlugins` — the `.so` build cache
+is ephemeral across restarts, so each boot re-checks every `INSTALLED` plugin's `SoPath` and
+rebuilds missing GitHub-sourced plugins (or marks non-GitHub ones `FAILED`). **Design + native-plugin caveats (CGO, toolchain/version match, no
+isolation, runtime image needs a Go toolchain to build plugins from source) live in
+`docs/exporters.md` — read it before touching this subsystem.** Cross-source ordered reads use
+`EvmIndexerStorage.GetLogsAfter`. Plugins and exporters are managed over the Connect API
+(`internal/grpc/plugin-handlers.go` CRUD + `InstallPlugin`; `exporter-handlers.go` CRUD +
+`StartExporter`/`StopExporter` emitting the enable/disable bus events), with **Plugins** and
+**Exporters** tabs in the web UI. `UpdateEvmiExporter` never overwrites the server-managed
+cursor (`sync_block`/`sync_log_index`) or `status`.
 
 **Metrics** (`internal/metrics`, Prometheus): live and scraped per the compose Prometheus
 config.
+
+**Web UI** (`webui/`, served by `internal/grpc/webui.go`): a Next.js app (App Router) built as
+a **static export** (`output: 'export'` → `webui/out/`). The Go server mounts it at `/` via
+`newWebUIHandler`, serving files from `EVMI_WEBUI_DIR` (default `public`) with an index.html
+fallback for client routes; it returns nil (skips mounting) when no `index.html` is present, so
+a dev checkout without a build is fine. Route precedence matters: the Connect service path and
+`/auth/oauth/callback` are registered as more-specific patterns, so `/` never shadows them. The
+Dockerfile has a `node:20` stage that runs `npm run build` and copies `out/` into the image at
+`/public` (with `ENV EVMI_WEBUI_DIR=/public`). The UI talks to the API via a **generated,
+typed Connect-ES v2 client**: `webui/buf.gen.yaml` runs `protoc-gen-es` over
+`internal/grpc/proto` into `webui/gen/` (committed — the Docker webui stage has no proto in its
+context), and `webui/lib/client.ts` wraps it with a `connect-web` transport + a bearer-token
+interceptor. So the proto now has **two** codegen consumers: Go (`buf generate` at repo root,
+needs `protoc-gen-go v1.35.1`) and the web UI (`npm run generate` in `webui/`, needs
+`@bufbuild/protoc-gen-es`) — regenerate both after editing the proto. The UI is a routed
+CRUD app: one App Router route per entity (`/blockchains`, `/abis`, `/stores`, `/pipelines`,
+`/sources`, `/exporters`) under the `app/(app)/` route group (its `layout.tsx` is the
+auth guard + sidebar), plus `/login`. Each entity is defined declaratively one-per-file in
+`webui/lib/resources/` and rendered by the generic `webui/components/ResourceManager.tsx`.
 
 ## Config file vs. runtime topology
 

@@ -103,7 +103,7 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 	p.store = store
 
 	p.logger.Info().Fields(logParams).Msg("loading plugin")
-	plug, err := loadExporterPlugin(p.exporter, p.logger)
+	plug, err := loadInstalledPlugin(p.db, p.exporter.PluginID)
 	if err != nil {
 		p.fail(err)
 		return err

@@ -52,6 +52,15 @@ func StartGrpcServer(
 	// Only the OAuth callback (a browser redirect target) stays on HTTP.
 	auth.RegisterRoutes(mux, authenticator, logger)
 
+	// Serve the built web UI at "/" (the API and auth patterns above are more
+	// specific and take precedence). Skipped when no build is present.
+	if webui := newWebUIHandler(webuiDir()); webui != nil {
+		mux.Handle("/", webui)
+		logger.Info().Msg("serving web UI from " + webuiDir())
+	} else {
+		logger.Info().Msg("no web UI build found at " + webuiDir() + "; static serving disabled")
+	}
+
 	//TODO: handle multiple TLS configurations
 	corsHandler := cors.AllowAll().Handler(mux)
 	http.ListenAndServe(

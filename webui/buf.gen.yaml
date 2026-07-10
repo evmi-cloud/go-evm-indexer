@@ -1,0 +1,11 @@
+# Generates the TypeScript Connect client from the EVMI proto into ./gen.
+# Run `npm run generate` after changing internal/grpc/proto/**/*.proto.
+version: v2
+inputs:
+  - directory: ../internal/grpc/proto
+plugins:
+  - local: protoc-gen-es
+    out: gen
+    opt:
+      - target=ts
+      - import_extension=none

@@ -90,25 +90,48 @@ go build -buildmode=plugin -o my-exporter.so ./path/to/plugin
 
 See `examples/exporters/logcount` for a working template.
 
-### Configuring an exporter
+### Plugins are a separate entity
 
-An `EvmiExporter` row drives loading (managed via the database / API):
+The plugin **code** is a first-class `Plugin` row, installed independently of any
+exporter. An exporter just references an already-installed plugin by `PluginID`.
 
-| field                | meaning                                                        |
-|----------------------|----------------------------------------------------------------|
-| `EvmLogPipelineID`   | pipeline whose logs are exported                               |
-| `Enabled`            | manager starts it when true                                    |
-| `StartBlock`         | first block to process                                         |
-| `SyncBlock`          | cursor (managed by the server)                                 |
-| `PluginConfig`       | raw JSON passed to `Init` as `Context.Config`                  |
-| `PluginLocalPath`    | prebuilt `.so`, **or** a module root to build from             |
-| `PluginGithubUrl`    | repo to clone and build (used when no `.so` is given)          |
-| `PluginRelativePath` | package to build within the module root                        |
+A `Plugin` row (managed via the API / the web UI's **Plugins** tab):
 
-Resolution order in `loader.go`: a `PluginLocalPath` ending in `.so` is loaded
-directly; otherwise the server builds from `PluginGithubUrl` (cloned) or
-`PluginLocalPath` (local module root), compiling the `PluginRelativePath`
-package.
+| field          | meaning                                                        |
+|----------------|----------------------------------------------------------------|
+| `Name`         | display name (shown in the exporter's plugin picker)           |
+| `LocalPath`    | prebuilt `.so`, **or** a module root to build from             |
+| `GithubUrl`    | repo to clone and build (used when no `.so` is given)          |
+| `RelativePath` | package to build within the module root                        |
+| `SoPath`       | the resolved/compiled `.so` (set on install)                   |
+| `Status`       | `NOT_INSTALLED` → `INSTALLING` → `INSTALLED` / `FAILED`         |
+
+**Install** (`InstallPlugin` RPC → `exporter.InstallPlugin`) resolves the source
+to a `.so` and records the result: a `LocalPath` ending in `.so` is used directly;
+otherwise the server builds from `GithubUrl` (cloned) or `LocalPath` (module
+root), compiling the `RelativePath` package. Editing a plugin's source resets it
+to `NOT_INSTALLED`.
+
+An `EvmiExporter` row then binds it to a pipeline:
+
+| field              | meaning                                                    |
+|--------------------|------------------------------------------------------------|
+| `EvmLogPipelineID` | pipeline whose logs are exported                           |
+| `PluginID`         | the installed plugin to run                                |
+| `Enabled`          | manager starts it when true                                |
+| `StartBlock`       | first block to process                                     |
+| `SyncBlock`        | cursor (managed by the server)                             |
+| `PluginConfig`     | raw JSON passed to the plugin's `Init` as `Context.Config` |
+
+An exporter only loads a plugin whose `Status` is `INSTALLED`; otherwise it fails
+to start with "plugin is not installed".
+
+**Startup verification.** The build cache (`$TMPDIR/evmi-plugins`) is typically
+wiped across restarts / container recreations, so on every boot
+`exporter.VerifyPlugins` checks that each `INSTALLED` plugin's `SoPath` still
+exists on disk. If it is missing: a plugin with a `GithubUrl` is **rebuilt**
+automatically; a plugin without one (a prebuilt `.so` or local dir that is gone)
+is set to **`FAILED`**, since it cannot be rebuilt from a remote source.
 
 ## Operational caveats (native plugins)
 
@@ -123,19 +146,26 @@ to the native-plugin approach:
   server. A mismatch fails at `plugin.Open`. Pin the plugin's `go.mod` to the
   server's module version.
 - **Linux/macOS only.** Windows is unsupported by `-buildmode=plugin`.
-- **CGO required.** Plugins need `CGO_ENABLED=1`. The current `Dockerfile` builds
-  the server with `CGO_ENABLED=0` into a `scratch` image — that image **cannot**
-  build or load plugins. To use exporters in Docker you need an image that (a)
-  is built with CGO enabled and (b) either ships prebuilt `.so` files built with
-  the same toolchain, or includes the Go toolchain + git to build from source at
-  runtime.
+- **CGO required.** Plugins need `CGO_ENABLED=1`. The `Dockerfile` builds the
+  server with CGO enabled (Debian/glibc) into a `distroless/cc` image, so a
+  **prebuilt** `.so` compiled on a matching glibc base (e.g. `golang:1.23-bookworm`)
+  can be mounted and loaded. **Building a plugin from source at runtime** still
+  needs the Go toolchain + git + gcc, which the distroless image does not include —
+  use a fuller base image (or a sidecar/init step) for that.
 - **No unload.** A loaded plugin cannot be unloaded; disabling an exporter stops
   its loop but the code stays resident until the process exits.
 
+## Managing exporters
+
+`EvmiExporter` rows are managed over the Connect API — `CreateEvmiExporter`,
+`GetEvmiExporter`, `UpdateEvmiExporter`, `ListEvmiExporters`, `DeleteEvmiExporter`,
+plus `StartExporter` / `StopExporter` (which emit the enable/disable bus events).
+The web UI exposes all of this under its **Exporters** tab. `UpdateEvmiExporter`
+deliberately does not touch the server-managed cursor (`sync_block`,
+`sync_log_index`) or `status`.
+
 ## Not yet implemented (Phase 2)
 
-- gRPC/Connect CRUD + start/stop endpoints for exporters (currently the
-  `EvmiExporter` rows are managed directly in the DB).
 - Git ref/commit pinning for `PluginGithubUrl` (v1 shallow-clones the default
   branch and reuses the cached checkout).
 - Confirmation-depth lag and reorg-aware rollback.

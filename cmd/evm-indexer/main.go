@@ -130,6 +130,9 @@ func main() {
 						logger.Fatal().Msg(err.Error())
 					}
 
+					logger.Info().Msg("Verify installed plugins")
+					exporter.VerifyPlugins(database, logger)
+
 					logger.Info().Msg("Mount exporter service")
 					exporterService := exporter.NewExporterServiceManager(instanceId, database, internalBus, metrics, logger)
 

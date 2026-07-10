@@ -274,26 +274,44 @@ go build -buildmode=plugin -o erc20-balances.so ./path/to/plugin
 
 ## 6. Register it with EVMI
 
-An exporter is an `EvmiExporter` record bound to a pipeline. The fields that
-matter for loading:
+Registration is two steps: **install the plugin**, then **reference it from an
+exporter**. In the web UI these are the **Plugins** and **Exporters** tabs.
 
-| field                | meaning                                                       |
-|----------------------|---------------------------------------------------------------|
-| `Name`               | display name (passed to `Init` as `ExporterName`)             |
-| `EvmLogPipelineID`   | the pipeline whose logs you receive                           |
-| `Enabled`            | set `true` for EVMI to start it                               |
-| `StartBlock`         | first block to process                                        |
+### a. Install the plugin
+
+A `Plugin` record holds the code source:
+
+| field          | meaning                                                    |
+|----------------|------------------------------------------------------------|
+| `Name`         | display name (shown in the exporter's plugin picker)       |
+| `LocalPath`    | path to your `.so`, **or** a module root for EVMI to build |
+| `GithubUrl`    | a repo EVMI clones and builds (when no `.so` is given)     |
+| `RelativePath` | package to build within the module root                    |
+
+Then **Install** it. EVMI resolves the source in this order and stores the result:
+
+1. `LocalPath` ending in `.so` → used directly (you built it).
+2. `GithubUrl` set → cloned, then built (`RelativePath` is the package).
+3. `LocalPath` as a directory → treated as the module root and built.
+
+Installing sets the plugin's status to `INSTALLED` (or `FAILED` with the build
+error). Editing the source resets it to `NOT_INSTALLED` — reinstall to rebuild.
+
+### b. Create an exporter that uses it
+
+An `EvmiExporter` binds an installed plugin to a pipeline:
+
+| field                        | meaning                                                     |
+|------------------------------|-------------------------------------------------------------|
+| `Name`                       | display name (passed to `Init` as `ExporterName`)           |
+| `EvmLogPipelineID`           | the pipeline whose logs you receive                         |
+| `PluginID`                   | the installed plugin to run                                 |
+| `Enabled`                    | set `true` for EVMI to start it                             |
+| `StartBlock`                 | first block to process                                      |
 | `SyncBlock` / `SyncLogIndex` | resume cursor (server-managed; the exact last log executed) |
-| `PluginConfig`       | JSON handed to your `Init` as `Context.Config`                |
-| `PluginLocalPath`    | path to your `.so`, **or** a module root for EVMI to build    |
-| `PluginGithubUrl`    | a repo EVMI clones and builds (when no `.so` is given)        |
-| `PluginRelativePath` | package to build within the module root                       |
+| `PluginConfig`               | JSON handed to your `Init` as `Context.Config`              |
 
-EVMI resolves the plugin in this order:
-
-1. `PluginLocalPath` ending in `.so` → loaded directly (you built it).
-2. `PluginGithubUrl` set → cloned, then built (`PluginRelativePath` is the package).
-3. `PluginLocalPath` as a directory → treated as the module root and built.
+An exporter only starts if its plugin is `INSTALLED`.
 
 Example `PluginConfig` for the ERC-20 exporter above:
 
@@ -334,4 +352,5 @@ Example `PluginConfig` for the ERC-20 exporter above:
 - [ ] idempotent on `LogEvent.Id` (safe to replay)
 - [ ] handles `Removed` logs deliberately
 - [ ] built with the server's Go version + pinned dependency versions, `CGO_ENABLED=1`
-- [ ] registered as an `EvmiExporter` with a valid plugin path and `PluginConfig`
+- [ ] installed as a `Plugin` (status `INSTALLED`), then referenced by an
+      `EvmiExporter` (with `PluginConfig`)

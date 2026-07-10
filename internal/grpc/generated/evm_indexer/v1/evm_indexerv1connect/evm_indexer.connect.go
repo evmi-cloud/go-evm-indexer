@@ -151,6 +151,45 @@ const (
 	// EvmIndexerServiceUpdateOAuthConfigProcedure is the fully-qualified name of the
 	// EvmIndexerService's UpdateOAuthConfig RPC.
 	EvmIndexerServiceUpdateOAuthConfigProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateOAuthConfig"
+	// EvmIndexerServiceCreateEvmiExporterProcedure is the fully-qualified name of the
+	// EvmIndexerService's CreateEvmiExporter RPC.
+	EvmIndexerServiceCreateEvmiExporterProcedure = "/evm_indexer.v1.EvmIndexerService/CreateEvmiExporter"
+	// EvmIndexerServiceGetEvmiExporterProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetEvmiExporter RPC.
+	EvmIndexerServiceGetEvmiExporterProcedure = "/evm_indexer.v1.EvmIndexerService/GetEvmiExporter"
+	// EvmIndexerServiceUpdateEvmiExporterProcedure is the fully-qualified name of the
+	// EvmIndexerService's UpdateEvmiExporter RPC.
+	EvmIndexerServiceUpdateEvmiExporterProcedure = "/evm_indexer.v1.EvmIndexerService/UpdateEvmiExporter"
+	// EvmIndexerServiceListEvmiExportersProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmiExporters RPC.
+	EvmIndexerServiceListEvmiExportersProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmiExporters"
+	// EvmIndexerServiceDeleteEvmiExporterProcedure is the fully-qualified name of the
+	// EvmIndexerService's DeleteEvmiExporter RPC.
+	EvmIndexerServiceDeleteEvmiExporterProcedure = "/evm_indexer.v1.EvmIndexerService/DeleteEvmiExporter"
+	// EvmIndexerServiceStartExporterProcedure is the fully-qualified name of the EvmIndexerService's
+	// StartExporter RPC.
+	EvmIndexerServiceStartExporterProcedure = "/evm_indexer.v1.EvmIndexerService/StartExporter"
+	// EvmIndexerServiceStopExporterProcedure is the fully-qualified name of the EvmIndexerService's
+	// StopExporter RPC.
+	EvmIndexerServiceStopExporterProcedure = "/evm_indexer.v1.EvmIndexerService/StopExporter"
+	// EvmIndexerServiceCreatePluginProcedure is the fully-qualified name of the EvmIndexerService's
+	// CreatePlugin RPC.
+	EvmIndexerServiceCreatePluginProcedure = "/evm_indexer.v1.EvmIndexerService/CreatePlugin"
+	// EvmIndexerServiceGetPluginProcedure is the fully-qualified name of the EvmIndexerService's
+	// GetPlugin RPC.
+	EvmIndexerServiceGetPluginProcedure = "/evm_indexer.v1.EvmIndexerService/GetPlugin"
+	// EvmIndexerServiceUpdatePluginProcedure is the fully-qualified name of the EvmIndexerService's
+	// UpdatePlugin RPC.
+	EvmIndexerServiceUpdatePluginProcedure = "/evm_indexer.v1.EvmIndexerService/UpdatePlugin"
+	// EvmIndexerServiceListPluginsProcedure is the fully-qualified name of the EvmIndexerService's
+	// ListPlugins RPC.
+	EvmIndexerServiceListPluginsProcedure = "/evm_indexer.v1.EvmIndexerService/ListPlugins"
+	// EvmIndexerServiceDeletePluginProcedure is the fully-qualified name of the EvmIndexerService's
+	// DeletePlugin RPC.
+	EvmIndexerServiceDeletePluginProcedure = "/evm_indexer.v1.EvmIndexerService/DeletePlugin"
+	// EvmIndexerServiceInstallPluginProcedure is the fully-qualified name of the EvmIndexerService's
+	// InstallPlugin RPC.
+	EvmIndexerServiceInstallPluginProcedure = "/evm_indexer.v1.EvmIndexerService/InstallPlugin"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -196,6 +235,19 @@ var (
 	evmIndexerServiceRevokeAccessTokenMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("RevokeAccessToken")
 	evmIndexerServiceGetOAuthConfigMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("GetOAuthConfig")
 	evmIndexerServiceUpdateOAuthConfigMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateOAuthConfig")
+	evmIndexerServiceCreateEvmiExporterMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmiExporter")
+	evmIndexerServiceGetEvmiExporterMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmiExporter")
+	evmIndexerServiceUpdateEvmiExporterMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmiExporter")
+	evmIndexerServiceListEvmiExportersMethodDescriptor    = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmiExporters")
+	evmIndexerServiceDeleteEvmiExporterMethodDescriptor   = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmiExporter")
+	evmIndexerServiceStartExporterMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("StartExporter")
+	evmIndexerServiceStopExporterMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("StopExporter")
+	evmIndexerServiceCreatePluginMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("CreatePlugin")
+	evmIndexerServiceGetPluginMethodDescriptor            = evmIndexerServiceServiceDescriptor.Methods().ByName("GetPlugin")
+	evmIndexerServiceUpdatePluginMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdatePlugin")
+	evmIndexerServiceListPluginsMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("ListPlugins")
+	evmIndexerServiceDeletePluginMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("DeletePlugin")
+	evmIndexerServiceInstallPluginMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("InstallPlugin")
 )
 
 // EvmIndexerServiceClient is a client for the evm_indexer.v1.EvmIndexerService service.
@@ -249,6 +301,21 @@ type EvmIndexerServiceClient interface {
 	RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error)
 	GetOAuthConfig(context.Context, *connect.Request[v1.GetOAuthConfigRequest]) (*connect.Response[v1.GetOAuthConfigResponse], error)
 	UpdateOAuthConfig(context.Context, *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error)
+	// EvmiExporter
+	CreateEvmiExporter(context.Context, *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error)
+	GetEvmiExporter(context.Context, *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error)
+	UpdateEvmiExporter(context.Context, *connect.Request[v1.UpdateEvmiExporterRequest]) (*connect.Response[v1.UpdateEvmiExporterResponse], error)
+	ListEvmiExporters(context.Context, *connect.Request[v1.ListEvmiExportersRequest]) (*connect.Response[v1.ListEvmiExportersResponse], error)
+	DeleteEvmiExporter(context.Context, *connect.Request[v1.DeleteEvmiExporterRequest]) (*connect.Response[v1.DeleteEvmiExporterResponse], error)
+	StartExporter(context.Context, *connect.Request[v1.StartExporterRequest]) (*connect.Response[v1.StartExporterResponse], error)
+	StopExporter(context.Context, *connect.Request[v1.StopExporterRequest]) (*connect.Response[v1.StopExporterResponse], error)
+	// Plugin
+	CreatePlugin(context.Context, *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error)
+	GetPlugin(context.Context, *connect.Request[v1.GetPluginRequest]) (*connect.Response[v1.GetPluginResponse], error)
+	UpdatePlugin(context.Context, *connect.Request[v1.UpdatePluginRequest]) (*connect.Response[v1.UpdatePluginResponse], error)
+	ListPlugins(context.Context, *connect.Request[v1.ListPluginsRequest]) (*connect.Response[v1.ListPluginsResponse], error)
+	DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error)
+	InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error)
 }
 
 // NewEvmIndexerServiceClient constructs a client for the evm_indexer.v1.EvmIndexerService service.
@@ -501,6 +568,84 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceUpdateOAuthConfigMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		createEvmiExporter: connect.NewClient[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreateEvmiExporterProcedure,
+			connect.WithSchema(evmIndexerServiceCreateEvmiExporterMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getEvmiExporter: connect.NewClient[v1.GetEvmiExporterRequest, v1.GetEvmiExporterResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceGetEvmiExporterProcedure,
+			connect.WithSchema(evmIndexerServiceGetEvmiExporterMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateEvmiExporter: connect.NewClient[v1.UpdateEvmiExporterRequest, v1.UpdateEvmiExporterResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdateEvmiExporterProcedure,
+			connect.WithSchema(evmIndexerServiceUpdateEvmiExporterMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmiExporters: connect.NewClient[v1.ListEvmiExportersRequest, v1.ListEvmiExportersResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmiExportersProcedure,
+			connect.WithSchema(evmIndexerServiceListEvmiExportersMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEvmiExporter: connect.NewClient[v1.DeleteEvmiExporterRequest, v1.DeleteEvmiExporterResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeleteEvmiExporterProcedure,
+			connect.WithSchema(evmIndexerServiceDeleteEvmiExporterMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		startExporter: connect.NewClient[v1.StartExporterRequest, v1.StartExporterResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceStartExporterProcedure,
+			connect.WithSchema(evmIndexerServiceStartExporterMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		stopExporter: connect.NewClient[v1.StopExporterRequest, v1.StopExporterResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceStopExporterProcedure,
+			connect.WithSchema(evmIndexerServiceStopExporterMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createPlugin: connect.NewClient[v1.CreatePluginRequest, v1.CreatePluginResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceCreatePluginProcedure,
+			connect.WithSchema(evmIndexerServiceCreatePluginMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPlugin: connect.NewClient[v1.GetPluginRequest, v1.GetPluginResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceGetPluginProcedure,
+			connect.WithSchema(evmIndexerServiceGetPluginMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updatePlugin: connect.NewClient[v1.UpdatePluginRequest, v1.UpdatePluginResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceUpdatePluginProcedure,
+			connect.WithSchema(evmIndexerServiceUpdatePluginMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPlugins: connect.NewClient[v1.ListPluginsRequest, v1.ListPluginsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListPluginsProcedure,
+			connect.WithSchema(evmIndexerServiceListPluginsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deletePlugin: connect.NewClient[v1.DeletePluginRequest, v1.DeletePluginResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceDeletePluginProcedure,
+			connect.WithSchema(evmIndexerServiceDeletePluginMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		installPlugin: connect.NewClient[v1.InstallPluginRequest, v1.InstallPluginResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceInstallPluginProcedure,
+			connect.WithSchema(evmIndexerServiceInstallPluginMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -546,6 +691,19 @@ type evmIndexerServiceClient struct {
 	revokeAccessToken    *connect.Client[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse]
 	getOAuthConfig       *connect.Client[v1.GetOAuthConfigRequest, v1.GetOAuthConfigResponse]
 	updateOAuthConfig    *connect.Client[v1.UpdateOAuthConfigRequest, v1.UpdateOAuthConfigResponse]
+	createEvmiExporter   *connect.Client[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse]
+	getEvmiExporter      *connect.Client[v1.GetEvmiExporterRequest, v1.GetEvmiExporterResponse]
+	updateEvmiExporter   *connect.Client[v1.UpdateEvmiExporterRequest, v1.UpdateEvmiExporterResponse]
+	listEvmiExporters    *connect.Client[v1.ListEvmiExportersRequest, v1.ListEvmiExportersResponse]
+	deleteEvmiExporter   *connect.Client[v1.DeleteEvmiExporterRequest, v1.DeleteEvmiExporterResponse]
+	startExporter        *connect.Client[v1.StartExporterRequest, v1.StartExporterResponse]
+	stopExporter         *connect.Client[v1.StopExporterRequest, v1.StopExporterResponse]
+	createPlugin         *connect.Client[v1.CreatePluginRequest, v1.CreatePluginResponse]
+	getPlugin            *connect.Client[v1.GetPluginRequest, v1.GetPluginResponse]
+	updatePlugin         *connect.Client[v1.UpdatePluginRequest, v1.UpdatePluginResponse]
+	listPlugins          *connect.Client[v1.ListPluginsRequest, v1.ListPluginsResponse]
+	deletePlugin         *connect.Client[v1.DeletePluginRequest, v1.DeletePluginResponse]
+	installPlugin        *connect.Client[v1.InstallPluginRequest, v1.InstallPluginResponse]
 }
 
 // GetEvmiInstance calls evm_indexer.v1.EvmIndexerService.GetEvmiInstance.
@@ -748,6 +906,71 @@ func (c *evmIndexerServiceClient) UpdateOAuthConfig(ctx context.Context, req *co
 	return c.updateOAuthConfig.CallUnary(ctx, req)
 }
 
+// CreateEvmiExporter calls evm_indexer.v1.EvmIndexerService.CreateEvmiExporter.
+func (c *evmIndexerServiceClient) CreateEvmiExporter(ctx context.Context, req *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error) {
+	return c.createEvmiExporter.CallUnary(ctx, req)
+}
+
+// GetEvmiExporter calls evm_indexer.v1.EvmIndexerService.GetEvmiExporter.
+func (c *evmIndexerServiceClient) GetEvmiExporter(ctx context.Context, req *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error) {
+	return c.getEvmiExporter.CallUnary(ctx, req)
+}
+
+// UpdateEvmiExporter calls evm_indexer.v1.EvmIndexerService.UpdateEvmiExporter.
+func (c *evmIndexerServiceClient) UpdateEvmiExporter(ctx context.Context, req *connect.Request[v1.UpdateEvmiExporterRequest]) (*connect.Response[v1.UpdateEvmiExporterResponse], error) {
+	return c.updateEvmiExporter.CallUnary(ctx, req)
+}
+
+// ListEvmiExporters calls evm_indexer.v1.EvmIndexerService.ListEvmiExporters.
+func (c *evmIndexerServiceClient) ListEvmiExporters(ctx context.Context, req *connect.Request[v1.ListEvmiExportersRequest]) (*connect.Response[v1.ListEvmiExportersResponse], error) {
+	return c.listEvmiExporters.CallUnary(ctx, req)
+}
+
+// DeleteEvmiExporter calls evm_indexer.v1.EvmIndexerService.DeleteEvmiExporter.
+func (c *evmIndexerServiceClient) DeleteEvmiExporter(ctx context.Context, req *connect.Request[v1.DeleteEvmiExporterRequest]) (*connect.Response[v1.DeleteEvmiExporterResponse], error) {
+	return c.deleteEvmiExporter.CallUnary(ctx, req)
+}
+
+// StartExporter calls evm_indexer.v1.EvmIndexerService.StartExporter.
+func (c *evmIndexerServiceClient) StartExporter(ctx context.Context, req *connect.Request[v1.StartExporterRequest]) (*connect.Response[v1.StartExporterResponse], error) {
+	return c.startExporter.CallUnary(ctx, req)
+}
+
+// StopExporter calls evm_indexer.v1.EvmIndexerService.StopExporter.
+func (c *evmIndexerServiceClient) StopExporter(ctx context.Context, req *connect.Request[v1.StopExporterRequest]) (*connect.Response[v1.StopExporterResponse], error) {
+	return c.stopExporter.CallUnary(ctx, req)
+}
+
+// CreatePlugin calls evm_indexer.v1.EvmIndexerService.CreatePlugin.
+func (c *evmIndexerServiceClient) CreatePlugin(ctx context.Context, req *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error) {
+	return c.createPlugin.CallUnary(ctx, req)
+}
+
+// GetPlugin calls evm_indexer.v1.EvmIndexerService.GetPlugin.
+func (c *evmIndexerServiceClient) GetPlugin(ctx context.Context, req *connect.Request[v1.GetPluginRequest]) (*connect.Response[v1.GetPluginResponse], error) {
+	return c.getPlugin.CallUnary(ctx, req)
+}
+
+// UpdatePlugin calls evm_indexer.v1.EvmIndexerService.UpdatePlugin.
+func (c *evmIndexerServiceClient) UpdatePlugin(ctx context.Context, req *connect.Request[v1.UpdatePluginRequest]) (*connect.Response[v1.UpdatePluginResponse], error) {
+	return c.updatePlugin.CallUnary(ctx, req)
+}
+
+// ListPlugins calls evm_indexer.v1.EvmIndexerService.ListPlugins.
+func (c *evmIndexerServiceClient) ListPlugins(ctx context.Context, req *connect.Request[v1.ListPluginsRequest]) (*connect.Response[v1.ListPluginsResponse], error) {
+	return c.listPlugins.CallUnary(ctx, req)
+}
+
+// DeletePlugin calls evm_indexer.v1.EvmIndexerService.DeletePlugin.
+func (c *evmIndexerServiceClient) DeletePlugin(ctx context.Context, req *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error) {
+	return c.deletePlugin.CallUnary(ctx, req)
+}
+
+// InstallPlugin calls evm_indexer.v1.EvmIndexerService.InstallPlugin.
+func (c *evmIndexerServiceClient) InstallPlugin(ctx context.Context, req *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error) {
+	return c.installPlugin.CallUnary(ctx, req)
+}
+
 // EvmIndexerServiceHandler is an implementation of the evm_indexer.v1.EvmIndexerService service.
 type EvmIndexerServiceHandler interface {
 	// EvmiInstance
@@ -799,6 +1022,21 @@ type EvmIndexerServiceHandler interface {
 	RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error)
 	GetOAuthConfig(context.Context, *connect.Request[v1.GetOAuthConfigRequest]) (*connect.Response[v1.GetOAuthConfigResponse], error)
 	UpdateOAuthConfig(context.Context, *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error)
+	// EvmiExporter
+	CreateEvmiExporter(context.Context, *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error)
+	GetEvmiExporter(context.Context, *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error)
+	UpdateEvmiExporter(context.Context, *connect.Request[v1.UpdateEvmiExporterRequest]) (*connect.Response[v1.UpdateEvmiExporterResponse], error)
+	ListEvmiExporters(context.Context, *connect.Request[v1.ListEvmiExportersRequest]) (*connect.Response[v1.ListEvmiExportersResponse], error)
+	DeleteEvmiExporter(context.Context, *connect.Request[v1.DeleteEvmiExporterRequest]) (*connect.Response[v1.DeleteEvmiExporterResponse], error)
+	StartExporter(context.Context, *connect.Request[v1.StartExporterRequest]) (*connect.Response[v1.StartExporterResponse], error)
+	StopExporter(context.Context, *connect.Request[v1.StopExporterRequest]) (*connect.Response[v1.StopExporterResponse], error)
+	// Plugin
+	CreatePlugin(context.Context, *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error)
+	GetPlugin(context.Context, *connect.Request[v1.GetPluginRequest]) (*connect.Response[v1.GetPluginResponse], error)
+	UpdatePlugin(context.Context, *connect.Request[v1.UpdatePluginRequest]) (*connect.Response[v1.UpdatePluginResponse], error)
+	ListPlugins(context.Context, *connect.Request[v1.ListPluginsRequest]) (*connect.Response[v1.ListPluginsResponse], error)
+	DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error)
+	InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error)
 }
 
 // NewEvmIndexerServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1047,6 +1285,84 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceUpdateOAuthConfigMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	evmIndexerServiceCreateEvmiExporterHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreateEvmiExporterProcedure,
+		svc.CreateEvmiExporter,
+		connect.WithSchema(evmIndexerServiceCreateEvmiExporterMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceGetEvmiExporterHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetEvmiExporterProcedure,
+		svc.GetEvmiExporter,
+		connect.WithSchema(evmIndexerServiceGetEvmiExporterMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdateEvmiExporterHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdateEvmiExporterProcedure,
+		svc.UpdateEvmiExporter,
+		connect.WithSchema(evmIndexerServiceUpdateEvmiExporterMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmiExportersHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmiExportersProcedure,
+		svc.ListEvmiExporters,
+		connect.WithSchema(evmIndexerServiceListEvmiExportersMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeleteEvmiExporterHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeleteEvmiExporterProcedure,
+		svc.DeleteEvmiExporter,
+		connect.WithSchema(evmIndexerServiceDeleteEvmiExporterMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceStartExporterHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceStartExporterProcedure,
+		svc.StartExporter,
+		connect.WithSchema(evmIndexerServiceStartExporterMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceStopExporterHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceStopExporterProcedure,
+		svc.StopExporter,
+		connect.WithSchema(evmIndexerServiceStopExporterMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceCreatePluginHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceCreatePluginProcedure,
+		svc.CreatePlugin,
+		connect.WithSchema(evmIndexerServiceCreatePluginMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceGetPluginHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceGetPluginProcedure,
+		svc.GetPlugin,
+		connect.WithSchema(evmIndexerServiceGetPluginMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceUpdatePluginHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceUpdatePluginProcedure,
+		svc.UpdatePlugin,
+		connect.WithSchema(evmIndexerServiceUpdatePluginMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListPluginsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListPluginsProcedure,
+		svc.ListPlugins,
+		connect.WithSchema(evmIndexerServiceListPluginsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceDeletePluginHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceDeletePluginProcedure,
+		svc.DeletePlugin,
+		connect.WithSchema(evmIndexerServiceDeletePluginMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceInstallPluginHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceInstallPluginProcedure,
+		svc.InstallPlugin,
+		connect.WithSchema(evmIndexerServiceInstallPluginMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/evm_indexer.v1.EvmIndexerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EvmIndexerServiceGetEvmiInstanceProcedure:
@@ -1129,6 +1445,32 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceGetOAuthConfigHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceUpdateOAuthConfigProcedure:
 			evmIndexerServiceUpdateOAuthConfigHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreateEvmiExporterProcedure:
+			evmIndexerServiceCreateEvmiExporterHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetEvmiExporterProcedure:
+			evmIndexerServiceGetEvmiExporterHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdateEvmiExporterProcedure:
+			evmIndexerServiceUpdateEvmiExporterHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmiExportersProcedure:
+			evmIndexerServiceListEvmiExportersHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeleteEvmiExporterProcedure:
+			evmIndexerServiceDeleteEvmiExporterHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceStartExporterProcedure:
+			evmIndexerServiceStartExporterHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceStopExporterProcedure:
+			evmIndexerServiceStopExporterHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceCreatePluginProcedure:
+			evmIndexerServiceCreatePluginHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceGetPluginProcedure:
+			evmIndexerServiceGetPluginHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceUpdatePluginProcedure:
+			evmIndexerServiceUpdatePluginHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListPluginsProcedure:
+			evmIndexerServiceListPluginsHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceDeletePluginProcedure:
+			evmIndexerServiceDeletePluginHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceInstallPluginProcedure:
+			evmIndexerServiceInstallPluginHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1296,4 +1638,56 @@ func (UnimplementedEvmIndexerServiceHandler) GetOAuthConfig(context.Context, *co
 
 func (UnimplementedEvmIndexerServiceHandler) UpdateOAuthConfig(context.Context, *connect.Request[v1.UpdateOAuthConfigRequest]) (*connect.Response[v1.UpdateOAuthConfigResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateOAuthConfig is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreateEvmiExporter(context.Context, *connect.Request[v1.CreateEvmiExporterRequest]) (*connect.Response[v1.CreateEvmiExporterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreateEvmiExporter is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) GetEvmiExporter(context.Context, *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetEvmiExporter is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdateEvmiExporter(context.Context, *connect.Request[v1.UpdateEvmiExporterRequest]) (*connect.Response[v1.UpdateEvmiExporterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdateEvmiExporter is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmiExporters(context.Context, *connect.Request[v1.ListEvmiExportersRequest]) (*connect.Response[v1.ListEvmiExportersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmiExporters is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeleteEvmiExporter(context.Context, *connect.Request[v1.DeleteEvmiExporterRequest]) (*connect.Response[v1.DeleteEvmiExporterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeleteEvmiExporter is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) StartExporter(context.Context, *connect.Request[v1.StartExporterRequest]) (*connect.Response[v1.StartExporterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StartExporter is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) StopExporter(context.Context, *connect.Request[v1.StopExporterRequest]) (*connect.Response[v1.StopExporterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StopExporter is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) CreatePlugin(context.Context, *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.CreatePlugin is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) GetPlugin(context.Context, *connect.Request[v1.GetPluginRequest]) (*connect.Response[v1.GetPluginResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.GetPlugin is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) UpdatePlugin(context.Context, *connect.Request[v1.UpdatePluginRequest]) (*connect.Response[v1.UpdatePluginResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.UpdatePlugin is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListPlugins(context.Context, *connect.Request[v1.ListPluginsRequest]) (*connect.Response[v1.ListPluginsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListPlugins is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.DeletePlugin is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.InstallPlugin is not implemented"))
 }

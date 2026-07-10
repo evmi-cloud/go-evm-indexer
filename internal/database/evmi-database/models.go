@@ -96,6 +96,37 @@ const (
 	FailedExporterStatus  ExporterStatus = "FAILED"
 )
 
+type PluginStatus string
+
+const (
+	NotInstalledPluginStatus PluginStatus = "NOT_INSTALLED"
+	InstallingPluginStatus   PluginStatus = "INSTALLING"
+	InstalledPluginStatus    PluginStatus = "INSTALLED"
+	FailedPluginStatus       PluginStatus = "FAILED"
+)
+
+// Plugin is an installable exporter plugin. Its source is resolved and compiled
+// into a Go plugin (.so) at SoPath when installed; exporters then reference it.
+type Plugin struct {
+	gorm.Model
+
+	Name        string
+	Description string
+
+	// Source. If LocalPath points at a prebuilt ".so" it is used directly.
+	// Otherwise the server builds from GithubUrl (cloned) or LocalPath (module
+	// root), compiling the RelativePath package.
+	GithubUrl    string
+	RelativePath string
+	LocalPath    string
+
+	// SoPath is the compiled/resolved shared object; Status is one of
+	// PluginStatus and Error holds the last install failure.
+	SoPath string
+	Status string
+	Error  string
+}
+
 type EvmiInstance struct {
 	gorm.Model
 
@@ -198,14 +229,10 @@ type EvmiExporter struct {
 	SyncBlock    uint64
 	SyncLogIndex int64 `gorm:"default:-1"`
 
-	// Plugin source. If PluginLocalPath points at a prebuilt ".so" it is loaded
-	// directly. Otherwise the server builds a plugin from source: it clones
-	// PluginGithubUrl (when set) or uses PluginLocalPath as the module root, and
-	// builds the package at PluginRelativePath.
-	PluginConfig       datatypes.JSON
-	PluginGithubUrl    string
-	PluginRelativePath string
-	PluginLocalPath    string
+	// PluginID references the installed Plugin whose code this exporter runs.
+	PluginID uint
+	// PluginConfig is the per-exporter JSON configuration passed to the plugin.
+	PluginConfig datatypes.JSON
 
 	ChainSyncStatus datatypes.JSON
 }

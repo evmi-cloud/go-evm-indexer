@@ -133,13 +133,20 @@ with `-buildmode=plugin`. See [docs/exporters.md](docs/exporters.md) for the
 authoring guide and the important native-plugin constraints (toolchain/version
 matching, CGO, no process isolation).
 
+### Web UI
+
+A Next.js app in [`webui/`](webui/) provides a login + control panel. It is built as a
+static export and served by the Go server at `/` (from the directory in `EVMI_WEBUI_DIR`,
+default `public`). The Docker build compiles it automatically; for local development see
+[`webui/README.md`](webui/README.md). API and auth routes take precedence over the static
+handler, so the SPA never shadows them.
+
 ## Roadmap
 
 The following are planned and **not yet implemented**:
-- gRPC CRUD/start-stop endpoints for exporters (rows are DB-managed today)
 - Event streaming to message brokers (Redis PubSub, Kafka, Webhooks)
 - Analytics export (JSON / Apache Parquet) to S3, Google Cloud Storage, or IPFS
-- Web UI for pipeline management and monitoring
+- A richer web UI (pipeline management, monitoring) beyond the current scaffold
 - Additional log-store backends
 
 ## Documentation

@@ -1,0 +1,7 @@
+# Keep the build context small and let the image build the web UI itself.
+webui/node_modules
+webui/.next
+webui/out
+datastore
+clickhouse-data
+.git
