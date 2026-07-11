@@ -13,6 +13,7 @@
     "@bufbuild/protobuf": "^2.2.3",
     "@connectrpc/connect": "^2.0.0",
     "@connectrpc/connect-web": "^2.0.0",
+    "js-sha3": "^0.9.3",
     "next": "14.2.5",
     "react": "18.3.1",
     "react-dom": "18.3.1"

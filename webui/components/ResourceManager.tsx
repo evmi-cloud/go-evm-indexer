@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectError } from "@connectrpc/connect";
 import { client } from "@/lib/client";
 import type { ConfigParam, Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
+import { abiEventIndexedArgs, type IndexedArg } from "@/lib/resources/options";
 
 function errorMessage(err: unknown): string {
   return err instanceof ConnectError ? err.message : err instanceof Error ? err.message : "error";
@@ -272,6 +273,23 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                   typeKey={String(values[f.dependsOn ?? "type"] ?? "")}
                   onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
                 />
+              ) : f.type === "topicFilters" ? (
+                <TopicFiltersInput
+                  key={f.name}
+                  field={f}
+                  value={String(values[f.name] ?? "")}
+                  abiId={String(values.evmJsonAbiId ?? "")}
+                  topic0={String(values.topic0 ?? "")}
+                  onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
+                />
+              ) : f.type === "select" && f.loadOptions ? (
+                <DynamicSelectInput
+                  key={f.name}
+                  field={f}
+                  value={values[f.name]}
+                  values={values}
+                  onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
+                />
               ) : (
                 <FieldInput
                   key={f.name}
@@ -366,6 +384,187 @@ function FieldInput({
         />
       )}
       {field.help && <p className="field-help">{field.help}</p>}
+    </div>
+  );
+}
+
+// DynamicSelectInput renders a select whose options are loaded async from the
+// current form values (field.loadOptions), re-loading whenever any field named
+// in field.depends changes — e.g. the events of a selected ABI.
+function DynamicSelectInput({
+  field,
+  value,
+  values,
+  onChange,
+}: {
+  field: Field;
+  value: string | boolean;
+  values: FormValues;
+  onChange: (v: string | boolean) => void;
+}) {
+  const [options, setOptions] = useState<Option[]>([]);
+  const depKey = (field.depends ?? []).map((d) => String(values[d] ?? "")).join("|");
+
+  useEffect(() => {
+    let cancelled = false;
+    field
+      .loadOptions!(values)
+      .then((opts) => !cancelled && setOptions(opts))
+      .catch(() => !cancelled && setOptions([]));
+    return () => {
+      cancelled = true;
+    };
+    // Re-run only when the depended-on values change; `values` is read inside.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depKey]);
+
+  return <FieldInput field={field} value={value} options={options} onChange={onChange} />;
+}
+
+// Encode a human-friendly indexed-argument value into its 32-byte topic hash
+// (what topics[1..] are matched against). Empty string = wildcard.
+function encodeTopic(type: string, raw: string): string {
+  const v = raw.trim();
+  if (v === "") return "";
+  if (type === "address") {
+    return "0x" + v.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
+  }
+  if (/^u?int\d*$/.test(type) || type === "bool") {
+    let n: bigint;
+    try {
+      n = type === "bool" ? BigInt(v === "true" || v === "1" ? 1 : 0) : BigInt(v);
+    } catch {
+      return v.toLowerCase().startsWith("0x") ? v : "0x" + v;
+    }
+    if (n < BigInt(0)) n = (BigInt(1) << BigInt(256)) + n; // two's complement for signed ints
+    return "0x" + n.toString(16).padStart(64, "0");
+  }
+  if (/^bytes\d+$/.test(type)) {
+    // Fixed bytes are left-aligned (right-padded) within the 32-byte topic.
+    return "0x" + v.replace(/^0x/i, "").padEnd(64, "0").slice(0, 64);
+  }
+  // Dynamic types (string, bytes, arrays, tuples): the topic is keccak256(value)
+  // and cannot be reconstructed here — accept a raw 32-byte hash.
+  return v.toLowerCase().startsWith("0x") ? v : "0x" + v;
+}
+
+// Best-effort inverse of encodeTopic, to seed the friendly inputs when editing.
+function decodeTopic(type: string, stored: string): string {
+  const v = (stored || "").trim();
+  if (v === "") return "";
+  const hex = v.replace(/^0x/i, "");
+  if (hex.length !== 64) return v; // not a full topic — show as-is
+  if (type === "address") return "0x" + hex.slice(24);
+  if (/^u?int\d*$/.test(type)) {
+    try {
+      return BigInt("0x" + hex).toString(10);
+    } catch {
+      return v;
+    }
+  }
+  if (type === "bool") {
+    try {
+      return BigInt("0x" + hex) ? "true" : "false";
+    } catch {
+      return v;
+    }
+  }
+  return v; // bytesN / dynamic: show the raw topic
+}
+
+function topicPlaceholder(type: string): string {
+  if (type === "address") return "0x… (20-byte address, blank = any)";
+  if (/^u?int\d*$/.test(type)) return "decimal or 0x… (blank = any)";
+  if (type === "bool") return "true / false (blank = any)";
+  if (/^bytes\d+$/.test(type)) return "0x… (blank = any)";
+  return "0x… 32-byte topic (blank = any)";
+}
+
+// TopicFiltersInput renders one filter input per indexed argument of the event
+// selected as topic0, in declaration order (mapping to topics[1..]). Each value
+// is encoded to its 32-byte topic; a blank field is a wildcard at that position.
+// The persisted value is the newline-joined list of encoded topics.
+function TopicFiltersInput({
+  field,
+  value,
+  abiId,
+  topic0,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  abiId: string;
+  topic0: string;
+  onChange: (v: string) => void;
+}) {
+  // undefined = loading, [] = none/no event, [...] = the event's indexed args
+  const [args, setArgs] = useState<IndexedArg[] | undefined>(undefined);
+  // Friendly (decoded) entry values, seeded from the stored list when the event changes.
+  const [entries, setEntries] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!abiId || !topic0) {
+      setArgs([]);
+      return;
+    }
+    setArgs(undefined);
+    abiEventIndexedArgs(abiId, topic0)
+      .then((a) => !cancelled && setArgs(a))
+      .catch(() => !cancelled && setArgs([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [abiId, topic0]);
+
+  // Seed friendly inputs from the persisted topics whenever the arg set changes
+  // (event switch / initial load). Not keyed on `value` so typing isn't clobbered.
+  useEffect(() => {
+    if (!args) return;
+    const stored = value ? value.split("\n") : [];
+    setEntries(args.map((a, i) => decodeTopic(a.type, stored[i] ?? "")));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [args]);
+
+  function update(i: number, friendly: string) {
+    if (!args) return;
+    const next = [...entries];
+    next[i] = friendly;
+    setEntries(next);
+    const encoded = args.map((a, j) => encodeTopic(a.type, next[j] ?? ""));
+    // Trim trailing wildcards so we don't persist empty positions.
+    while (encoded.length && encoded[encoded.length - 1] === "") encoded.pop();
+    onChange(encoded.join("\n"));
+  }
+
+  return (
+    <div>
+      <label>{field.label}</label>
+      {args === undefined ? (
+        <p className="muted" style={{ fontSize: 13 }}>
+          Loading event arguments…
+        </p>
+      ) : !topic0 ? (
+        <p className="field-help">Select an event above to configure its indexed-argument filters.</p>
+      ) : args.length === 0 ? (
+        <p className="field-help">The selected event has no indexed arguments to filter on.</p>
+      ) : (
+        <div className="config-schema">
+          {args.map((a, i) => (
+            <div key={`${a.name}-${i}`}>
+              <label>
+                {a.name} <span className="muted">({a.type})</span>
+              </label>
+              <input
+                type="text"
+                value={entries[i] ?? ""}
+                placeholder={topicPlaceholder(a.type)}
+                onChange={(e) => update(i, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

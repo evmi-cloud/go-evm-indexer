@@ -11,7 +11,8 @@ export type FieldType =
   | "checkbox"
   | "select"
   | "pluginConfig"
-  | "keyedConfig";
+  | "keyedConfig"
+  | "topicFilters";
 
 // One declared plugin config parameter (mirrors pkg/exporter.ConfigField).
 export type PluginConfigField = {
@@ -43,6 +44,11 @@ export type Field = {
   help?: string;
   options?: Option[];
   optionsFrom?: () => Promise<Option[]>;
+  // For a "select" whose options depend on other form values (loaded async and
+  // re-loaded whenever any field named in `depends` changes) — e.g. the events
+  // of a selected ABI. Receives the current form values.
+  loadOptions?: (values: FormValues) => Promise<Option[]>;
+  depends?: string[];
   // Show this field only when the predicate (given the current form values)
   // returns true — e.g. fields relevant only to a certain source type.
   showIf?: (values: FormValues) => boolean;

@@ -770,15 +770,16 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 
 				p.logger.Info().Fields(logParams).Msg("Fetch logs")
 
-				//generate topic request
-				topics := []common.Hash{common.HexToHash(p.source.Topic0.String)}
-				if len(p.source.TopicFilters) > 0 {
-					for _, topic := range p.source.TopicFilters {
-						if len(topic) == 0 {
-							topics = append(topics, common.Hash{})
-						} else {
-							topics = append(topics, common.HexToHash(topic))
-						}
+				// Generate a positional topic request: topics[0] is the event
+				// signature (topic0); topics[1..] are per-indexed-argument filters
+				// in declaration order. An empty filter entry is a wildcard (match
+				// any value at that position), represented by a nil inner slice.
+				topics := [][]common.Hash{{common.HexToHash(p.source.Topic0.String)}}
+				for _, topic := range p.source.TopicFilters {
+					if len(topic) == 0 {
+						topics = append(topics, nil)
+					} else {
+						topics = append(topics, []common.Hash{common.HexToHash(topic)})
 					}
 				}
 
@@ -790,7 +791,7 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 					eth.Logs(ethereum.FilterQuery{
 						FromBlock: fromBlock,
 						ToBlock:   toBlock,
-						Topics:    [][]common.Hash{topics},
+						Topics:    topics,
 					}).Returns(&logs),
 				); err != nil {
 					p.logger.Fatal().Msg(err.Error())

@@ -1,7 +1,7 @@
 import { client } from "@/lib/client";
 import type { EvmLogSource } from "@/gen/evm_indexer/v1/evm_indexer_pb";
-import { PAGE, big, bool, num, optNum, optStr, splitList, str, type FormValues, type Option, type Resource } from "./types";
-import { abiOptions, blockchainOptions, pipelineOptions } from "./options";
+import { PAGE, big, bool, num, optNum, optStr, str, type FormValues, type Option, type Resource } from "./types";
+import { abiEventArgOptions, abiEventOptions, abiOptions, abiTopic0Options, blockchainOptions, pipelineOptions } from "./options";
 
 const sourceTypeOptions: Option[] = [
   { value: "CONTRACT", label: "Contract" },
@@ -30,13 +30,14 @@ export const sources: Resource<EvmLogSource> = {
     { name: "evmJsonAbiId", label: "ABI", type: "select", optionsFrom: abiOptions, showIf: forType("CONTRACT", "TOPIC", "FACTORY") },
     // Contract / factory: the address to watch.
     { name: "address", label: "Contract address", type: "text", showIf: forType("CONTRACT", "FACTORY") },
-    // Topic: filter by event signature.
-    { name: "topic0", label: "Topic0", type: "text", help: "Event signature hash", showIf: forType("TOPIC") },
-    { name: "topicFilters", label: "Topic filters", type: "textarea", help: "One per line", showIf: forType("TOPIC") },
+    // Topic: pick the event from the selected ABI (stored as its topic0 hash).
+    { name: "topic0", label: "Event (topic0)", type: "select", loadOptions: abiTopic0Options, depends: ["evmJsonAbiId"], help: "Derived from the selected ABI", showIf: forType("TOPIC") },
+    { name: "topicFilters", label: "Indexed argument filters", type: "topicFilters", showIf: forType("TOPIC") },
     // Factory: how to discover child contracts.
     { name: "factoryChildEvmJsonAbi", label: "Child contract ABI", type: "select", optionsFrom: abiOptions, showIf: forType("FACTORY") },
-    { name: "factoryCreationFunctionName", label: "Creation event name", type: "text", showIf: forType("FACTORY") },
-    { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "text", showIf: forType("FACTORY") },
+    // Event / arg selects are derived from the child ABI selected above.
+    { name: "factoryCreationFunctionName", label: "Creation event name", type: "select", loadOptions: abiEventOptions, depends: ["factoryChildEvmJsonAbi"], showIf: forType("FACTORY") },
+    { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "select", loadOptions: abiEventArgOptions, depends: ["factoryChildEvmJsonAbi", "factoryCreationFunctionName"], showIf: forType("FACTORY") },
   ],
   columns: [
     { label: "ID", get: (s) => String(s.id ?? "") },
@@ -106,9 +107,19 @@ function sourceFromForm(v: Parameters<Resource<EvmLogSource>["create"]>[0]) {
     evmJsonAbiId: num(v, "evmJsonAbiId"),
     address: optStr(v, "address"),
     topic0: optStr(v, "topic0"),
-    topicFilters: splitList(str(v, "topicFilters")),
+    // Positional topics[1..] filters: keep interior blanks (wildcards) in place,
+    // trim only trailing blanks. Do NOT use splitList — it drops empties.
+    topicFilters: parseTopicFilters(str(v, "topicFilters")),
     factoryChildEvmJsonAbi: optNum(v, "factoryChildEvmJsonAbi"),
     factoryCreationFunctionName: optStr(v, "factoryCreationFunctionName"),
     factoryCreationAddressLogArg: optStr(v, "factoryCreationAddressLogArg"),
   };
+}
+
+// Split the newline-encoded topic filters, preserving interior wildcards (blank
+// positions) and dropping only trailing blanks.
+function parseTopicFilters(s: string): string[] {
+  const parts = s.split("\n").map((x) => x.trim());
+  while (parts.length && parts[parts.length - 1] === "") parts.pop();
+  return parts;
 }
