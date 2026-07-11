@@ -160,8 +160,28 @@ isolation, runtime image needs a Go toolchain to build plugins from source) live
 **Exporters** tabs in the web UI. `UpdateEvmiExporter` never overwrites the server-managed
 cursor (`sync_block`/`sync_log_index`) or `status`.
 
-**Metrics** (`internal/metrics`, Prometheus): live and scraped per the compose Prometheus
-config.
+**Metrics** (`internal/metrics`, Prometheus): definitions live in `metrics.go`, the guarded API
+in `service.go`. Every method is nil-safe and no-ops when the service is disabled or nil (so
+tests can pass a nil `*MetricService`). Metric names are `evm_indexer_*`; labels are snake_case
+and consistent — per-source metrics all go through `SourceLabels`
+(`chain_id`/`pipeline`/`store`/`source_id`/`source_type`) via `SourceIndexerService.sourceLabels()`,
+per-exporter through `ExporterLabels` via `ExporterService.exporterLabels()`. Families: chain head
+(`chain_head_block`), per-source progress (`source_synced_block`, `source_lag_blocks` = head−synced
+clamped ≥0, `source_up`) and throughput (`logs_indexed_total`, `transactions_indexed_total`,
+`batch_duration_seconds`), store writes (`logs_stored`, `store_write_duration_seconds`,
+`store_write_errors_total`, `store_disk_bytes`), RPC (`rpc_requests_total{status}`,
+`rpc_request_duration_seconds`), and exporters (`exporter_synced_block`, `exporter_lag_blocks`,
+`exporter_up`, `exporter_events_total`, `exporter_errors_total`, `exporter_process_duration_seconds`).
+RPC calls are timed via `SourceIndexerService.timedRPC(method, fn)`; the server runs on its own
+`http.ServeMux` (not the default mux). Scraped per the compose Prometheus config
+(`docker/prometheus.yml` scrapes `indexer:9999/metrics`; the port is `metrics.port` in the config
+file). The compose stack **auto-provisions Grafana**: `docker/grafana/provisioning/` wires a
+Prometheus datasource (uid `prometheus` → `http://prometheus:9090`) and a dashboard provider, and
+`docker/grafana/dashboards/evmi-indexer.json` is the dashboard (uid `evmi-indexer`, `$pipeline`
+template var; rows: Overview / Indexing / JSON-RPC / Log store / Exporters). Open Grafana at
+`localhost:30000` (admin/admin). **Cardinality note:** per-source series are keyed by `source_id`,
+so a factory that spawns many children produces many series — aggregate in PromQL (by
+pipeline/chain) rather than graphing every source.
 
 **Web UI** (`webui/`, served by `internal/grpc/webui.go`): a Next.js app (App Router) built as
 a **static export** (`output: 'export'` → `webui/out/`). The Go server mounts it at `/` via

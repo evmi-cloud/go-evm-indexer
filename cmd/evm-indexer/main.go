@@ -69,7 +69,7 @@ func main() {
 					internalBus := internal_bus.InitializeBus()
 
 					logger.Info().Msg("Initialize Metrics")
-					metrics := metrics.NewMetricService(config.Metrics.Enabled, config.Metrics.Path, config.Metrics.Port)
+					metrics := metrics.NewMetricService(config.Metrics.Enabled, config.Metrics.Path, config.Metrics.Port, logger)
 					metrics.Start()
 
 					logger.Info().Msg("Mount database")

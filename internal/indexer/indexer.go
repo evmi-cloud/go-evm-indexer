@@ -180,6 +180,10 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 
 	p.logger.Info().Fields(logParams).Msg("source updates")
 
+	// Mark the source up for the lifetime of its indexing loop.
+	p.metrics.SetSourceUp(p.sourceLabels(), true)
+	defer p.metrics.SetSourceUp(p.sourceLabels(), false)
+
 	if p.source.Type == string(evmi_database.ContractLogSourceType) || p.source.Type == string(evmi_database.FactoryLogSourceType) {
 		return p.serveStaticIndexation()
 	}
@@ -212,6 +216,27 @@ func (p *SourceIndexerService) IsEnded() bool {
 // observe indexing progress live.
 func (p *SourceIndexerService) emitSourceUpdate() {
 	p.bus.Emit(context.Background(), internal_bus.SourceUpdateTopic, p.source)
+}
+
+// sourceLabels is the consistent metric label set for this source. All per-source
+// metrics go through it so pipeline/store/chain/id/type are always in sync.
+func (p *SourceIndexerService) sourceLabels() metrics.SourceLabels {
+	return metrics.SourceLabels{
+		ChainID:    p.chain.ChainId,
+		Pipeline:   p.pipeline.Name,
+		Store:      p.storeInfo.Identifier,
+		SourceID:   p.source.ID,
+		SourceType: p.source.Type,
+	}
+}
+
+// timedRPC runs one JSON-RPC call, recording its latency and outcome under the
+// given method name.
+func (p *SourceIndexerService) timedRPC(method string, fn func() error) error {
+	start := time.Now()
+	err := fn()
+	p.metrics.RecordRPC(p.chain.ChainId, method, time.Since(start), err)
+	return err
 }
 
 func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadata {
@@ -391,7 +416,6 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 	defer client.Close()
 
 	// 2. Make a batch request
-	p.metrics.EvmRpcCallMetricsInc(p.pipeline.Name, p.chain.ChainId, "getChainId", 1)
 
 	latestBlockNumberIndexed := p.source.SyncBlock
 	if err != nil {
@@ -419,15 +443,14 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 		var (
 			block *big.Int
 		)
-		if err := client.Call(
-			eth.BlockNumber().Returns(&block),
-		); err != nil {
+		if err := p.timedRPC("eth_blockNumber", func() error {
+			return client.Call(eth.BlockNumber().Returns(&block))
+		}); err != nil {
 			p.logger.Fatal().Msg(err.Error())
 		}
 
-		p.metrics.EvmRpcCallMetricsInc(p.pipeline.Name, p.chain.ChainId, "getBlockNumber", 1)
-		p.metrics.LatestChainBlockMetricsSet(p.chain.ChainId, block.Uint64())
-		p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
+		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
 
 		currentBlock := block.Uint64()
 
@@ -438,6 +461,7 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 		if currentBlock > latestBlockNumberIndexed {
 
 			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
+				rangeStart := time.Now()
 				fromBlock := big.NewInt(int64(i))
 
 				var toBlock *big.Int
@@ -460,16 +484,14 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 					logs []ethTypes.Log
 				)
 
-				if err := client.Call(
-					eth.Logs(ethereum.FilterQuery{
+				if err := p.timedRPC("eth_getLogs", func() error {
+					return client.Call(eth.Logs(ethereum.FilterQuery{
 						FromBlock: fromBlock,
 						ToBlock:   toBlock,
-					}).Returns(&logs),
-				); err != nil {
+					}).Returns(&logs))
+				}); err != nil {
 					p.logger.Fatal().Msg(err.Error())
 				}
-
-				p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getLogs", 1)
 
 				if err != nil {
 					p.logger.Fatal().Fields(logParams).Msg(err.Error())
@@ -481,7 +503,9 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 				}
 
 				if len(dbLogs) > 0 {
+					logsStart := time.Now()
 					err = p.store.GetStorage().InsertLogs(dbLogs)
+					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
 					if err != nil {
 						p.logger.Error().Msg(err.Error())
 						return err
@@ -515,15 +539,18 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 						}
 					}
 
-					p.metrics.LogsCountMetricsAdd(p.storeInfo.Identifier, uint64(len(dbLogs)))
+					p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
 				}
 
 				if len(dbTxs) > 0 {
+					txStart := time.Now()
 					err = p.store.GetStorage().InsertTransactions(dbTxs)
+					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
 					if err != nil {
 						p.logger.Error().Msg(err.Error())
 						return err
 					}
+					p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
 				}
 
 				p.source.SyncBlock = toBlock.Uint64()
@@ -536,7 +563,8 @@ func (p *SourceIndexerService) serveFullIndexation() error {
 
 				p.emitSourceUpdate()
 
-				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+				p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
+				p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
 			}
 
 			latestBlockNumberIndexed = currentBlock
@@ -555,7 +583,6 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 	defer client.Close()
 
 	// 2. Make a batch request
-	p.metrics.EvmRpcCallMetricsInc(p.pipeline.Name, p.chain.ChainId, "getChainId", 1)
 
 	latestBlockNumberIndexed := p.source.SyncBlock
 	if err != nil {
@@ -577,15 +604,14 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 		var (
 			block *big.Int
 		)
-		if err := client.Call(
-			eth.BlockNumber().Returns(&block),
-		); err != nil {
+		if err := p.timedRPC("eth_blockNumber", func() error {
+			return client.Call(eth.BlockNumber().Returns(&block))
+		}); err != nil {
 			p.logger.Fatal().Msg(err.Error())
 		}
 
-		p.metrics.EvmRpcCallMetricsInc(p.pipeline.Name, p.chain.ChainId, "getBlockNumber", 1)
-		p.metrics.LatestChainBlockMetricsSet(p.chain.ChainId, block.Uint64())
-		p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
+		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
 
 		currentBlock := block.Uint64()
 
@@ -596,6 +622,7 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 		if currentBlock > latestBlockNumberIndexed {
 
 			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
+				rangeStart := time.Now()
 				fromBlock := big.NewInt(int64(i))
 
 				var toBlock *big.Int
@@ -619,19 +646,17 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 					logs []ethTypes.Log
 				)
 
-				if err := client.Call(
-					eth.Logs(ethereum.FilterQuery{
+				if err := p.timedRPC("eth_getLogs", func() error {
+					return client.Call(eth.Logs(ethereum.FilterQuery{
 						FromBlock: fromBlock,
 						ToBlock:   toBlock,
 						Addresses: []common.Address{common.HexToAddress(p.source.Address.String)},
-					}).Returns(&logs),
-				); err != nil {
+					}).Returns(&logs))
+				}); err != nil {
 					p.logger.Fatal().Msg(err.Error())
 				}
 
 				p.logger.Info().Fields(logParams).Msg("Log fetched")
-
-				p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getLogs", 1)
 
 				if err != nil {
 					p.logger.Fatal().Fields(logParams).Msg(err.Error())
@@ -644,7 +669,9 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 				}
 
 				if len(dbLogs) > 0 {
+					logsStart := time.Now()
 					err = p.store.GetStorage().InsertLogs(dbLogs)
+					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
 					if err != nil {
 						p.logger.Error().Msg(err.Error())
 						return err
@@ -678,15 +705,18 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 						}
 					}
 
-					p.metrics.LogsCountMetricsAdd(p.storeInfo.Identifier, uint64(len(dbLogs)))
+					p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
 				}
 
 				if len(dbTxs) > 0 {
+					txStart := time.Now()
 					err = p.store.GetStorage().InsertTransactions(dbTxs)
+					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
 					if err != nil {
 						p.logger.Error().Msg(err.Error())
 						return err
 					}
+					p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
 				}
 
 				p.source.SyncBlock = toBlock.Uint64()
@@ -699,7 +729,8 @@ func (p *SourceIndexerService) serveStaticIndexation() error {
 
 				p.emitSourceUpdate()
 
-				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+				p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
+				p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
 			}
 
 			latestBlockNumberIndexed = currentBlock
@@ -734,15 +765,14 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 			block *big.Int
 		)
 
-		if err := client.Call(
-			eth.BlockNumber().Returns(&block),
-		); err != nil {
+		if err := p.timedRPC("eth_blockNumber", func() error {
+			return client.Call(eth.BlockNumber().Returns(&block))
+		}); err != nil {
 			p.logger.Fatal().Msg(err.Error())
 		}
 
-		p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getBlockNumber", 1)
-		p.metrics.LatestChainBlockMetricsSet(p.chain.ChainId, block.Uint64())
-		p.metrics.LatestBlockIndexedMetricsSet(p.storeInfo.Identifier, p.source.Topic0.String, p.chain.ChainId, p.source.SyncBlock)
+		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
+		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
 
 		currentBlock := block.Uint64()
 		if currentBlock-latestBlockNumberIndexed < p.chain.BlockSlice {
@@ -752,6 +782,7 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 		if currentBlock > latestBlockNumberIndexed {
 
 			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
+				rangeStart := time.Now()
 				fromBlock := big.NewInt(int64(i))
 
 				var toBlock *big.Int
@@ -787,17 +818,15 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 					logs []ethTypes.Log
 				)
 
-				if err := client.Call(
-					eth.Logs(ethereum.FilterQuery{
+				if err := p.timedRPC("eth_getLogs", func() error {
+					return client.Call(eth.Logs(ethereum.FilterQuery{
 						FromBlock: fromBlock,
 						ToBlock:   toBlock,
 						Topics:    topics,
-					}).Returns(&logs),
-				); err != nil {
+					}).Returns(&logs))
+				}); err != nil {
 					p.logger.Fatal().Msg(err.Error())
 				}
-
-				p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getLogs", 1)
 
 				dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
 				if err != nil {
@@ -805,23 +834,27 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 				}
 
 				if len(dbLogs) > 0 {
+					logsStart := time.Now()
 					err = p.store.GetStorage().InsertLogs(dbLogs)
+					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
 					if err != nil {
 						p.logger.Error().Msg(err.Error())
 						return err
 					}
 
 					p.bus.Emit(context.Background(), "logs.new", dbLogs)
-					p.metrics.LogsCountMetricsAdd(p.storeInfo.Identifier, uint64(len(dbLogs)))
-					p.metrics.LogsScrapedMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, uint64(len(dbLogs)))
+					p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
 				}
 
 				if len(dbTxs) > 0 {
+					txStart := time.Now()
 					err = p.store.GetStorage().InsertTransactions(dbTxs)
+					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
 					if err != nil {
 						p.logger.Error().Msg(err.Error())
 						return err
 					}
+					p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
 				}
 
 				p.source.SyncBlock = toBlock.Uint64()
@@ -834,7 +867,8 @@ func (p *SourceIndexerService) serveTopicIndexation() error {
 
 				p.emitSourceUpdate()
 
-				p.metrics.LatestBlockIndexedMetricsSet(p.pipeline.Name, p.source.Address.String, p.chain.ChainId, p.source.SyncBlock)
+				p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
+				p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
 			}
 
 			latestBlockNumberIndexed = currentBlock
@@ -893,13 +927,14 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 		}
 
 		var batchErr w3.CallErrors
-		if err := client.Call(request...); errors.As(err, &batchErr) {
-			p.logger.Error().Msg(err.Error())
-		} else if err != nil {
-			p.logger.Error().Msg(err.Error())
+		batchStart := time.Now()
+		batchCallErr := client.Call(request...)
+		p.metrics.RecordRPC(p.chain.ChainId, "eth_getTransactionByHash", time.Since(batchStart), batchCallErr)
+		if errors.As(batchCallErr, &batchErr) {
+			p.logger.Error().Msg(batchCallErr.Error())
+		} else if batchCallErr != nil {
+			p.logger.Error().Msg(batchCallErr.Error())
 		}
-
-		p.metrics.EvmRpcCallMetricsInc(p.storeInfo.Identifier, p.chain.ChainId, "getTransactionAndBlockHeader", 1)
 
 		if currentTransactionIndex == uint64(len(transactionToLoad)) {
 			isEnded = true

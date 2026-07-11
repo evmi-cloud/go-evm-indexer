@@ -138,6 +138,10 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 	p.db.Conn.Save(&p.exporter)
 	p.emitUpdate()
 
+	// Mark the exporter up for the lifetime of its loop.
+	p.metrics.SetExporterUp(p.exporterLabels(), true)
+	defer p.metrics.SetExporterUp(p.exporterLabels(), false)
+
 	err = p.run(logParams)
 
 	// Always give the plugin a chance to flush/close.
@@ -203,7 +207,7 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 		}
 
 		p.emitUpdate()
-		p.metrics.LatestBlockIndexedMetricsSet(p.exporter.Name, "exporter", p.chain.ChainId, toBlock)
+		p.metrics.SetExporterProgress(p.exporterLabels(), head, toBlock)
 		p.logger.Info().Fields(map[string]interface{}{
 			"exporter": p.exporter.Name, "toBlock": toBlock,
 		}).Msg("exported block range")
@@ -219,6 +223,15 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 // successfully delivered log, so the failing log is replayed on restart
 // (at-least-once). It never delivers logs concurrently or out of order.
 func (p *ExporterService) exportRange(sourceIds []uint64, completedBlock uint64, lastLogIndex int64, toBlock uint64) (uint64, int64, error) {
+	// Record how long the range took and how many events it delivered, on every
+	// return path (success or mid-range failure).
+	start := time.Now()
+	var delivered uint64
+	defer func() {
+		p.metrics.ObserveExporterProcess(p.exporterLabels(), time.Since(start))
+		p.metrics.AddExporterEvents(p.exporterLabels(), delivered)
+	}()
+
 	afterBlock, afterIndex := cursorBound(completedBlock, lastLogIndex)
 	logs, err := p.store.GetStorage().GetLogsAfter(sourceIds, afterBlock, afterIndex, toBlock)
 	if err != nil {
@@ -231,6 +244,7 @@ func (p *ExporterService) exportRange(sourceIds []uint64, completedBlock uint64,
 			p.fail(err)
 			return completedBlock, lastLogIndex, err
 		}
+		delivered++
 		// A delivered log at (B, I) means every block < B is complete and block B
 		// is in progress at index I.
 		completedBlock = blockBefore(l.BlockNumber)
@@ -314,9 +328,19 @@ func (p *ExporterService) persistCursor(block uint64, logIndex int64) error {
 
 func (p *ExporterService) fail(err error) {
 	p.logger.Error().Str("exporter", p.exporter.Name).Msg(err.Error())
+	p.metrics.IncExporterErrors(p.exporterLabels())
 	p.exporter.Status = string(evmi_database.FailedExporterStatus)
 	p.db.Conn.Save(&p.exporter)
 	p.emitUpdate()
+}
+
+// exporterLabels is the consistent metric label set for this exporter.
+func (p *ExporterService) exporterLabels() metrics.ExporterLabels {
+	return metrics.ExporterLabels{
+		ChainID:  p.chain.ChainId,
+		Pipeline: p.pipeline.Name,
+		Exporter: p.exporter.Name,
+	}
 }
 
 func (p *ExporterService) Stop() error {

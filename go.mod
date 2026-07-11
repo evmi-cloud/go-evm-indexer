@@ -46,6 +46,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/parquet-go/bitpack v1.0.0 // indirect
