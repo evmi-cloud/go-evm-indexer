@@ -185,18 +185,36 @@ auth guard + sidebar), plus `/login`. Each entity is defined declaratively one-p
 ## Config file vs. runtime topology
 
 The config file is deliberately tiny. The Go `Config` struct (`internal/types/config.go`)
-only unmarshals three keys:
+unmarshals these keys:
 - `database` — `type` = `SQLITE`/`POSTGRES`/`MYSQL`, plus a `config` string map. SQLite reads
   `config.filename`; Postgres/MySQL read `config.dsn`.
 - `metrics` — `enabled` / `path` / `port`.
 - `plugins` — a list of `{name, description, gitUrl, relativePath}` git-hosted exporter plugins
   imported (created if absent, matched by name) and installed on startup by
   `exporter.ImportConfigPlugins`.
+- `resources` — an **optional autoloader** (`internal/autoloader`) that creates metadata-DB rows
+  on startup with a **create-if-not-exists** policy (see below).
 
-Everything else — blockchains, ABIs, log stores, pipelines, sources — lives in the metadata
-DB and is created through the gRPC API at runtime, **not** in the config file. Accurate
+Everything under `resources` — blockchains, ABIs, log stores, pipelines, sources, exporters —
+otherwise lives in the metadata DB and is created through the gRPC API at runtime. Accurate
 examples: `configs/exemple.config.json` (SQLite), `configs/exemple-postgres.config.json`
-(Postgres), `docker/ambiant.config.json` (the compose stack).
+(Postgres), `docker/ambiant.config.json` (the compose stack), and
+`configs/exemple-autoload.config.json` (the full `resources` autoloader).
+
+**Config autoloader** (`internal/autoloader/autoloader.go`, `autoloader.Load`): provisions the
+`resources` block idempotently. It runs in `main.go` **after** `ImportConfigPlugins` and **before**
+the indexer/exporter services start, so autoloaded sources/exporters are picked up on that same
+boot. Each resource is matched by its **natural key** and skipped if present (created previously,
+or via the API): blockchain by `name`, ABI by `contractName`, store by `identifier`, pipeline by
+`(name, instance)`, source by `(pipeline, type, address|topic0)` (FULL by `(pipeline, type)`),
+exporter by `(name, pipeline)`. Cross-references are declared by **name, not DB id** (ids aren't
+known ahead of time) and resolved against the DB, so a resource may reference one declared earlier
+in the same file or a pre-existing row; a source's `blockchain` defaults to its pipeline's. Load
+order is dependency-first (blockchains/ABIs/stores → pipelines → sources → exporters) and
+best-effort — an unresolved reference logs an error and skips just that row. Exporters reference a
+`plugin` by name, which is why `ImportConfigPlugins` must run first. Types live in
+`internal/types/config.go` (`AutoloadResources` + `Config*` structs; store/plugin config blobs are
+`json.RawMessage` → `datatypes.JSON`).
 
 Note the field is `config` (a `map[string]string`), so `dsn`/`filename` must be nested
 under `database.config`, not at the top of `database`. `cmd/evm-indexer/staging.config.json`

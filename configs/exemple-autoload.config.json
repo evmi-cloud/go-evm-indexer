@@ -1,0 +1,87 @@
+{
+    "database": {
+        "type": "SQLITE",
+        "config": {
+            "filename": "evmi-database.sqlite"
+        }
+    },
+    "metrics": {
+        "enabled": true,
+        "path": "/metrics",
+        "port": 9090
+    },
+    "plugins": [
+        {
+            "name": "erc20-balances",
+            "description": "Track ERC20 balances",
+            "gitUrl": "https://github.com/example/evmi-erc20-plugin",
+            "relativePath": "."
+        }
+    ],
+    "resources": {
+        "blockchains": [
+            {
+                "name": "ethereum",
+                "chainId": 1,
+                "rpcUrl": "https://eth.llamarpc.com",
+                "blockRange": 500,
+                "blockSlice": 5,
+                "pullInterval": 5,
+                "rpcMaxBatchSize": 100
+            }
+        ],
+        "abis": [
+            { "contractName": "ERC20", "content": "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"}]" },
+            { "contractName": "UniswapV2Factory", "content": "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"token0\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"token1\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"pair\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"PairCreated\",\"type\":\"event\"}]" }
+        ],
+        "stores": [
+            {
+                "identifier": "clickhouse-main",
+                "description": "Primary ClickHouse store",
+                "storeType": "clickhouse",
+                "storeConfig": {
+                    "addr": "clickhouse:9000",
+                    "database": "evmi",
+                    "username": "default",
+                    "password": "",
+                    "logsTableName": "logs",
+                    "transactionsTableName": "transactions"
+                }
+            }
+        ],
+        "pipelines": [
+            { "name": "eth-mainnet", "blockchain": "ethereum", "store": "clickhouse-main" }
+        ],
+        "sources": [
+            {
+                "pipeline": "eth-mainnet",
+                "abi": "ERC20",
+                "type": "CONTRACT",
+                "enabled": true,
+                "startBlock": 19000000,
+                "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            },
+            {
+                "pipeline": "eth-mainnet",
+                "abi": "UniswapV2Factory",
+                "type": "FACTORY",
+                "enabled": true,
+                "startBlock": 10000835,
+                "address": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+                "factoryChildAbi": "ERC20",
+                "factoryCreationFunctionName": "PairCreated",
+                "factoryCreationAddressLogArg": "pair"
+            }
+        ],
+        "exporters": [
+            {
+                "name": "balances",
+                "pipeline": "eth-mainnet",
+                "plugin": "erc20-balances",
+                "enabled": true,
+                "startBlock": 19000000,
+                "pluginConfig": { "trackZeroTransfers": false }
+            }
+        ]
+    }
+}

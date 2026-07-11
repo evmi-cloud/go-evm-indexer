@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/evmi-cloud/go-evm-indexer/internal/autoloader"
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/exporter"
@@ -121,6 +122,18 @@ func main() {
 					instance.Status = "RUNNING"
 					database.Conn.Save(&instance)
 
+					// Provision config-declared resources before the services start,
+					// so autoloaded sources/exporters are picked up on this boot.
+					// Plugins are imported first so exporters can reference them by name.
+					logger.Info().Msg("Import config plugins")
+					exporter.ImportConfigPlugins(database, config.Plugins, logger)
+
+					logger.Info().Msg("Autoload config resources")
+					autoloader.Load(database, instance.ID, config.Resources, logger)
+
+					logger.Info().Msg("Verify installed plugins")
+					exporter.VerifyPlugins(database, logger)
+
 					logger.Info().Msg("Mount indexer service")
 					pipelineService := indexer.NewIndexerService(instanceId, database, internalBus, metrics, logger)
 
@@ -129,12 +142,6 @@ func main() {
 					if err != nil {
 						logger.Fatal().Msg(err.Error())
 					}
-
-					logger.Info().Msg("Import config plugins")
-					exporter.ImportConfigPlugins(database, config.Plugins, logger)
-
-					logger.Info().Msg("Verify installed plugins")
-					exporter.VerifyPlugins(database, logger)
 
 					logger.Info().Msg("Mount exporter service")
 					exporterService := exporter.NewExporterServiceManager(instanceId, database, internalBus, metrics, logger)
