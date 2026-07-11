@@ -1,0 +1,27 @@
+{{- /*
+Headless service: gives each StatefulSet pod a stable DNS name
+(<pod>.<svc>.<ns>.svc). The gateway forwards to pod IPs it reads from the DB, so
+this is mainly for stable identity / direct pod access and metrics scraping.
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "evmi.fullname" . }}-instances
+  labels:
+    {{- include "evmi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: instance
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "evmi.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: instance
+  ports:
+    - name: grpc
+      port: 8080
+      targetPort: grpc
+    {{- if .Values.config.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.config.metrics.port }}
+      targetPort: metrics
+    {{- end }}

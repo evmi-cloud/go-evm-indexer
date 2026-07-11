@@ -1,0 +1,32 @@
+EVMI is installed.
+
+  Instances (StatefulSet): {{ include "evmi.fullname" . }}-instance  ({{ .Values.instances.replicas }} replica(s))
+  Gateway    (Deployment):  {{ include "evmi.fullname" . }}-gateway   ({{ .Values.gateway.replicas }} replica(s))
+
+The gateway is the single entry point — it forwards each request to the instance
+that owns the addressed data, and reverse-proxies the web UI / OAuth callback.
+
+Reach the gateway:
+{{- if .Values.gateway.ingress.enabled }}
+  Ingress:
+  {{- range .Values.gateway.ingress.hosts }}
+    http{{ if $.Values.gateway.ingress.tls }}s{{ end }}://{{ .host }}
+  {{- end }}
+{{- else if eq .Values.gateway.service.type "LoadBalancer" }}
+  export IP=$(kubectl get svc {{ include "evmi.fullname" . }}-gateway -n {{ .Release.Namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "http://$IP:{{ .Values.gateway.service.port }}"
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "evmi.fullname" . }}-gateway {{ .Values.gateway.service.port }}:{{ .Values.gateway.service.port }}
+  # then open http://localhost:{{ .Values.gateway.service.port }}
+{{- end }}
+
+Notes:
+  * All pods share ONE metadata database ({{ .Values.config.database.type }}). Do not use
+    SQLITE for a multi-instance deployment.
+  * Each instance registers its pod IP + gRPC port (8080) in the DB on boot; the
+    gateway resolves and caches those locations (TTL {{ .Values.gateway.cacheTtlSeconds }}s).
+  * Pipelines are bound to a specific instance. Because pod names are stable
+    (StatefulSet), a pod always maps to the same instance row after restarts.
+  * Building exporter plugins at runtime needs a Go toolchain in the image; the
+    default distroless image cannot — use an image with a Go toolchain if you rely
+    on git-sourced plugins.

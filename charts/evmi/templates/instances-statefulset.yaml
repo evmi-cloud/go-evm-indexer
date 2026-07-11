@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "evmi.fullname" . }}-instance
+  labels:
+    {{- include "evmi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: instance
+spec:
+  # Headless service giving each pod a stable DNS name (pod-0, pod-1, ...).
+  serviceName: {{ include "evmi.fullname" . }}-instances
+  replicas: {{ .Values.instances.replicas }}
+  updateStrategy:
+    {{- toYaml .Values.instances.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "evmi.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: instance
+  template:
+    metadata:
+      labels:
+        {{- include "evmi.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: instance
+      annotations:
+        # Roll pods when the config changes.
+        checksum/config: {{ .Values.config | toJson | sha256sum }}
+        {{- with .Values.instances.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "evmi.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: evmi
+          image: {{ include "evmi.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The stable pod name is the instance id, so a pod always maps to the same
+          # EvmiInstance row (and thus the same pipeline assignments) across restarts.
+          args:
+            - start
+            - --config
+            - /config/config.json
+            - --instance
+            - $(POD_NAME)
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: grpc
+              containerPort: 8080
+            {{- if .Values.config.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.config.metrics.port }}
+            {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: data
+              mountPath: {{ .Values.instances.persistence.mountPath }}
+          {{- with .Values.instances.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ include "evmi.configSecretName" . }}
+        {{- if not .Values.instances.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+      {{- with .Values.instances.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.instances.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.instances.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.instances.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "evmi.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: instance
+      spec:
+        accessModes:
+          {{- toYaml .Values.instances.persistence.accessModes | nindent 10 }}
+        {{- if .Values.instances.persistence.storageClass }}
+        storageClassName: {{ .Values.instances.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.instances.persistence.size | quote }}
+  {{- end }}

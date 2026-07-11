@@ -1,0 +1,18 @@
+{{- if and .Values.podMonitor.enabled .Values.config.metrics.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "evmi.fullname" . }}-instances
+  labels:
+    {{- include "evmi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: instance
+spec:
+  selector:
+    matchLabels:
+      {{- include "evmi.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: instance
+  podMetricsEndpoints:
+    - port: metrics
+      path: {{ .Values.config.metrics.path }}
+      interval: {{ .Values.podMonitor.interval }}
+{{- end }}

@@ -20,6 +20,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
+# A single binary provides BOTH roles as subcommands: `evm-indexer start` runs a
+# stateful indexer instance, `evm-indexer gateway` runs the routing load balancer
+# (internal/gateway). The Helm chart selects the role per workload via `args`.
 RUN go build -ldflags="-s -w" -o /evm-indexer ./cmd/evm-indexer
 
 
@@ -31,4 +34,6 @@ COPY --from=builder /evm-indexer /evm-indexer
 # The built web UI is served from EVMI_WEBUI_DIR (see internal/grpc/webui.go).
 COPY --from=webui /webui/out /public
 ENV EVMI_WEBUI_DIR=/public
+# No CMD: the deployment supplies the subcommand — ["start", ...] for an instance
+# or ["gateway", ...] for the gateway.
 ENTRYPOINT ["/evm-indexer"]

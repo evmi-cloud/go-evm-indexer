@@ -1,0 +1,96 @@
+## EVMI Helm values.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/evmi-cloud/go-evm-indexer
+  # Defaults to the chart appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+## The EVMI config file, rendered verbatim into a Secret and mounted at
+## /config/config.json for BOTH the instances and the gateway. They MUST share the
+## same metadata database — so use POSTGRES/MYSQL, not SQLITE (each pod would get
+## its own file and the gateway could not resolve data locations).
+##
+## Everything under `resources` is the optional autoloader (create-if-not-exists);
+## `plugins` are git-hosted exporter plugins imported on startup.
+config:
+  database:
+    type: POSTGRES
+    config:
+      dsn: "host=postgres user=evmi password=evmi dbname=evmi port=5432 sslmode=disable"
+  metrics:
+    enabled: true
+    path: /metrics
+    port: 9999
+  plugins: []
+  resources: {}
+
+## Stateful indexer instances. Each pod registers itself (by its stable pod name)
+## in the shared DB with its pod IP + gRPC port; the gateway forwards to that
+## address. Pipelines are bound to a specific instance, so stable pod identity
+## keeps the pipeline↔instance mapping stable across restarts.
+instances:
+  replicas: 2
+  # The app always serves gRPC/HTTP on 8080 (hardcoded grpc.ServerPort); this only
+  # names the container port and must stay 8080.
+  grpcPort: 8080
+  # Per-pod persistent volume (local parquet stores, plugin build cache). Point any
+  # parquet EvmLogStore at a path under mountPath.
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    mountPath: /data
+  resources: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # StatefulSet update strategy.
+  updateStrategy:
+    type: RollingUpdate
+
+## Stateless routing gateway (the load balancer). Reads the shared DB to resolve
+## which instance owns each request's data and forwards there, caching locations
+## in memory to avoid spamming the DB.
+gateway:
+  replicas: 2
+  port: 8080
+  cacheTtlSeconds: 30
+  resources: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  service:
+    type: ClusterIP
+    port: 80
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: evmi.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+## Optional Prometheus PodMonitor for the instances' /metrics endpoint (requires
+## the Prometheus Operator CRDs).
+podMonitor:
+  enabled: false
+  interval: 15s

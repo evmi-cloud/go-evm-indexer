@@ -139,6 +139,17 @@ instance's *local* disk — so every instance that might run an exporter using t
 own build. The aggregate (via `aggregateInstall`) succeeds only if all instances succeed; otherwise
 the response error names each failing instance.
 
+**Deployment (Helm, `charts/evmi`)**: one image (`Dockerfile`), one binary, two roles selected by
+`args`. Instances run as a **StatefulSet** (`evm-indexer start -i $(POD_NAME)`) — stable pod names
+mean a pod always maps to the same `EvmiInstance` row (and its pipeline assignments) across
+restarts, and each pod gets a PVC (`volumeClaimTemplates`) for local parquet stores / plugin build
+cache. The gateway runs as a **Deployment** (`evm-indexer gateway`). Both mount the *same* config
+from a Secret rendered from `.Values.config` (`toPrettyJson`) — so the shared metadata DB must be
+POSTGRES/MYSQL, never SQLITE. Each instance registers its **pod IP + 8080** in the DB on boot; the
+gateway (in-cluster) forwards straight to pod IPs and re-resolves after the cache TTL when a pod
+restarts with a new IP. `helm lint charts/evmi` and `helm template` validate it; optional
+Ingress + PodMonitor behind values flags.
+
 **Auth** (`internal/auth`): bearer-token authentication over the API. Every Connect RPC is
 gated by `Authenticator.Interceptor(publicProcedures...)` (wired in `server.go`), which
 validates an `Authorization: Bearer <token>` header and injects the `*User` into context

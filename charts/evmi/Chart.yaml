@@ -1,0 +1,16 @@
+apiVersion: v2
+name: evmi
+description: |
+  EVMI — EVM log indexer. Runs a fleet of stateful indexer instances (StatefulSet)
+  behind a data-aware gateway load balancer (Deployment) that routes each request
+  to the instance owning the data.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ethereum
+  - evm
+  - indexer
+home: https://github.com/evmi-cloud/go-evm-indexer
+sources:
+  - https://github.com/evmi-cloud/go-evm-indexer
