@@ -13,6 +13,7 @@ import (
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/exporter"
+	"github.com/evmi-cloud/go-evm-indexer/internal/gateway"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc"
 	"github.com/evmi-cloud/go-evm-indexer/internal/indexer"
 	"github.com/evmi-cloud/go-evm-indexer/internal/metrics"
@@ -119,6 +120,7 @@ func main() {
 					}
 
 					instance.IpV4 = GetLocalIP().String()
+					instance.Port = grpc.ServerPort
 					instance.Status = "RUNNING"
 					database.Conn.Save(&instance)
 
@@ -154,6 +156,64 @@ func main() {
 
 					logger.Info().Msg("Start gRPC server")
 					grpc.StartGrpcServer(database, internalBus, logger)
+					return nil
+				},
+			},
+			{
+				Name:  "gateway",
+				Usage: "Start the EVMI gateway: a stateful load balancer that forwards each request to the instance owning the data",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "config",
+						Aliases: []string{"c"},
+						EnvVars: []string{"CONFIG_FILE_PATH"},
+						Value:   "/tmp/evm-indexer/config.json",
+						Usage:   "Path to the config file (used only for the shared metadata database)",
+					},
+					&cli.Uint64Flag{
+						Name:    "port",
+						Aliases: []string{"p"},
+						EnvVars: []string{"EVMI_GATEWAY_PORT"},
+						Value:   8080,
+						Usage:   "Port the gateway listens on",
+					},
+					&cli.Uint64Flag{
+						Name:    "cache-ttl",
+						EnvVars: []string{"EVMI_GATEWAY_CACHE_TTL"},
+						Value:   30,
+						Usage:   "Seconds to cache data-location lookups before re-reading the metadata DB",
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					logger := zerolog.New(
+						zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+					).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
+
+					configFile, err := os.ReadFile(cCtx.String("config"))
+					if err != nil {
+						logger.Fatal().Msg(err.Error())
+					}
+					var config types.Config
+					if err := json.Unmarshal(configFile, &config); err != nil {
+						logger.Fatal().Msg(err.Error())
+					}
+
+					logger.Info().Msg("Mount database")
+					database, err := evmi_database.LoadDatabase(
+						evmi_database.DatabaseType(config.Database.Type),
+						config.Database.Config,
+						logger,
+					)
+					if err != nil {
+						return err
+					}
+
+					gateway.StartGateway(
+						database,
+						cCtx.Uint64("port"),
+						time.Duration(cCtx.Uint64("cache-ttl"))*time.Second,
+						logger,
+					)
 					return nil
 				},
 			},

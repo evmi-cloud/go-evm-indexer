@@ -138,7 +138,9 @@ type EvmiInstance struct {
 
 	InstanceId string
 	IpV4       string
-	Status     string
+	// Port is the TCP port this instance's gRPC/HTTP server is listening on.
+	Port   uint64
+	Status string
 }
 
 type EvmBlockchain struct {

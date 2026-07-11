@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"fmt"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -14,6 +15,11 @@ import (
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1/evm_indexerv1connect"
 )
+
+// ServerPort is the TCP port the gRPC/HTTP server always listens on. Exported so
+// callers (e.g. the instance-registration in main) can record it without
+// duplicating the literal.
+const ServerPort uint64 = 8080
 
 type EvmIndexerServer struct {
 	db     *evmi_database.EvmiDatabase
@@ -64,7 +70,7 @@ func StartGrpcServer(
 	//TODO: handle multiple TLS configurations
 	corsHandler := cors.AllowAll().Handler(mux)
 	http.ListenAndServe(
-		"0.0.0.0:8080",
+		"0.0.0.0:"+fmt.Sprint(ServerPort),
 		// Use h2c so we can serve HTTP/2 without TLS.
 		h2c.NewHandler(corsHandler, &http2.Server{}),
 	)

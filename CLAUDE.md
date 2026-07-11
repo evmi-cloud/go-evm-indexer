@@ -114,6 +114,31 @@ events rather than mutating workers directly. Generated code under
 locally-installed generator differs, `buf generate` rewrites the whole file with the other
 version (verify `protoc-gen-go --version` before regenerating).
 
+**Gateway** (`internal/gateway`): a stateful load balancer for a multi-instance fleet. Because
+instances are stateful (each indexes specific pipelines and may keep their logs in a *local* store
+like parquet), a plain L4/L7 balancer can't be used — a request must reach the instance that owns
+the data. The gateway **replicates the whole Connect service** (`var _ ...ServiceHandler = (*Gateway)`)
+and, per request, resolves the owning instance and forwards the call there. Started via the
+`evm-indexer gateway` subcommand (flags `--config` for the shared metadata DB, `--port`,
+`--cache-ttl`). Ownership comes from the entity graph: pipeline→instance (`EvmLogPipeline.EvmiInstanceID`),
+source→pipeline→instance, exporter→pipeline→instance; the forward target is the instance's
+`EvmiInstance.IpV4:Port` (the **`Port` column** on `EvmiInstance`, set from `grpc.ServerPort` at
+boot — added for exactly this). `resolver.go` caches every hop in TTL `ttlCache`s (default 30s) so
+routing doesn't hammer the DB; `pool.go` memoizes one h2c Connect client per backend. Routing
+policy (`handlers_gen.go`, generated — don't hand-edit; regenerate the same way it was created):
+data/control RPCs (logs reads, source/exporter CRUD + start/stop, keyed by `source_id`/`id`/
+`pipeline_id`) go to the **owning** instance; instance-agnostic shared-metadata RPCs (blockchains,
+ABIs, stores, auth, users, plugins, `List*`) go to **any RUNNING** instance round-robin. The two
+server-streams route by `pipeline_id`, or **fan out and merge across the whole fleet** when
+`pipeline_id == 0` (`gateway.go`). Auth is pass-through — the caller's bearer token is forwarded and
+each instance validates it against the shared DB. Non-API paths (web UI at `/`, `/auth/oauth/callback`)
+are reverse-proxied to any instance (`server.go`). **`InstallPlugin` is the one exception to
+single-instance routing:** it is hand-written in `gateway.go` (not in `handlers_gen.go`) to **fan
+out to every RUNNING instance concurrently**, because installing builds the plugin `.so` on that
+instance's *local* disk — so every instance that might run an exporter using the plugin needs its
+own build. The aggregate (via `aggregateInstall`) succeeds only if all instances succeed; otherwise
+the response error names each failing instance.
+
 **Auth** (`internal/auth`): bearer-token authentication over the API. Every Connect RPC is
 gated by `Authenticator.Interceptor(publicProcedures...)` (wired in `server.go`), which
 validates an `Authorization: Bearer <token>` header and injects the `*User` into context

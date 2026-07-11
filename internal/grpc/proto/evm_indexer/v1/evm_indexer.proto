@@ -5,13 +5,13 @@ package evm_indexer.v1;
 option go_package = "github.com/evmi-cloud/go-evm-indexer/gen/evm-indexer/v1;evm_indexer";
 
 message EvmiInstance {
-    optional uint32 id = 1;        
+    optional uint32 id = 1;
     string instance_id = 2;
     string ipv4 = 3;
     string status = 4;
-    optional uint32 created_at = 5; 
-    optional uint32 updated_at = 6; 
-    optional uint32 deleted_at = 7; 
+    optional uint32 created_at = 5;
+    optional uint32 updated_at = 6;
+    optional uint32 deleted_at = 7;
 }
 
 message EvmBlockchain {
