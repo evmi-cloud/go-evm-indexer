@@ -104,3 +104,47 @@ func TestParquetTransactionsRoundTrip(t *testing.T) {
 		t.Fatalf("GetTransactions = %+v, err %v", txs, err)
 	}
 }
+
+func TestParquetInsertReplayDoesNotDuplicate(t *testing.T) {
+	s := newStore(t)
+	batch := []types.EvmLog{mkLog(1, 10, 0), mkLog(1, 10, 1), mkLog(1, 12, 0)}
+
+	// A crash between the insert and the cursor save replays the same range.
+	if err := s.InsertLogs(batch); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	if err := s.InsertLogs(batch); err != nil {
+		t.Fatalf("replay insert: %v", err)
+	}
+
+	if c, err := s.GetLogsCount(); err != nil || c != 3 {
+		t.Fatalf("count = %d, err %v (want 3 after replay)", c, err)
+	}
+	got, err := s.GetLogs(1, 0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(ids(got)) != fmt.Sprint([]string{"1:10:0", "1:10:1", "1:12:0"}) {
+		t.Errorf("GetLogs after replay = %v", ids(got))
+	}
+
+	// Overlapping batches (distinct files sharing a log) dedupe on read too.
+	if err := s.InsertLogs([]types.EvmLog{mkLog(1, 12, 0), mkLog(1, 14, 0)}); err != nil {
+		t.Fatalf("overlapping insert: %v", err)
+	}
+	if c, err := s.GetLogsCount(); err != nil || c != 4 {
+		t.Fatalf("count = %d, err %v (want 4 with overlap)", c, err)
+	}
+
+	tx := types.EvmTransaction{Id: "1:10:tx", SourceId: 1, BlockNumber: 10, ChainId: 1, From: "0xf", To: "0xt", Value: "5", Hash: "0xh"}
+	if err := s.InsertTransactions([]types.EvmTransaction{tx}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.InsertTransactions([]types.EvmTransaction{tx}); err != nil {
+		t.Fatal(err)
+	}
+	txs, err := s.GetTransactions(1, 0, 100)
+	if err != nil || len(txs) != 1 {
+		t.Fatalf("GetTransactions after replay = %+v, err %v (want 1)", txs, err)
+	}
+}
