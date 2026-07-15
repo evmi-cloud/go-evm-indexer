@@ -20,7 +20,7 @@ func (e *EvmIndexerServer) CreateEvmLogPipeline(ctx context.Context, req *connec
 
 	result := e.db.Conn.Create(&newPipeline)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.CreateEvmLogPipelineResponse]{
@@ -36,7 +36,7 @@ func (e *EvmIndexerServer) DeleteEvmLogPipeline(ctx context.Context, req *connec
 
 	result := e.db.Conn.Delete(&evmi_database.EvmLogPipeline{}, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.DeleteEvmLogPipelineResponse]{
@@ -50,7 +50,7 @@ func (e *EvmIndexerServer) GetEvmLogPipeline(ctx context.Context, req *connect.R
 
 	result := e.db.Conn.First(&pipeline, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.GetEvmLogPipelineResponse]{
@@ -64,9 +64,13 @@ func (e *EvmIndexerServer) GetEvmLogPipeline(ctx context.Context, req *connect.R
 func (e *EvmIndexerServer) ListEvmLogPipelines(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmLogPipelinesRequest]) (*connect.Response[evm_indexerv1.ListEvmLogPipelinesResponse], error) {
 	var pipelines []evmi_database.EvmLogPipeline
 
-	result := e.db.Conn.Model(&evmi_database.EvmLogPipeline{}).Find(&pipelines).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	query := e.db.Conn.Model(&evmi_database.EvmLogPipeline{})
+	if req.Msg.Pagination != nil && req.Msg.Pagination.Limit > 0 {
+		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	}
+	result := query.Find(&pipelines)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmLogPipelinesResponse]{
@@ -82,7 +86,7 @@ func (e *EvmIndexerServer) UpdateEvmLogPipeline(ctx context.Context, req *connec
 
 	result := e.db.Conn.First(&blockchain, req.Msg.Pipeline.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	blockchain.Name = req.Msg.Pipeline.Name
@@ -91,7 +95,7 @@ func (e *EvmIndexerServer) UpdateEvmLogPipeline(ctx context.Context, req *connec
 
 	result = e.db.Conn.Save(&blockchain)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.UpdateEvmLogPipelineResponse]{

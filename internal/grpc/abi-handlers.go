@@ -17,7 +17,7 @@ func (e *EvmIndexerServer) CreateEvmJsonAbi(ctx context.Context, req *connect.Re
 
 	result := e.db.Conn.Create(&newAbi)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.CreateEvmJsonAbiResponse]{
@@ -31,9 +31,13 @@ func (e *EvmIndexerServer) CreateEvmJsonAbi(ctx context.Context, req *connect.Re
 func (e *EvmIndexerServer) ListEvmJsonAbis(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmJsonAbisRequest]) (*connect.Response[evm_indexerv1.ListEvmJsonAbisResponse], error) {
 	var abis []evmi_database.EvmJsonAbi
 
-	result := e.db.Conn.Model(&evmi_database.EvmJsonAbi{}).Find(&abis).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	query := e.db.Conn.Model(&evmi_database.EvmJsonAbi{})
+	if req.Msg.Pagination != nil && req.Msg.Pagination.Limit > 0 {
+		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	}
+	result := query.Find(&abis)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmJsonAbisResponse]{
@@ -49,7 +53,7 @@ func (e *EvmIndexerServer) DeleteEvmJsonAbi(ctx context.Context, req *connect.Re
 
 	result := e.db.Conn.Delete(&evmi_database.EvmJsonAbi{}, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.DeleteEvmJsonAbiResponse]{
@@ -63,7 +67,7 @@ func (e *EvmIndexerServer) GetEvmJsonAbi(ctx context.Context, req *connect.Reque
 
 	result := e.db.Conn.First(&abi, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.GetEvmJsonAbiResponse]{
@@ -79,7 +83,7 @@ func (e *EvmIndexerServer) UpdateEvmJsonAbi(ctx context.Context, req *connect.Re
 
 	result := e.db.Conn.First(&blockchain, req.Msg.Abi.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	blockchain.Content = req.Msg.Abi.Content
@@ -87,7 +91,7 @@ func (e *EvmIndexerServer) UpdateEvmJsonAbi(ctx context.Context, req *connect.Re
 
 	result = e.db.Conn.Save(&blockchain)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.UpdateEvmJsonAbiResponse]{

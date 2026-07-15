@@ -48,7 +48,7 @@ func (e *EvmIndexerServer) CreateEvmLogSource(ctx context.Context, req *connect.
 
 	result := e.db.Conn.Create(&newLogSource)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.CreateEvmLogSourceResponse]{
@@ -64,7 +64,7 @@ func (e *EvmIndexerServer) DeleteEvmLogSource(ctx context.Context, req *connect.
 
 	result := e.db.Conn.Delete(&evmi_database.EvmLogSource{}, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.DeleteEvmLogSourceResponse]{
@@ -78,7 +78,7 @@ func (e *EvmIndexerServer) GetEvmLogSource(ctx context.Context, req *connect.Req
 
 	result := e.db.Conn.First(&logSource, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.GetEvmLogSourceResponse]{
@@ -92,9 +92,13 @@ func (e *EvmIndexerServer) GetEvmLogSource(ctx context.Context, req *connect.Req
 func (e *EvmIndexerServer) ListEvmLogSources(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmLogSourcesRequest]) (*connect.Response[evm_indexerv1.ListEvmLogSourcesResponse], error) {
 	var logSources []evmi_database.EvmLogSource
 
-	result := e.db.Conn.Model(&evmi_database.EvmLogSource{}).Find(&logSources).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	query := e.db.Conn.Model(&evmi_database.EvmLogSource{})
+	if req.Msg.Pagination != nil && req.Msg.Pagination.Limit > 0 {
+		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	}
+	result := query.Find(&logSources)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmLogSourcesResponse]{
@@ -110,7 +114,7 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 
 	result := e.db.Conn.First(&logSoure, req.Msg.Source.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	logSoure.Type = req.Msg.Source.Type
@@ -145,7 +149,7 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 
 	result = e.db.Conn.Save(&logSoure)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.UpdateEvmLogSourceResponse]{
