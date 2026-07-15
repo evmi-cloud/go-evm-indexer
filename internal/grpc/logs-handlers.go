@@ -17,35 +17,35 @@ func (e *EvmIndexerServer) ListEvmLogs(ctx context.Context, req *connect.Request
 	var source evmi_database.EvmLogSource
 	result := e.db.Conn.First(&source, req.Msg.SourceId)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var pipeline evmi_database.EvmLogPipeline
 	result = e.db.Conn.First(&pipeline, source.EvmLogPipelineID)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var storeInfo evmi_database.EvmLogStore
 	result = e.db.Conn.First(&storeInfo, pipeline.EvmLogStoreId)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var storeConfig map[string]string
 	err := json.Unmarshal(storeInfo.StoreConfig, &storeConfig)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	store, err := log_stores.LoadStore(storeInfo.StoreType, storeConfig, e.logger)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	logs, err := store.GetStorage().GetLogs(uint64(req.Msg.SourceId), req.Msg.FromBlock, req.Msg.ToBlock)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmLogsResponse]{
@@ -60,35 +60,35 @@ func (e *EvmIndexerServer) ListLatestEvmLogs(ctx context.Context, req *connect.R
 	var source evmi_database.EvmLogSource
 	result := e.db.Conn.First(&source, req.Msg.SourceId)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var pipeline evmi_database.EvmLogPipeline
 	result = e.db.Conn.First(&pipeline, source.EvmLogPipelineID)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var storeInfo evmi_database.EvmLogStore
 	result = e.db.Conn.First(&storeInfo, pipeline.EvmLogStoreId)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var storeConfig map[string]string
 	err := json.Unmarshal(storeInfo.StoreConfig, &storeConfig)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	store, err := log_stores.LoadStore(storeInfo.StoreType, storeConfig, e.logger)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	logs, err := store.GetStorage().GetLatestLogs(uint64(req.Msg.SourceId), req.Msg.Limit)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListLatestEvmLogsResponse]{
@@ -103,35 +103,35 @@ func (e *EvmIndexerServer) ListEvmTransactions(ctx context.Context, req *connect
 	var source evmi_database.EvmLogSource
 	result := e.db.Conn.First(&source, req.Msg.SourceId)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var pipeline evmi_database.EvmLogPipeline
 	result = e.db.Conn.First(&pipeline, source.EvmLogPipelineID)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var storeInfo evmi_database.EvmLogStore
 	result = e.db.Conn.First(&storeInfo, pipeline.EvmLogStoreId)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	var storeConfig map[string]string
 	err := json.Unmarshal(storeInfo.StoreConfig, &storeConfig)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	store, err := log_stores.LoadStore(storeInfo.StoreType, storeConfig, e.logger)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	txs, err := store.GetStorage().GetTransactions(uint64(req.Msg.SourceId), req.Msg.FromBlock, req.Msg.ToBlock)
 	if err != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmTransactionsResponse]{
