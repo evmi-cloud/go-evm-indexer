@@ -10,7 +10,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
-	uuid "github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -48,7 +47,7 @@ func (db *ClickHouseStore) Init(config map[string]string) error {
 			},
 		},
 		Debugf: func(format string, v ...interface{}) {
-			fmt.Printf(format, v)
+			db.logger.Debug().Msgf(format, v...)
 		},
 	})
 
@@ -76,11 +75,6 @@ func (db *ClickHouseStore) Init(config map[string]string) error {
 		return err
 	}
 
-	err = db.store.Exec(ctx, fmt.Sprintf(createLogsTableTemplate, db.logTableName))
-	if err != nil {
-		return err
-	}
-
 	err = db.store.Exec(ctx, fmt.Sprintf(createTransactionsTableTemplate, db.txTableName))
 	if err != nil {
 		return err
@@ -91,15 +85,18 @@ func (db *ClickHouseStore) Init(config map[string]string) error {
 
 func (db *ClickHouseStore) InsertLogs(logs []types.EvmLog) error {
 
-	batch, err := db.store.PrepareBatch(context.Background(), "INSERT INTO logs")
+	batch, err := db.store.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s", db.logTableName))
 	if err != nil {
 		return err
 	}
 
 	for _, log := range logs {
+		// The stable log id (same as the other stores): a replayed range
+		// produces identical rows, which ReplacingMergeTree collapses.
 		l := &ClickHouseEvmLog{
-			Id:       uuid.New().String(),
-			SourceId: log.SourceId,
+			Id:       log.Id,
+			ChainID:  uint32(log.ChainId),
+			SourceId: uint32(log.SourceId),
 			Address:  log.Address,
 
 			Topics:           log.Topics,
@@ -107,9 +104,9 @@ func (db *ClickHouseStore) InsertLogs(logs []types.EvmLog) error {
 			BlockNumber:      log.BlockNumber,
 			TransactionFrom:  log.TransactionFrom,
 			TransactionHash:  log.TransactionHash,
-			TransactionIndex: log.TransactionIndex,
+			TransactionIndex: uint32(log.TransactionIndex),
 			BlockHash:        log.BlockHash,
-			LogIndex:         log.LogIndex,
+			LogIndex:         uint32(log.LogIndex),
 			Removed:          log.Removed,
 
 			Metadata: ClickHouseEvmMetadata{
@@ -131,7 +128,7 @@ func (db *ClickHouseStore) InsertLogs(logs []types.EvmLog) error {
 
 func (db *ClickHouseStore) InsertTransactions(txs []types.EvmTransaction) error {
 
-	batch, err := db.store.PrepareBatch(context.Background(), "INSERT INTO transactions")
+	batch, err := db.store.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s", db.txTableName))
 	if err != nil {
 		return err
 	}
@@ -143,11 +140,11 @@ func (db *ClickHouseStore) InsertTransactions(txs []types.EvmTransaction) error 
 		}
 
 		transaction := &ClickHouseEvmTransaction{
-			Id:               uuid.New().String(),
-			SourceId:         tx.SourceId,
+			Id:               tx.Id,
+			SourceId:         uint32(tx.SourceId),
 			BlockNumber:      tx.BlockNumber,
 			TransactionIndex: tx.TransactionIndex,
-			ChainId:          tx.ChainId,
+			ChainId:          uint32(tx.ChainId),
 			From:             tx.From,
 			Data:             tx.Data,
 			Value:            value,
@@ -176,7 +173,7 @@ func (db *ClickHouseStore) GetLogsCount() (uint64, error) {
 	var result struct {
 		Count uint64 `ch:"count"`
 	}
-	if err := db.store.QueryRow(context.Background(), fmt.Sprintf("SELECT COUNT() as count FROM %s", db.txTableName)).ScanStruct(&result); err != nil {
+	if err := db.store.QueryRow(context.Background(), fmt.Sprintf("SELECT COUNT() as count FROM %s FINAL", db.logTableName)).ScanStruct(&result); err != nil {
 		return 0, err
 	}
 
@@ -186,32 +183,13 @@ func (db *ClickHouseStore) GetLogsCount() (uint64, error) {
 func (db *ClickHouseStore) GetLogs(sourceId uint64, fromBlock uint64, toBlock uint64) ([]types.EvmLog, error) {
 
 	var results []ClickHouseEvmLog
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s FINAL WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock)); err != nil {
 		return []types.EvmLog{}, err
 	}
 
 	logs := []types.EvmLog{}
 	for _, log := range results {
-		logs = append(logs, types.EvmLog{
-			Id:               log.Id,
-			SourceId:         log.SourceId,
-			Address:          log.Address,
-			Topics:           log.Topics,
-			Data:             log.Data,
-			BlockNumber:      log.BlockNumber,
-			TransactionHash:  log.TransactionHash,
-			TransactionIndex: log.TransactionIndex,
-			BlockHash:        log.BlockHash,
-			LogIndex:         log.LogIndex,
-			Removed:          log.Removed,
-
-			Metadata: types.EvmMetadata{
-				ContractName: log.Metadata.ContractName,
-				EventName:    log.Metadata.EventName,
-				FunctionName: log.Metadata.FunctionName,
-				Data:         log.Metadata.Data,
-			},
-		})
+		logs = append(logs, chLogToType(log))
 	}
 
 	return logs, nil
@@ -231,7 +209,7 @@ func (db *ClickHouseStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64, a
 
 	var results []ClickHouseEvmLog
 	query := fmt.Sprintf(
-		"SELECT * FROM %s WHERE source_id IN (%s) AND block_number <= %d AND (block_number > %d OR (block_number = %d AND log_index > %d)) ORDER BY block_number, log_index",
+		"SELECT * FROM %s FINAL WHERE source_id IN (%s) AND block_number <= %d AND (block_number > %d OR (block_number = %d AND log_index > %d)) ORDER BY block_number, log_index",
 		db.logTableName, inClause, toBlock, afterBlock, afterBlock, afterLogIndex,
 	)
 	if err := db.store.Select(context.Background(), &results, query); err != nil {
@@ -240,104 +218,70 @@ func (db *ClickHouseStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64, a
 
 	logs := []types.EvmLog{}
 	for _, log := range results {
-		logs = append(logs, types.EvmLog{
-			Id:               log.Id,
-			SourceId:         log.SourceId,
-			ChainId:          uint64(log.ChainID),
-			Address:          log.Address,
-			Topics:           log.Topics,
-			Data:             log.Data,
-			BlockNumber:      log.BlockNumber,
-			TransactionFrom:  log.TransactionFrom,
-			TransactionHash:  log.TransactionHash,
-			TransactionIndex: log.TransactionIndex,
-			BlockHash:        log.BlockHash,
-			LogIndex:         log.LogIndex,
-			Removed:          log.Removed,
-
-			Metadata: types.EvmMetadata{
-				ContractName: log.Metadata.ContractName,
-				EventName:    log.Metadata.EventName,
-				FunctionName: log.Metadata.FunctionName,
-				Data:         log.Metadata.Data,
-			},
-		})
+		logs = append(logs, chLogToType(log))
 	}
 
 	return logs, nil
 }
 
-func (db *ClickHouseStore) GetLogStream(sourceId uint64, fromBlock uint64, toBlock uint64, stream chan types.EvmLog) error {
+func chLogToType(log ClickHouseEvmLog) types.EvmLog {
+	return types.EvmLog{
+		Id:               log.Id,
+		SourceId:         uint(log.SourceId),
+		ChainId:          uint64(log.ChainID),
+		Address:          log.Address,
+		Topics:           log.Topics,
+		Data:             log.Data,
+		BlockNumber:      log.BlockNumber,
+		TransactionFrom:  log.TransactionFrom,
+		TransactionHash:  log.TransactionHash,
+		TransactionIndex: uint64(log.TransactionIndex),
+		BlockHash:        log.BlockHash,
+		LogIndex:         uint64(log.LogIndex),
+		Removed:          log.Removed,
 
-	rows, err := db.store.Query(context.Background(), fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock))
+		Metadata: types.EvmMetadata{
+			ContractName: log.Metadata.ContractName,
+			EventName:    log.Metadata.EventName,
+			FunctionName: log.Metadata.FunctionName,
+			Data:         log.Metadata.Data,
+		},
+	}
+}
+
+func (db *ClickHouseStore) GetLogStream(sourceId uint64, fromBlock uint64, toBlock uint64, stream chan types.EvmLog) error {
+	// The stream is always closed, error paths included, so the consumer never
+	// blocks on a channel nobody writes to anymore.
+	defer close(stream)
+
+	rows, err := db.store.Query(context.Background(), fmt.Sprintf("SELECT * FROM %s FINAL WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number", db.logTableName, sourceId, fromBlock, toBlock))
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
-		log := &ClickHouseEvmLog{}
-		if err := rows.ScanStruct(log); err != nil {
+		log := ClickHouseEvmLog{}
+		if err := rows.ScanStruct(&log); err != nil {
 			return err
 		}
 
-		stream <- types.EvmLog{
-			Id:               log.Id,
-			SourceId:         log.SourceId,
-			Address:          log.Address,
-			Topics:           log.Topics,
-			Data:             log.Data,
-			BlockNumber:      log.BlockNumber,
-			TransactionHash:  log.TransactionHash,
-			TransactionIndex: log.TransactionIndex,
-			BlockHash:        log.BlockHash,
-			LogIndex:         log.LogIndex,
-			Removed:          log.Removed,
-
-			Metadata: types.EvmMetadata{
-				ContractName: log.Metadata.ContractName,
-				EventName:    log.Metadata.EventName,
-				FunctionName: log.Metadata.FunctionName,
-				Data:         log.Metadata.Data,
-			},
-		}
+		stream <- chLogToType(log)
 	}
 
-	defer rows.Close()
-	close(stream)
-
-	return nil
+	return rows.Err()
 }
 
 func (db *ClickHouseStore) GetLatestLogs(sourceId uint64, limit uint64) ([]types.EvmLog, error) {
 
 	var results []ClickHouseEvmLog
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d ORDER BY block_number DESC FETCH FIRST %d ROWS ONLY", db.logTableName, sourceId, limit)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s FINAL WHERE source_id = %d ORDER BY block_number DESC LIMIT %d", db.logTableName, sourceId, limit)); err != nil {
 		return []types.EvmLog{}, err
 	}
 
 	logs := []types.EvmLog{}
 	for _, log := range results {
-		logs = append(logs, types.EvmLog{
-			Id:       log.Id,
-			SourceId: log.SourceId,
-
-			Address:          log.Address,
-			Topics:           log.Topics,
-			Data:             log.Data,
-			BlockNumber:      log.BlockNumber,
-			TransactionHash:  log.TransactionHash,
-			TransactionIndex: log.TransactionIndex,
-			BlockHash:        log.BlockHash,
-			LogIndex:         log.LogIndex,
-			Removed:          log.Removed,
-
-			Metadata: types.EvmMetadata{
-				ContractName: log.Metadata.ContractName,
-				EventName:    log.Metadata.EventName,
-				FunctionName: log.Metadata.FunctionName,
-				Data:         log.Metadata.Data,
-			},
-		})
+		logs = append(logs, chLogToType(log))
 	}
 
 	return logs, nil
@@ -346,7 +290,7 @@ func (db *ClickHouseStore) GetLatestLogs(sourceId uint64, limit uint64) ([]types
 func (db *ClickHouseStore) GetTransactions(sourceId uint64, fromBlock uint64, toBlock uint64) ([]types.EvmTransaction, error) {
 
 	var results []ClickHouseEvmTransaction
-	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number DESC", db.txTableName, sourceId, fromBlock, toBlock)); err != nil {
+	if err := db.store.Select(context.Background(), &results, fmt.Sprintf("SELECT * FROM %s FINAL WHERE source_id = %d AND block_number >= %d AND block_number <= %d ORDER BY block_number DESC", db.txTableName, sourceId, fromBlock, toBlock)); err != nil {
 		return []types.EvmTransaction{}, err
 	}
 
@@ -355,9 +299,9 @@ func (db *ClickHouseStore) GetTransactions(sourceId uint64, fromBlock uint64, to
 
 		txs = append(txs, types.EvmTransaction{
 			Id:          tx.Id,
-			SourceId:    tx.SourceId,
+			SourceId:    uint(tx.SourceId),
 			BlockNumber: tx.BlockNumber,
-			ChainId:     tx.ChainId,
+			ChainId:     uint64(tx.ChainId),
 			From:        tx.From,
 			Data:        tx.Data,
 			Value:       tx.Value.String(),
