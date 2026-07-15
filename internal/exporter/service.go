@@ -144,8 +144,10 @@ func (s *ExporterServiceManager) EnableExporter(exporterId uint) error {
 		return errors.New("exporter already running")
 	}
 
+	// Column-scoped update: the row is shared with the worker, which owns the
+	// sync cursor and status; a full-row Save would write this stale copy back.
 	exp.Enabled = true
-	if result := s.db.Conn.Save(&exp); result.Error != nil {
+	if result := s.db.Conn.Model(&exp).Update("enabled", true); result.Error != nil {
 		return result.Error
 	}
 
@@ -167,8 +169,10 @@ func (s *ExporterServiceManager) DisableExporter(exporterId uint) error {
 		return errors.New("exporter already stopped")
 	}
 
+	// Column-scoped update: the worker still owns the sync cursor until it is
+	// removed below, so a full-row Save would write this stale copy back.
 	exp.Enabled = false
-	if result := s.db.Conn.Save(&exp); result.Error != nil {
+	if result := s.db.Conn.Model(&exp).Update("enabled", false); result.Error != nil {
 		return result.Error
 	}
 
@@ -176,7 +180,7 @@ func (s *ExporterServiceManager) DisableExporter(exporterId uint) error {
 	s.supervisor.RemoveAndWait(token, time.Minute)
 
 	exp.Status = string(evmi_database.StoppedExporterStatus)
-	if result := s.db.Conn.Save(&exp); result.Error != nil {
+	if result := s.db.Conn.Model(&exp).Update("status", exp.Status); result.Error != nil {
 		return result.Error
 	}
 

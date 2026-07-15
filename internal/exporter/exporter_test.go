@@ -160,7 +160,6 @@ func newTestService(t *testing.T, store log_stores.EvmIndexerStorage, plug plugi
 		exporter: exp,
 		chain:    evmi_database.EvmBlockchain{ChainId: 1},
 		logger:   zerolog.Nop(),
-		running:  true,
 	}
 }
 

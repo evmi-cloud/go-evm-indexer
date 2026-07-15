@@ -38,9 +38,6 @@ type ExporterService struct {
 	storeInfo evmi_database.EvmLogStore
 
 	logger zerolog.Logger
-
-	running bool
-	ended   bool
 }
 
 func NewExporterService(
@@ -60,8 +57,6 @@ func NewExporterService(
 		metrics:  metrics,
 		exporter: exporter,
 		logger:   logger,
-		running:  false,
-		ended:    true,
 	}
 }
 
@@ -75,36 +70,29 @@ func (p *ExporterService) emitUpdate() {
 }
 
 func (p *ExporterService) Serve(ctx context.Context) error {
-	p.running = true
-	p.ended = false
 
 	logParams := map[string]interface{}{"exporter": p.exporter.Name}
 	p.logger.Info().Fields(logParams).Msg("starting exporter")
 
 	// Reload the exporter row so we resume from the persisted cursor.
 	if result := p.db.Conn.First(&p.exporter, p.exporter.ID); result.Error != nil {
-		p.ended = true
 		return result.Error
 	}
 
 	if result := p.db.Conn.First(&p.pipeline, p.exporter.EvmLogPipelineID); result.Error != nil {
-		p.ended = true
 		return result.Error
 	}
 
 	if result := p.db.Conn.First(&p.chain, p.pipeline.EvmBlockchainID); result.Error != nil {
-		p.ended = true
 		return result.Error
 	}
 
 	if result := p.db.Conn.First(&p.storeInfo, p.pipeline.EvmLogStoreId); result.Error != nil {
-		p.ended = true
 		return result.Error
 	}
 
 	var storeConfig map[string]string
 	if err := json.Unmarshal(p.storeInfo.StoreConfig, &storeConfig); err != nil {
-		p.ended = true
 		return err
 	}
 
@@ -134,32 +122,38 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 		return err
 	}
 
-	p.exporter.Status = string(evmi_database.RunningExporterStatus)
-	p.db.Conn.Save(&p.exporter)
+	p.setStatus(string(evmi_database.RunningExporterStatus))
 	p.emitUpdate()
 
 	// Mark the exporter up for the lifetime of its loop.
 	p.metrics.SetExporterUp(p.exporterLabels(), true)
 	defer p.metrics.SetExporterUp(p.exporterLabels(), false)
 
-	err = p.run(logParams)
+	err = p.run(ctx, logParams)
 
 	// Always give the plugin a chance to flush/close.
 	if closeErr := p.plugin.Close(); closeErr != nil {
 		p.logger.Error().Fields(logParams).Msg("plugin close error: " + closeErr.Error())
 	}
-	p.ended = true
 	return err
 }
 
-// run is the main export loop. It returns nil on a clean stop and an error if the
-// plugin or store fails (letting the supervisor restart it).
+// setStatus persists the status column alone: the row is shared with the
+// manager (enabled) and a full-row Save would write a stale copy back.
+func (p *ExporterService) setStatus(status string) {
+	p.exporter.Status = status
+	p.db.Conn.Model(&p.exporter).Update("status", status)
+}
+
+// run is the main export loop. It returns nil on a clean stop (context
+// cancelled by the supervisor) and an error if the plugin or store fails
+// (letting the supervisor restart it).
 //
 // The cursor is a (completedBlock, lastLogIndex) pair: completedBlock is the last
 // fully-processed block, lastLogIndex is the last log_index delivered within the
 // in-progress block (completedBlock+1), or -1 when none is. This pins the exact
 // last log executed, so a restart resumes mid-block rather than replaying it.
-func (p *ExporterService) run(logParams map[string]interface{}) error {
+func (p *ExporterService) run(ctx context.Context, logParams map[string]interface{}) error {
 	completedBlock := p.exporter.SyncBlock
 	lastLogIndex := p.exporter.SyncLogIndex
 	if p.exporter.StartBlock > 0 && completedBlock < p.exporter.StartBlock {
@@ -178,9 +172,8 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 	}
 
 	for {
-		if !p.running {
-			p.exporter.Status = string(evmi_database.StoppedExporterStatus)
-			p.db.Conn.Save(&p.exporter)
+		if ctx.Err() != nil {
+			p.setStatus(string(evmi_database.StoppedExporterStatus))
 			p.emitUpdate()
 			return nil
 		}
@@ -192,7 +185,12 @@ func (p *ExporterService) run(logParams map[string]interface{}) error {
 		}
 
 		if len(sourceIds) == 0 || head <= completedBlock {
-			time.Sleep(pullInterval)
+			// Interruptible sleep so a disable/shutdown doesn't wait a full
+			// pull interval.
+			select {
+			case <-ctx.Done():
+			case <-time.After(pullInterval):
+			}
 			continue
 		}
 
@@ -329,8 +327,7 @@ func (p *ExporterService) persistCursor(block uint64, logIndex int64) error {
 func (p *ExporterService) fail(err error) {
 	p.logger.Error().Str("exporter", p.exporter.Name).Msg(err.Error())
 	p.metrics.IncExporterErrors(p.exporterLabels())
-	p.exporter.Status = string(evmi_database.FailedExporterStatus)
-	p.db.Conn.Save(&p.exporter)
+	p.setStatus(string(evmi_database.FailedExporterStatus))
 	p.emitUpdate()
 }
 
@@ -341,18 +338,6 @@ func (p *ExporterService) exporterLabels() metrics.ExporterLabels {
 		Pipeline: p.pipeline.Name,
 		Exporter: p.exporter.Name,
 	}
-}
-
-func (p *ExporterService) Stop() error {
-	p.running = false
-	for !p.IsEnded() {
-		time.Sleep(time.Second)
-	}
-	return nil
-}
-
-func (p *ExporterService) IsEnded() bool {
-	return p.ended
 }
 
 func toLogEvent(l types.EvmLog) pluginsdk.LogEvent {
