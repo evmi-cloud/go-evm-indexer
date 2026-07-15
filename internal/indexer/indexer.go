@@ -44,9 +44,6 @@ type SourceIndexerService struct {
 	abi          abi.ABI
 
 	logger zerolog.Logger
-
-	running bool
-	ended   bool
 }
 
 func NewSourceIndexerService(
@@ -66,8 +63,6 @@ func NewSourceIndexerService(
 		metrics: metrics,
 		source:  source,
 		logger:  logger,
-		running: false,
-		ended:   true,
 	}
 }
 
@@ -111,8 +106,38 @@ func (p *SourceIndexerService) registerFactoryChild(address string, startBlock u
 	return nil
 }
 
+// registerFactoryChildren scans a batch of decoded logs for this factory's
+// creation event and registers a child source for each deployed contract. A
+// failure must NOT advance the cursor: the error is returned so the supervisor
+// retries the range and re-attempts registration.
+func (p *SourceIndexerService) registerFactoryChildren(dbLogs []types.EvmLog) error {
+	for _, log := range dbLogs {
+		if log.Metadata.EventName != p.source.FactoryCreationFunctionName.String {
+			continue
+		}
+
+		newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
+		if !ok {
+			logParams := map[string]interface{}{
+				"transaction": log.TransactionHash,
+				"logIndex":    log.LogIndex,
+				"block":       log.BlockNumber,
+			}
+
+			p.logger.Error().Fields(logParams).Msg("Unable to retrieve new contract from factory log")
+			continue
+		}
+
+		if err := p.registerFactoryChild(newContractAddress, log.BlockNumber); err != nil {
+			p.logger.Error().Msg("factory child registration failed: " + err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (p *SourceIndexerService) Serve(ctx context.Context) error {
-	p.running = true
 
 	logParams := map[string]interface{}{
 		"type": p.source.Type,
@@ -149,7 +174,7 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 
 		abi, err := abi.JSON(strings.NewReader(abiEntry.Content))
 		if err != nil {
-			return result.Error
+			return err
 		}
 
 		p.contractName = abiEntry.ContractName
@@ -171,8 +196,11 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 	}
 
 	p.logger.Info().Fields(logParams).Msg("update source")
+	// Only update the columns this worker owns (status, sync_block): the row is
+	// shared with the manager (enabled) and a full-row Save would write a stale
+	// copy of the other columns back.
 	p.source.Status = string(evmi_database.RunningLogSourceStatus)
-	result = p.db.Conn.Save(&p.source)
+	result = p.db.Conn.Model(&p.source).Update("status", p.source.Status)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -184,31 +212,216 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 	p.metrics.SetSourceUp(p.sourceLabels(), true)
 	defer p.metrics.SetSourceUp(p.sourceLabels(), false)
 
-	if p.source.Type == string(evmi_database.ContractLogSourceType) || p.source.Type == string(evmi_database.FactoryLogSourceType) {
-		return p.serveStaticIndexation()
-	}
-	if p.source.Type == string(evmi_database.TopicLogSourceType) {
-		return p.serveTopicIndexation()
-	}
-	if p.source.Type == string(evmi_database.FullLogSourceType) {
-		return p.serveFullIndexation()
+	switch p.source.Type {
+	case string(evmi_database.ContractLogSourceType), string(evmi_database.FactoryLogSourceType):
+		return p.serveIndexation(ctx, func(fromBlock, toBlock *big.Int) ethereum.FilterQuery {
+			return ethereum.FilterQuery{
+				FromBlock: fromBlock,
+				ToBlock:   toBlock,
+				Addresses: []common.Address{common.HexToAddress(p.source.Address.String)},
+			}
+		})
+	case string(evmi_database.TopicLogSourceType):
+		return p.serveIndexation(ctx, func(fromBlock, toBlock *big.Int) ethereum.FilterQuery {
+			return ethereum.FilterQuery{
+				FromBlock: fromBlock,
+				ToBlock:   toBlock,
+				Topics:    p.topicFilters(),
+			}
+		})
+	case string(evmi_database.FullLogSourceType):
+		return p.serveIndexation(ctx, func(fromBlock, toBlock *big.Int) ethereum.FilterQuery {
+			return ethereum.FilterQuery{
+				FromBlock: fromBlock,
+				ToBlock:   toBlock,
+			}
+		})
 	}
 
 	return errors.New("config types invalid")
 }
 
-func (p *SourceIndexerService) Stop() error {
-	p.running = false
+// topicFilters generates a positional topic request: topics[0] is the event
+// signature (topic0); topics[1..] are per-indexed-argument filters in
+// declaration order. An empty filter entry is a wildcard (match any value at
+// that position), represented by a nil inner slice.
+func (p *SourceIndexerService) topicFilters() [][]common.Hash {
+	topics := [][]common.Hash{{common.HexToHash(p.source.Topic0.String)}}
+	for _, topic := range p.source.TopicFilters {
+		if len(topic) == 0 {
+			topics = append(topics, nil)
+		} else {
+			topics = append(topics, []common.Hash{common.HexToHash(topic)})
+		}
+	}
+	return topics
+}
 
-	for !p.IsEnded() {
-		time.Sleep(time.Second)
+// serveIndexation is the poll loop shared by every source type: wait for the
+// chain head to move, fetch the filtered logs in BlockRange windows, decode and
+// store them, advance the SyncBlock cursor. Errors are returned (never fataled)
+// so the supervisor restarts this source alone — the cursor was not advanced,
+// so the failed range is replayed on restart.
+func (p *SourceIndexerService) serveIndexation(ctx context.Context, filter func(fromBlock, toBlock *big.Int) ethereum.FilterQuery) error {
+	client, err := w3.Dial(p.chain.RpcUrl)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	latestBlockNumberIndexed := p.source.SyncBlock
+	if latestBlockNumberIndexed < p.source.StartBlock {
+		latestBlockNumberIndexed = p.source.StartBlock
 	}
 
+	for {
+		if err := p.waitPullInterval(ctx); err != nil {
+			return p.markStopped()
+		}
+
+		var block *big.Int
+		if err := p.timedRPC("eth_blockNumber", func() error {
+			return client.Call(eth.BlockNumber().Returns(&block))
+		}); err != nil {
+			return err
+		}
+
+		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
+		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
+
+		currentBlock := block.Uint64()
+
+		// The head must be at least BlockSlice ahead of the cursor. Compared
+		// without subtracting first: a lagging RPC node can report a head below
+		// the cursor and the unsigned difference would wrap around.
+		if currentBlock <= latestBlockNumberIndexed || currentBlock-latestBlockNumberIndexed < p.chain.BlockSlice {
+			continue
+		}
+
+		for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
+			if ctx.Err() != nil {
+				return p.markStopped()
+			}
+
+			toBlock := i + p.chain.BlockRange - 1
+			if toBlock > currentBlock {
+				toBlock = currentBlock
+			}
+
+			if err := p.indexRange(client, filter, i, toBlock, currentBlock); err != nil {
+				return err
+			}
+		}
+
+		latestBlockNumberIndexed = currentBlock
+	}
+}
+
+// indexRange fetches, decodes and stores the logs of [fromBlock, toBlock], then
+// advances the source cursor. The cursor is only written after a successful
+// store write, so a failure anywhere replays the whole range.
+func (p *SourceIndexerService) indexRange(client *w3.Client, filter func(fromBlock, toBlock *big.Int) ethereum.FilterQuery, from, to, head uint64) error {
+	rangeStart := time.Now()
+	fromBlock := new(big.Int).SetUint64(from)
+	toBlock := new(big.Int).SetUint64(to)
+
+	source := p.source.Address.String
+	if source == "" {
+		source = p.source.Topic0.String
+	}
+
+	logParams := map[string]interface{}{
+		"store":     p.storeInfo.Identifier,
+		"source":    source,
+		"fromBlock": fromBlock,
+		"toBlock":   toBlock,
+	}
+
+	p.logger.Info().Fields(logParams).Msg("Fetch logs")
+
+	var logs []ethTypes.Log
+	if err := p.timedRPC("eth_getLogs", func() error {
+		return client.Call(eth.Logs(filter(fromBlock, toBlock)).Returns(&logs))
+	}); err != nil {
+		p.logger.Error().Fields(logParams).Msg(err.Error())
+		return err
+	}
+
+	dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
+	if err != nil {
+		p.logger.Error().Fields(logParams).Msg(err.Error())
+		return err
+	}
+
+	if len(dbLogs) > 0 {
+		logsStart := time.Now()
+		err = p.store.GetStorage().InsertLogs(dbLogs)
+		p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
+		if err != nil {
+			p.logger.Error().Msg(err.Error())
+			return err
+		}
+
+		p.bus.Emit(context.Background(), "logs.new", dbLogs)
+
+		//If factory mode, check if there is new contract trigger
+		if p.source.Type == string(evmi_database.FactoryLogSourceType) {
+			if err := p.registerFactoryChildren(dbLogs); err != nil {
+				return err
+			}
+		}
+
+		p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
+	}
+
+	if len(dbTxs) > 0 {
+		txStart := time.Now()
+		err = p.store.GetStorage().InsertTransactions(dbTxs)
+		p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
+		if err != nil {
+			p.logger.Error().Msg(err.Error())
+			return err
+		}
+		p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
+	}
+
+	p.source.SyncBlock = to
+	tx := p.db.Conn.Model(&p.source).Update("sync_block", to)
+	if tx.Error != nil {
+		p.logger.Error().Msg(tx.Error.Error())
+		return tx.Error
+	}
+
+	p.emitSourceUpdate()
+
+	p.metrics.SetSourceProgress(p.sourceLabels(), head, p.source.SyncBlock)
+	p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
 	return nil
 }
 
-func (p *SourceIndexerService) IsEnded() bool {
-	return p.ended
+// waitPullInterval sleeps one PullInterval, returning early with the context
+// error when the supervisor stops this source, so disable/shutdown doesn't wait
+// a full interval.
+func (p *SourceIndexerService) waitPullInterval(ctx context.Context) error {
+	timer := time.NewTimer(time.Duration(p.chain.PullInterval) * time.Second)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+// markStopped persists the STOPPED status when the supervisor cancels this
+// service (source disable or shutdown).
+func (p *SourceIndexerService) markStopped() error {
+	p.source.Status = string(evmi_database.StoppedLogSourceStatus)
+	if tx := p.db.Conn.Model(&p.source).Update("status", p.source.Status); tx.Error != nil {
+		return tx.Error
+	}
+	p.emitSourceUpdate()
+	return nil
 }
 
 // emitSourceUpdate broadcasts the source's current state (sync block, status, …)
@@ -241,7 +454,9 @@ func (p *SourceIndexerService) timedRPC(method string, fn func() error) error {
 
 func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadata {
 
-	if p.source.Type == string(evmi_database.FullLogSourceType) {
+	// FULL sources are not decoded; anonymous events (no topic0) cannot be
+	// matched against the ABI.
+	if p.source.Type == string(evmi_database.FullLogSourceType) || len(log.Topics) == 0 {
 		return types.EvmMetadata{
 			ContractName: "Unknown",
 			EventName:    "Unknown",
@@ -265,13 +480,13 @@ func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadat
 			}
 		}
 
-		// parse topics without event name
+		// The raw topics and data are stored on the log regardless, so a decode
+		// failure must not stop the source: keep whatever decoded and move on.
 		if err := abi.ParseTopicsIntoMap(event, indexed, log.Topics[1:]); err != nil {
-			p.logger.Panic().Msg(err.Error())
+			p.logger.Warn().Str("event", eventName).Msg("topics decode failed: " + err.Error())
 		}
-		// parse data
 		if err := p.abi.UnpackIntoMap(event, evInfo.Name, log.Data); err != nil {
-			p.logger.Panic().Msg(err.Error())
+			p.logger.Warn().Str("event", eventName).Msg("data decode failed: " + err.Error())
 		}
 
 		break
@@ -279,123 +494,7 @@ func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadat
 
 	formatedEvent := map[string]string{}
 	for k, v := range event {
-		if reflect.TypeOf(v).String() == "string" {
-			formatedEvent[k] = v.(string)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "uint32" {
-			formatedEvent[k] = fmt.Sprint(v.(uint32))
-			continue
-		}
-		if reflect.TypeOf(v).String() == "uint64" {
-			formatedEvent[k] = fmt.Sprint(v.(uint64))
-			continue
-		}
-		if reflect.TypeOf(v).String() == "common.Address" {
-			formatedEvent[k] = v.(common.Address).Hex()
-			continue
-		}
-		if reflect.TypeOf(v).String() == "*big.Int" {
-			formatedEvent[k] = v.(*big.Int).String()
-			continue
-		}
-		if reflect.TypeOf(v).String() == "uint8" {
-			formatedEvent[k] = fmt.Sprint(v.(uint8))
-			continue
-		}
-		if reflect.TypeOf(v).String() == "bool" {
-			formatedEvent[k] = fmt.Sprint(v.(bool))
-			continue
-		}
-
-		if reflect.TypeOf(v).String() == "[4]uint8" {
-			bytes := v.([4]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "[8]uint8" {
-			bytes := v.([8]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "[12]uint8" {
-			bytes := v.([12]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "[16]uint8" {
-			bytes := v.([16]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "[20]uint8" {
-			bytes := v.([20]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "[24]uint8" {
-			bytes := v.([24]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-		if reflect.TypeOf(v).String() == "[28]uint8" {
-			bytes := v.([28]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-
-		if reflect.TypeOf(v).String() == "[32]uint8" {
-			bytes := v.([32]byte)
-			result := []byte{}
-			for _, v := range bytes {
-				result = append(result, v)
-			}
-
-			formatedEvent[k] = hex.EncodeToString(result)
-			continue
-		}
-
-		if reflect.TypeOf(v).String() == "[]uint8" {
-			formatedEvent[k] = hex.EncodeToString(v.([]byte))
-			continue
-		}
-
-		p.logger.Panic().Msg(reflect.TypeOf(v).String() + " type not found on getLogMetadata")
+		formatedEvent[k] = formatArgValue(v)
 	}
 
 	return types.EvmMetadata{
@@ -405,475 +504,35 @@ func (p *SourceIndexerService) GetLogMetadata(log ethTypes.Log) types.EvmMetadat
 	}
 }
 
-func (p *SourceIndexerService) serveFullIndexation() error {
-
-	// 1. Connect to an RPC endpoint
-	client, err := w3.Dial(p.chain.RpcUrl)
-	if err != nil {
-		// handle error
+// formatArgValue renders one decoded ABI argument as a string. Byte arrays and
+// slices are hex-encoded; anything without a dedicated case falls back to
+// fmt.Sprint so an exotic Solidity type degrades to a readable value instead of
+// stopping the source.
+func formatArgValue(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case bool:
+		return fmt.Sprint(val)
+	case common.Address:
+		return val.Hex()
+	case *big.Int:
+		return val.String()
+	case []byte:
+		return hex.EncodeToString(val)
 	}
 
-	defer client.Close()
-
-	// 2. Make a batch request
-
-	latestBlockNumberIndexed := p.source.SyncBlock
-	if err != nil {
-		p.logger.Fatal().Msg(err.Error())
+	// [N]uint8 fixed-byte arrays (bytes1..bytes32, common.Hash, …).
+	rv := reflect.ValueOf(v)
+	if (rv.Kind() == reflect.Array || rv.Kind() == reflect.Slice) && rv.Type().Elem().Kind() == reflect.Uint8 {
+		bytes := make([]byte, rv.Len())
+		for i := range bytes {
+			bytes[i] = byte(rv.Index(i).Uint())
+		}
+		return hex.EncodeToString(bytes)
 	}
 
-	if latestBlockNumberIndexed < p.source.StartBlock {
-		latestBlockNumberIndexed = p.source.StartBlock
-	}
-
-	for {
-		if !p.running {
-			p.source.Status = "STOPPED"
-			result := p.db.Conn.Save(&p.source.Status)
-			if result.Error != nil {
-				return result.Error
-			}
-
-			p.ended = true
-			return nil
-		}
-
-		time.Sleep(time.Duration(p.chain.PullInterval) * time.Second)
-
-		var (
-			block *big.Int
-		)
-		if err := p.timedRPC("eth_blockNumber", func() error {
-			return client.Call(eth.BlockNumber().Returns(&block))
-		}); err != nil {
-			p.logger.Fatal().Msg(err.Error())
-		}
-
-		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
-		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
-
-		currentBlock := block.Uint64()
-
-		if currentBlock-p.source.SyncBlock < p.chain.BlockSlice {
-			continue
-		}
-
-		if currentBlock > latestBlockNumberIndexed {
-
-			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
-				rangeStart := time.Now()
-				fromBlock := big.NewInt(int64(i))
-
-				var toBlock *big.Int
-				if i+p.chain.BlockRange > currentBlock {
-					toBlock = big.NewInt(int64(currentBlock))
-				} else {
-					toBlock = big.NewInt(int64(i + p.chain.BlockRange))
-				}
-
-				logParams := map[string]interface{}{
-					"store":     p.storeInfo.Identifier,
-					"source":    p.source.Address.String,
-					"fromBlock": fromBlock,
-					"toBlock":   toBlock,
-				}
-
-				p.logger.Info().Fields(logParams).Msg("Fetch logs")
-
-				var (
-					logs []ethTypes.Log
-				)
-
-				if err := p.timedRPC("eth_getLogs", func() error {
-					return client.Call(eth.Logs(ethereum.FilterQuery{
-						FromBlock: fromBlock,
-						ToBlock:   toBlock,
-					}).Returns(&logs))
-				}); err != nil {
-					p.logger.Fatal().Msg(err.Error())
-				}
-
-				if err != nil {
-					p.logger.Fatal().Fields(logParams).Msg(err.Error())
-				}
-
-				dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
-				if err != nil {
-					p.logger.Fatal().Msg(err.Error())
-				}
-
-				if len(dbLogs) > 0 {
-					logsStart := time.Now()
-					err = p.store.GetStorage().InsertLogs(dbLogs)
-					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
-					if err != nil {
-						p.logger.Error().Msg(err.Error())
-						return err
-					}
-
-					p.bus.Emit(context.Background(), "logs.new", dbLogs)
-
-					//If factory mode, check if there is new contract trigger
-					if p.source.Type == string(evmi_database.FactoryLogSourceType) {
-						for _, log := range dbLogs {
-							if log.Metadata.EventName == p.source.FactoryCreationFunctionName.String {
-								newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
-								if !ok {
-									logParams := map[string]interface{}{
-										"transaction": log.TransactionHash,
-										"logIndex":    log.LogIndex,
-										"block":       log.BlockNumber,
-									}
-
-									p.logger.Error().Fields(logParams).Msg("Unable to retrieve new contract from factory log")
-									continue
-								}
-
-								// A failure here must NOT advance the cursor: return the error so the
-								// supervisor retries this range and re-attempts registration.
-								if err := p.registerFactoryChild(newContractAddress, log.BlockNumber); err != nil {
-									p.logger.Error().Msg("factory child registration failed: " + err.Error())
-									return err
-								}
-							}
-						}
-					}
-
-					p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
-				}
-
-				if len(dbTxs) > 0 {
-					txStart := time.Now()
-					err = p.store.GetStorage().InsertTransactions(dbTxs)
-					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
-					if err != nil {
-						p.logger.Error().Msg(err.Error())
-						return err
-					}
-					p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
-				}
-
-				p.source.SyncBlock = toBlock.Uint64()
-
-				tx := p.db.Conn.Save(p.source)
-				if tx.Error != nil {
-					p.logger.Error().Msg(err.Error())
-					return err
-				}
-
-				p.emitSourceUpdate()
-
-				p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
-				p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
-			}
-
-			latestBlockNumberIndexed = currentBlock
-		}
-	}
-}
-
-func (p *SourceIndexerService) serveStaticIndexation() error {
-
-	// 1. Connect to an RPC endpoint
-	client, err := w3.Dial(p.chain.RpcUrl)
-	if err != nil {
-		// handle error
-	}
-
-	defer client.Close()
-
-	// 2. Make a batch request
-
-	latestBlockNumberIndexed := p.source.SyncBlock
-	if err != nil {
-		p.logger.Fatal().Msg(err.Error())
-	}
-
-	if latestBlockNumberIndexed < p.source.StartBlock {
-		latestBlockNumberIndexed = p.source.StartBlock
-	}
-
-	for {
-		if !p.running {
-			p.ended = true
-			return nil
-		}
-
-		time.Sleep(time.Duration(p.chain.PullInterval) * time.Second)
-
-		var (
-			block *big.Int
-		)
-		if err := p.timedRPC("eth_blockNumber", func() error {
-			return client.Call(eth.BlockNumber().Returns(&block))
-		}); err != nil {
-			p.logger.Fatal().Msg(err.Error())
-		}
-
-		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
-		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
-
-		currentBlock := block.Uint64()
-
-		if currentBlock-p.source.SyncBlock < p.chain.BlockSlice {
-			continue
-		}
-
-		if currentBlock > latestBlockNumberIndexed {
-
-			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
-				rangeStart := time.Now()
-				fromBlock := big.NewInt(int64(i))
-
-				var toBlock *big.Int
-				if i+p.chain.BlockRange > currentBlock {
-					toBlock = big.NewInt(int64(currentBlock))
-				} else {
-					toBlock = big.NewInt(int64(i + p.chain.BlockRange))
-				}
-
-				logParams := map[string]interface{}{
-					"store":     p.storeInfo.Identifier,
-					"source":    p.source.Address.String,
-					"fromBlock": fromBlock,
-					"toBlock":   toBlock,
-					"rpc":       p.chain.RpcUrl,
-				}
-
-				p.logger.Info().Fields(logParams).Msg("Fetch logs")
-
-				var (
-					logs []ethTypes.Log
-				)
-
-				if err := p.timedRPC("eth_getLogs", func() error {
-					return client.Call(eth.Logs(ethereum.FilterQuery{
-						FromBlock: fromBlock,
-						ToBlock:   toBlock,
-						Addresses: []common.Address{common.HexToAddress(p.source.Address.String)},
-					}).Returns(&logs))
-				}); err != nil {
-					p.logger.Fatal().Msg(err.Error())
-				}
-
-				p.logger.Info().Fields(logParams).Msg("Log fetched")
-
-				if err != nil {
-					p.logger.Fatal().Fields(logParams).Msg(err.Error())
-				}
-
-				p.logger.Info().Fields(logParams).Msg("Computing logs")
-				dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
-				if err != nil {
-					p.logger.Fatal().Msg(err.Error())
-				}
-
-				if len(dbLogs) > 0 {
-					logsStart := time.Now()
-					err = p.store.GetStorage().InsertLogs(dbLogs)
-					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
-					if err != nil {
-						p.logger.Error().Msg(err.Error())
-						return err
-					}
-
-					p.bus.Emit(context.Background(), "logs.new", dbLogs)
-
-					//If factory mode, check if there is new contract trigger
-					if p.source.Type == string(evmi_database.FactoryLogSourceType) {
-						for _, log := range dbLogs {
-							if log.Metadata.EventName == p.source.FactoryCreationFunctionName.String {
-								newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
-								if !ok {
-									logParams := map[string]interface{}{
-										"transaction": log.TransactionHash,
-										"logIndex":    log.LogIndex,
-										"block":       log.BlockNumber,
-									}
-
-									p.logger.Error().Fields(logParams).Msg("Unable to retrieve new contract from factory log")
-									continue
-								}
-
-								// A failure here must NOT advance the cursor: return the error so the
-								// supervisor retries this range and re-attempts registration.
-								if err := p.registerFactoryChild(newContractAddress, log.BlockNumber); err != nil {
-									p.logger.Error().Msg("factory child registration failed: " + err.Error())
-									return err
-								}
-							}
-						}
-					}
-
-					p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
-				}
-
-				if len(dbTxs) > 0 {
-					txStart := time.Now()
-					err = p.store.GetStorage().InsertTransactions(dbTxs)
-					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
-					if err != nil {
-						p.logger.Error().Msg(err.Error())
-						return err
-					}
-					p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
-				}
-
-				p.source.SyncBlock = toBlock.Uint64()
-
-				tx := p.db.Conn.Save(p.source)
-				if tx.Error != nil {
-					p.logger.Error().Msg(err.Error())
-					return err
-				}
-
-				p.emitSourceUpdate()
-
-				p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
-				p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
-			}
-
-			latestBlockNumberIndexed = currentBlock
-		}
-	}
-}
-
-func (p *SourceIndexerService) serveTopicIndexation() error {
-	client, err := w3.Dial(p.chain.RpcUrl)
-	if err != nil {
-		p.logger.Fatal().Msg(err.Error())
-	}
-	defer client.Close()
-
-	latestBlockNumberIndexed := p.source.SyncBlock
-	if err != nil {
-		p.logger.Fatal().Msg(err.Error())
-	}
-
-	if latestBlockNumberIndexed < p.source.StartBlock {
-		latestBlockNumberIndexed = p.source.StartBlock
-	}
-
-	for {
-		if !p.running {
-			return nil
-		}
-
-		time.Sleep(time.Duration(p.chain.PullInterval) * time.Second)
-
-		var (
-			block *big.Int
-		)
-
-		if err := p.timedRPC("eth_blockNumber", func() error {
-			return client.Call(eth.BlockNumber().Returns(&block))
-		}); err != nil {
-			p.logger.Fatal().Msg(err.Error())
-		}
-
-		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
-		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
-
-		currentBlock := block.Uint64()
-		if currentBlock-latestBlockNumberIndexed < p.chain.BlockSlice {
-			continue
-		}
-
-		if currentBlock > latestBlockNumberIndexed {
-
-			for i := latestBlockNumberIndexed + 1; i <= currentBlock; i += p.chain.BlockRange {
-				rangeStart := time.Now()
-				fromBlock := big.NewInt(int64(i))
-
-				var toBlock *big.Int
-				if i+p.chain.BlockRange > currentBlock {
-					toBlock = big.NewInt(int64(currentBlock))
-				} else {
-					toBlock = big.NewInt(int64(i + p.chain.BlockRange))
-				}
-
-				logParams := map[string]interface{}{
-					"store":     p.storeInfo.Identifier,
-					"source":    p.source.Topic0.String,
-					"fromBlock": fromBlock,
-					"toBlock":   toBlock,
-				}
-
-				p.logger.Info().Fields(logParams).Msg("Fetch logs")
-
-				// Generate a positional topic request: topics[0] is the event
-				// signature (topic0); topics[1..] are per-indexed-argument filters
-				// in declaration order. An empty filter entry is a wildcard (match
-				// any value at that position), represented by a nil inner slice.
-				topics := [][]common.Hash{{common.HexToHash(p.source.Topic0.String)}}
-				for _, topic := range p.source.TopicFilters {
-					if len(topic) == 0 {
-						topics = append(topics, nil)
-					} else {
-						topics = append(topics, []common.Hash{common.HexToHash(topic)})
-					}
-				}
-
-				var (
-					logs []ethTypes.Log
-				)
-
-				if err := p.timedRPC("eth_getLogs", func() error {
-					return client.Call(eth.Logs(ethereum.FilterQuery{
-						FromBlock: fromBlock,
-						ToBlock:   toBlock,
-						Topics:    topics,
-					}).Returns(&logs))
-				}); err != nil {
-					p.logger.Fatal().Msg(err.Error())
-				}
-
-				dbLogs, dbTxs, err := p.computeLogsAndTxs(client, logs)
-				if err != nil {
-					p.logger.Fatal().Msg(err.Error())
-				}
-
-				if len(dbLogs) > 0 {
-					logsStart := time.Now()
-					err = p.store.GetStorage().InsertLogs(dbLogs)
-					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "logs", time.Since(logsStart), err)
-					if err != nil {
-						p.logger.Error().Msg(err.Error())
-						return err
-					}
-
-					p.bus.Emit(context.Background(), "logs.new", dbLogs)
-					p.metrics.AddLogsIndexed(p.sourceLabels(), uint64(len(dbLogs)))
-				}
-
-				if len(dbTxs) > 0 {
-					txStart := time.Now()
-					err = p.store.GetStorage().InsertTransactions(dbTxs)
-					p.metrics.ObserveStoreWrite(p.storeInfo.Identifier, "transactions", time.Since(txStart), err)
-					if err != nil {
-						p.logger.Error().Msg(err.Error())
-						return err
-					}
-					p.metrics.AddTransactionsIndexed(p.sourceLabels(), uint64(len(dbTxs)))
-				}
-
-				p.source.SyncBlock = toBlock.Uint64()
-
-				tx := p.db.Conn.Save(p.source)
-				if tx.Error != nil {
-					p.logger.Error().Msg(err.Error())
-					return err
-				}
-
-				p.emitSourceUpdate()
-
-				p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
-				p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
-			}
-
-			latestBlockNumberIndexed = currentBlock
-		}
-	}
+	return fmt.Sprint(v)
 }
 
 func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTypes.Log) ([]types.EvmLog, []types.EvmTransaction, error) {
@@ -926,14 +585,14 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 			}
 		}
 
-		var batchErr w3.CallErrors
 		batchStart := time.Now()
 		batchCallErr := client.Call(request...)
 		p.metrics.RecordRPC(p.chain.ChainId, "eth_getTransactionByHash", time.Since(batchStart), batchCallErr)
-		if errors.As(batchCallErr, &batchErr) {
+		if batchCallErr != nil {
+			// A partial batch failure (w3.CallErrors) leaves nil transactions
+			// behind: fail the whole range so the supervisor replays it.
 			p.logger.Error().Msg(batchCallErr.Error())
-		} else if batchCallErr != nil {
-			p.logger.Error().Msg(batchCallErr.Error())
+			return nil, nil, batchCallErr
 		}
 
 		if currentTransactionIndex == uint64(len(transactionToLoad)) {
@@ -961,7 +620,7 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 		)
 
 		for index, tx := range transactions {
-			if tx.Hash().Hex() == log.TxHash.Hex() {
+			if tx != nil && tx.Hash().Hex() == log.TxHash.Hex() {
 				transaction = tx
 				transactionIndex = index
 			}
