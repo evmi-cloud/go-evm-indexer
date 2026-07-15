@@ -8,7 +8,9 @@ provider redirects the browser to and therefore cannot be an RPC.
 
 Users, tokens, and the OAuth provider config are stored in the EVMI metadata
 database (`internal/database/evmi-database`). On first startup EVMI seeds a
-default **`admin` / `admin`** user — change its password immediately.
+default **`admin`** user. Its password is taken from the `EVMI_ADMIN_PASSWORD`
+environment variable when set, and falls back to **`admin`** otherwise — set
+the variable or change the password immediately on any exposed deployment.
 
 ## Concepts
 

@@ -2,6 +2,7 @@ package evmi_database
 
 import (
 	"errors"
+	"os"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
@@ -126,7 +127,9 @@ func LoadDatabase(dbType DatabaseType, config map[string]string, logger zerolog.
 	return &EvmiDatabase{Conn: db}, nil
 }
 
-// seedDefaultAdmin creates an initial admin/admin user when no users exist yet.
+// seedDefaultAdmin creates an initial admin user when no users exist yet. The
+// password comes from EVMI_ADMIN_PASSWORD when set; the admin/admin fallback
+// is meant for local setups only.
 func seedDefaultAdmin(db *gorm.DB, logger zerolog.Logger) error {
 	var count int64
 	if err := db.Model(&User{}).Count(&count).Error; err != nil {
@@ -136,7 +139,13 @@ func seedDefaultAdmin(db *gorm.DB, logger zerolog.Logger) error {
 		return nil
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+	password := os.Getenv("EVMI_ADMIN_PASSWORD")
+	fromEnv := password != ""
+	if !fromEnv {
+		password = "admin"
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
@@ -150,6 +159,10 @@ func seedDefaultAdmin(db *gorm.DB, logger zerolog.Logger) error {
 		return err
 	}
 
-	logger.Warn().Msg("created default admin user (admin/admin) — change the password immediately")
+	if fromEnv {
+		logger.Info().Msg("created default admin user with the password from EVMI_ADMIN_PASSWORD")
+	} else {
+		logger.Warn().Msg("created default admin user (admin/admin) — set EVMI_ADMIN_PASSWORD or change the password immediately")
+	}
 	return nil
 }
