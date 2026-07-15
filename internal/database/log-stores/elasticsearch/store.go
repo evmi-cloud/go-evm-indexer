@@ -228,8 +228,7 @@ func (s *ElasticsearchStore) GetLogs(sourceId uint64, fromBlock uint64, toBlock 
 			rangeGteLte("block_number", fromBlock, toBlock),
 		),
 	}
-	_, logs, err := s.searchLogs(query)
-	return logs, err
+	return s.searchLogsPaged(query)
 }
 
 func (s *ElasticsearchStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64, afterLogIndex uint64, toBlock uint64) ([]types.EvmLog, error) {
@@ -254,8 +253,7 @@ func (s *ElasticsearchStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64,
 			}},
 		),
 	}
-	_, logs, err := s.searchLogs(query)
-	return logs, err
+	return s.searchLogsPaged(query)
 }
 
 func (s *ElasticsearchStore) GetLogStream(sourceId uint64, fromBlock uint64, toBlock uint64, stream chan types.EvmLog) error {
@@ -287,20 +285,21 @@ func (s *ElasticsearchStore) GetLatestLogs(sourceId uint64, limit uint64) ([]typ
 func (s *ElasticsearchStore) GetTransactions(sourceId uint64, fromBlock uint64, toBlock uint64) ([]types.EvmTransaction, error) {
 	query := map[string]any{
 		"size": maxHits,
-		"sort": []any{map[string]any{"block_number": "desc"}},
+		// id tie-breaks equal block_numbers so search_after pagination is stable.
+		"sort": []any{map[string]any{"block_number": "desc"}, map[string]any{"id": "desc"}},
 		"query": boolFilter(
 			term("source_id", sourceId),
 			rangeGteLte("block_number", fromBlock, toBlock),
 		),
 	}
-	res, err := s.search(s.txIdx, query)
+	sources, err := s.searchPaged(s.txIdx, query)
 	if err != nil {
 		return nil, err
 	}
 	out := []types.EvmTransaction{}
-	for _, hit := range res.Hits.Hits {
+	for _, src := range sources {
 		var doc esTx
-		if err := json.Unmarshal(hit.Source, &doc); err != nil {
+		if err := json.Unmarshal(src, &doc); err != nil {
 			return nil, err
 		}
 		out = append(out, doc.toType())
@@ -317,6 +316,7 @@ type searchResponse struct {
 		} `json:"total"`
 		Hits []struct {
 			Source json.RawMessage `json:"_source"`
+			Sort   []any           `json:"sort"`
 		} `json:"hits"`
 	} `json:"hits"`
 }
@@ -335,6 +335,43 @@ func (s *ElasticsearchStore) searchLogs(query map[string]any) (uint64, []types.E
 		out = append(out, doc.toType())
 	}
 	return res.Hits.Total.Value, out, nil
+}
+
+// searchPaged pages through every hit of a query with search_after (a single
+// search response is capped at maxHits, and results beyond that were silently
+// dropped before). The query's sort must be deterministic and unique.
+func (s *ElasticsearchStore) searchPaged(index string, query map[string]any) ([]json.RawMessage, error) {
+	out := []json.RawMessage{}
+	for {
+		res, err := s.search(index, query)
+		if err != nil {
+			return nil, err
+		}
+		for _, hit := range res.Hits.Hits {
+			out = append(out, hit.Source)
+		}
+		n := len(res.Hits.Hits)
+		if n < maxHits {
+			return out, nil
+		}
+		query["search_after"] = res.Hits.Hits[n-1].Sort
+	}
+}
+
+func (s *ElasticsearchStore) searchLogsPaged(query map[string]any) ([]types.EvmLog, error) {
+	sources, err := s.searchPaged(s.logsIdx, query)
+	if err != nil {
+		return nil, err
+	}
+	out := []types.EvmLog{}
+	for _, src := range sources {
+		var doc esLog
+		if err := json.Unmarshal(src, &doc); err != nil {
+			return nil, err
+		}
+		out = append(out, doc.toType())
+	}
+	return out, nil
 }
 
 func (s *ElasticsearchStore) search(index string, query map[string]any) (*searchResponse, error) {
@@ -378,9 +415,12 @@ func rangeGteLte(field string, gte, lte uint64) map[string]any {
 }
 
 func ascByBlockLog() []any {
+	// id tie-breaks (block_number, log_index) collisions across sources so
+	// search_after pagination never skips or repeats a document.
 	return []any{
 		map[string]any{"block_number": "asc"},
 		map[string]any{"log_index": "asc"},
+		map[string]any{"id": "asc"},
 	}
 }
 
