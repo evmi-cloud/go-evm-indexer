@@ -13,7 +13,6 @@ import (
 	"sort"
 
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
-	"github.com/google/uuid"
 	"github.com/parquet-go/parquet-go"
 	"github.com/rs/zerolog"
 )
@@ -136,11 +135,16 @@ func (s *ParquetStore) InsertLogs(logs []types.EvmLog) error {
 		bySource[l.SourceId] = append(bySource[l.SourceId], toParquetLog(l))
 	}
 	for sourceId, rows := range bySource {
-		dir := s.sourceDir(s.logsDir, uint64(sourceId))
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
+		var minBlock, maxBlock uint64
+		for i, r := range rows {
+			if i == 0 || r.BlockNumber < minBlock {
+				minBlock = r.BlockNumber
+			}
+			if r.BlockNumber > maxBlock {
+				maxBlock = r.BlockNumber
+			}
 		}
-		if err := parquet.WriteFile(filepath.Join(dir, uuid.NewString()+".parquet"), rows); err != nil {
+		if err := writeBatchFile(s.sourceDir(s.logsDir, uint64(sourceId)), minBlock, maxBlock, rows); err != nil {
 			return err
 		}
 	}
@@ -153,23 +157,50 @@ func (s *ParquetStore) InsertTransactions(txs []types.EvmTransaction) error {
 		bySource[t.SourceId] = append(bySource[t.SourceId], toParquetTx(t))
 	}
 	for sourceId, rows := range bySource {
-		dir := s.sourceDir(s.txDir, uint64(sourceId))
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
+		var minBlock, maxBlock uint64
+		for i, r := range rows {
+			if i == 0 || r.BlockNumber < minBlock {
+				minBlock = r.BlockNumber
+			}
+			if r.BlockNumber > maxBlock {
+				maxBlock = r.BlockNumber
+			}
 		}
-		if err := parquet.WriteFile(filepath.Join(dir, uuid.NewString()+".parquet"), rows); err != nil {
+		if err := writeBatchFile(s.sourceDir(s.txDir, uint64(sourceId)), minBlock, maxBlock, rows); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// writeBatchFile writes one batch as a parquet file named after its block
+// range. Inserts are replayed after a crash (the sync cursor only advances
+// once the write succeeded), so the name must be deterministic: replaying the
+// same range overwrites the previous file instead of duplicating its rows.
+// The write goes through a temp file + rename so readers never see a partial
+// file.
+func writeBatchFile[T any](dir string, minBlock, maxBlock uint64, rows []T) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	final := filepath.Join(dir, fmt.Sprintf("%020d-%020d.parquet", minBlock, maxBlock))
+	tmp := final + ".tmp"
+	if err := parquet.WriteFile(tmp, rows); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, final)
+}
+
 // --- reads ----------------------------------------------------------------
 
 func (s *ParquetStore) GetLogsCount() (uint64, error) {
 	entries, err := os.ReadDir(s.logsDir)
-	if err != nil {
+	if os.IsNotExist(err) {
 		return 0, nil
+	}
+	if err != nil {
+		return 0, err
 	}
 	var count uint64
 	for _, e := range entries {
@@ -273,18 +304,26 @@ func (s *ParquetStore) sourceDir(base string, sourceId uint64) string {
 	return filepath.Join(base, fmt.Sprintf("source-%d", sourceId))
 }
 
+// readSourceLogs reads every file of a source, deduplicating rows by id:
+// overlapping batch files (e.g. left behind by older versions or a re-sliced
+// range) must not surface a log twice.
 func (s *ParquetStore) readSourceLogs(dir string) ([]types.EvmLog, error) {
 	files, err := parquetFiles(dir)
 	if err != nil {
 		return nil, err
 	}
 	out := []types.EvmLog{}
+	seen := map[string]struct{}{}
 	for _, f := range files {
 		rows, err := parquet.ReadFile[parquetLog](f)
 		if err != nil {
 			return nil, err
 		}
 		for _, r := range rows {
+			if _, dup := seen[r.Id]; dup {
+				continue
+			}
+			seen[r.Id] = struct{}{}
 			out = append(out, fromParquetLog(r))
 		}
 	}
@@ -297,12 +336,17 @@ func (s *ParquetStore) readSourceTxs(dir string) ([]types.EvmTransaction, error)
 		return nil, err
 	}
 	out := []types.EvmTransaction{}
+	seen := map[string]struct{}{}
 	for _, f := range files {
 		rows, err := parquet.ReadFile[parquetTx](f)
 		if err != nil {
 			return nil, err
 		}
 		for _, r := range rows {
+			if _, dup := seen[r.Id]; dup {
+				continue
+			}
+			seen[r.Id] = struct{}{}
 			out = append(out, fromParquetTx(r))
 		}
 	}
