@@ -549,13 +549,26 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 
 	alreadyIndexedTx := make(map[string]bool)
 	transactionToLoad := []common.Hash{}
+	alreadyIndexedBlock := make(map[string]bool)
+	blockToLoad := []common.Hash{}
 	for _, log := range logs {
 		txHash := log.TxHash.Hex()
-		_, txAlreadyIndexed := alreadyIndexedTx[txHash]
-		if !txAlreadyIndexed {
+		if !alreadyIndexedTx[txHash] {
 			transactionToLoad = append(transactionToLoad, log.TxHash)
 			alreadyIndexedTx[txHash] = true
 		}
+		blockHash := log.BlockHash.Hex()
+		if !alreadyIndexedBlock[blockHash] {
+			blockToLoad = append(blockToLoad, log.BlockHash)
+			alreadyIndexedBlock[blockHash] = true
+		}
+	}
+
+	// Load the block headers of the range's blocks to get their timestamps
+	// (block.timestamp, not on the transaction itself), keyed by block hash.
+	blockTimestamps, err := p.loadBlockTimestamps(client, blockToLoad)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	p.logger.Info().Msg(fmt.Sprintf("%d transactions to load", len(transactionToLoad)))
@@ -648,6 +661,7 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 			Id:               fmt.Sprintf("%d:%s", transaction.ChainId().Uint64(), log.TxHash.Hex()),
 			SourceId:         p.source.ID,
 			BlockNumber:      log.BlockNumber,
+			BlockTimestamp:   blockTimestamps[log.BlockHash.Hex()],
 			ChainId:          transaction.ChainId().Uint64(),
 			From:             sender,
 			Data:             common.Bytes2Hex(transaction.Data()),
@@ -672,6 +686,7 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 			Topics:           logTopics,
 			Data:             common.Bytes2Hex(log.Data),
 			BlockNumber:      log.BlockNumber,
+			BlockTimestamp:   blockTimestamps[log.BlockHash.Hex()],
 			TransactionHash:  log.TxHash.Hex(),
 			TransactionFrom:  sender,
 			TransactionIndex: uint64(log.TxIndex),
@@ -685,6 +700,49 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 	}
 
 	return dbLogs, dbTxs, nil
+}
+
+// loadBlockTimestamps batch-fetches the headers of the given block hashes and
+// returns a blockHash(hex) -> unix timestamp map, honoring RpcMaxBatchSize.
+func (p *SourceIndexerService) loadBlockTimestamps(client *w3.Client, blockHashes []common.Hash) (map[string]uint64, error) {
+	timestamps := make(map[string]uint64, len(blockHashes))
+	if len(blockHashes) == 0 {
+		return timestamps, nil
+	}
+
+	maxBatchRequest := p.chain.RpcMaxBatchSize
+	if maxBatchRequest == 0 {
+		maxBatchRequest = uint64(len(blockHashes))
+	}
+
+	headers := make([]*ethTypes.Header, len(blockHashes))
+	for start := 0; start < len(blockHashes); start += int(maxBatchRequest) {
+		end := start + int(maxBatchRequest)
+		if end > len(blockHashes) {
+			end = len(blockHashes)
+		}
+
+		request := make([]w3types.RPCCaller, 0, end-start)
+		for i := start; i < end; i++ {
+			request = append(request, eth.HeaderByHash(blockHashes[i]).Returns(&headers[i]))
+		}
+
+		batchStart := time.Now()
+		batchCallErr := client.Call(request...)
+		p.metrics.RecordRPC(p.chain.ChainId, "eth_getBlockByHash", time.Since(batchStart), batchCallErr)
+		if batchCallErr != nil {
+			p.logger.Error().Msg(batchCallErr.Error())
+			return nil, batchCallErr
+		}
+	}
+
+	for i, header := range headers {
+		if header == nil {
+			return nil, errors.New("block header not found for " + blockHashes[i].Hex())
+		}
+		timestamps[blockHashes[i].Hex()] = header.Time
+	}
+	return timestamps, nil
 }
 
 func getTxSender(chainId *big.Int, tx *ethTypes.Transaction) (string, error) {

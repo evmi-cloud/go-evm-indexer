@@ -349,6 +349,7 @@ func toLogEvent(l types.EvmLog) pluginsdk.LogEvent {
 		Topics:           l.Topics,
 		Data:             l.Data,
 		BlockNumber:      l.BlockNumber,
+		BlockTimestamp:   l.BlockTimestamp,
 		TransactionHash:  l.TransactionHash,
 		TransactionFrom:  l.TransactionFrom,
 		TransactionIndex: l.TransactionIndex,

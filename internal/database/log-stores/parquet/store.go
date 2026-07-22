@@ -50,6 +50,7 @@ type parquetLog struct {
 	Topics           string `parquet:"topics"`
 	Data             string `parquet:"data"`
 	BlockNumber      uint64 `parquet:"block_number"`
+	BlockTimestamp   uint64 `parquet:"block_timestamp"`
 	TransactionFrom  string `parquet:"transaction_from"`
 	TransactionHash  string `parquet:"transaction_hash"`
 	TransactionIndex uint64 `parquet:"transaction_index"`
@@ -66,6 +67,7 @@ type parquetTx struct {
 	Id               string `parquet:"id"`
 	SourceId         uint64 `parquet:"source_id"`
 	BlockNumber      uint64 `parquet:"block_number"`
+	BlockTimestamp   uint64 `parquet:"block_timestamp"`
 	TransactionIndex uint64 `parquet:"transaction_index"`
 	ChainId          uint64 `parquet:"chain_id"`
 	From             string `parquet:"from"`
@@ -85,7 +87,7 @@ func toParquetLog(l types.EvmLog) parquetLog {
 	data, _ := json.Marshal(l.Metadata.Data)
 	return parquetLog{
 		Id: l.Id, SourceId: uint64(l.SourceId), ChainId: l.ChainId, Address: l.Address,
-		Topics: string(topics), Data: l.Data, BlockNumber: l.BlockNumber,
+		Topics: string(topics), Data: l.Data, BlockNumber: l.BlockNumber, BlockTimestamp: l.BlockTimestamp,
 		TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
 		TransactionIndex: l.TransactionIndex, BlockHash: l.BlockHash, LogIndex: l.LogIndex,
 		Removed: l.Removed, ContractName: l.Metadata.ContractName, EventName: l.Metadata.EventName,
@@ -100,7 +102,7 @@ func fromParquetLog(p parquetLog) types.EvmLog {
 	_ = json.Unmarshal([]byte(p.MetadataData), &data)
 	return types.EvmLog{
 		Id: p.Id, SourceId: uint(p.SourceId), ChainId: p.ChainId, Address: p.Address,
-		Topics: topics, Data: p.Data, BlockNumber: p.BlockNumber, TransactionFrom: p.TransactionFrom,
+		Topics: topics, Data: p.Data, BlockNumber: p.BlockNumber, BlockTimestamp: p.BlockTimestamp, TransactionFrom: p.TransactionFrom,
 		TransactionHash: p.TransactionHash, TransactionIndex: p.TransactionIndex, BlockHash: p.BlockHash,
 		LogIndex: p.LogIndex, Removed: p.Removed,
 		Metadata: types.EvmMetadata{ContractName: p.ContractName, EventName: p.EventName, FunctionName: p.FunctionName, Data: data},
@@ -110,7 +112,7 @@ func fromParquetLog(p parquetLog) types.EvmLog {
 func toParquetTx(t types.EvmTransaction) parquetTx {
 	data, _ := json.Marshal(t.Metadata.Data)
 	return parquetTx{
-		Id: t.Id, SourceId: uint64(t.SourceId), BlockNumber: t.BlockNumber, TransactionIndex: t.TransactionIndex,
+		Id: t.Id, SourceId: uint64(t.SourceId), BlockNumber: t.BlockNumber, BlockTimestamp: t.BlockTimestamp, TransactionIndex: t.TransactionIndex,
 		ChainId: t.ChainId, From: t.From, Data: t.Data, Value: t.Value, Nonce: t.Nonce, To: t.To, Hash: t.Hash,
 		ContractName: t.Metadata.ContractName, EventName: t.Metadata.EventName, FunctionName: t.Metadata.FunctionName,
 		MetadataData: string(data),
@@ -121,7 +123,7 @@ func fromParquetTx(p parquetTx) types.EvmTransaction {
 	data := map[string]string{}
 	_ = json.Unmarshal([]byte(p.MetadataData), &data)
 	return types.EvmTransaction{
-		Id: p.Id, SourceId: uint(p.SourceId), BlockNumber: p.BlockNumber, TransactionIndex: p.TransactionIndex,
+		Id: p.Id, SourceId: uint(p.SourceId), BlockNumber: p.BlockNumber, BlockTimestamp: p.BlockTimestamp, TransactionIndex: p.TransactionIndex,
 		ChainId: p.ChainId, From: p.From, Data: p.Data, Value: p.Value, Nonce: p.Nonce, To: p.To, Hash: p.Hash,
 		Metadata: types.EvmMetadata{ContractName: p.ContractName, EventName: p.EventName, FunctionName: p.FunctionName, Data: data},
 	}

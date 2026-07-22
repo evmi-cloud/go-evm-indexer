@@ -12,7 +12,7 @@ import (
 func mkLog(sourceId uint, block, idx uint64) types.EvmLog {
 	return types.EvmLog{
 		Id: fmt.Sprintf("1:%d:%d", block, idx), SourceId: sourceId, ChainId: 1, Address: "0xabc",
-		Topics: []string{"0xt0", "0xt1"}, Data: "beef", BlockNumber: block, LogIndex: idx,
+		Topics: []string{"0xt0", "0xt1"}, Data: "beef", BlockNumber: block, BlockTimestamp: block * 1000, LogIndex: idx,
 		Metadata: types.EvmMetadata{ContractName: "C", Data: map[string]string{"k": "v"}},
 	}
 }
@@ -60,6 +60,9 @@ func TestSQLLogsRoundTrip(t *testing.T) {
 	if len(got) > 0 && (len(got[0].Topics) != 2 || got[0].Metadata.Data["k"] != "v") {
 		t.Errorf("complex fields not preserved: %+v", got[0])
 	}
+	if len(got) > 0 && got[0].BlockTimestamp != got[0].BlockNumber*1000 {
+		t.Errorf("block_timestamp not round-tripped: got %d for block %d", got[0].BlockTimestamp, got[0].BlockNumber)
+	}
 
 	after, err := s.GetLogsAfter([]uint64{1, 2}, 10, 0, 12)
 	if err != nil {
@@ -81,12 +84,15 @@ func TestSQLLogsRoundTrip(t *testing.T) {
 func TestSQLTransactionsRoundTrip(t *testing.T) {
 	s := newStore(t)
 	if err := s.InsertTransactions([]types.EvmTransaction{
-		{Id: "1:tx", SourceId: 1, BlockNumber: 10, ChainId: 1, From: "0xf", To: "0xt", Value: "5", Hash: "0xh"},
+		{Id: "1:tx", SourceId: 1, BlockNumber: 10, BlockTimestamp: 1700000000, ChainId: 1, From: "0xf", To: "0xt", Value: "5", Hash: "0xh"},
 	}); err != nil {
 		t.Fatalf("insert txs: %v", err)
 	}
 	txs, err := s.GetTransactions(1, 0, 100)
 	if err != nil || len(txs) != 1 || txs[0].Value != "5" || txs[0].From != "0xf" || txs[0].To != "0xt" {
 		t.Fatalf("GetTransactions = %+v, err %v", txs, err)
+	}
+	if txs[0].BlockTimestamp != 1700000000 {
+		t.Errorf("block_timestamp not round-tripped: got %d", txs[0].BlockTimestamp)
 	}
 }

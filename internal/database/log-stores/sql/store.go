@@ -70,6 +70,7 @@ type sqlLog struct {
 	Topics               string `gorm:"column:topics;type:text"`
 	Data                 string `gorm:"column:data;type:text"`
 	BlockNumber          uint64 `gorm:"column:block_number;index"`
+	BlockTimestamp       uint64 `gorm:"column:block_timestamp"`
 	TransactionFrom      string `gorm:"column:transaction_from;type:varchar(255)"`
 	TransactionHash      string `gorm:"column:transaction_hash;type:varchar(255)"`
 	TransactionIndex     uint64 `gorm:"column:transaction_index"`
@@ -88,6 +89,7 @@ type sqlTx struct {
 	Id                   string `gorm:"column:id;type:varchar(255);primaryKey"`
 	SourceId             uint   `gorm:"column:source_id;index"`
 	BlockNumber          uint64 `gorm:"column:block_number;index"`
+	BlockTimestamp       uint64 `gorm:"column:block_timestamp"`
 	TransactionIndex     uint64 `gorm:"column:transaction_index"`
 	ChainId              uint64 `gorm:"column:chain_id"`
 	From                 string `gorm:"column:from_address;type:varchar(255)"`
@@ -109,7 +111,7 @@ func toSqlLog(l types.EvmLog) sqlLog {
 	data, _ := json.Marshal(l.Metadata.Data)
 	return sqlLog{
 		Id: l.Id, SourceId: l.SourceId, ChainId: l.ChainId, Address: l.Address, Topics: string(topics), Data: l.Data,
-		BlockNumber: l.BlockNumber, TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
+		BlockNumber: l.BlockNumber, BlockTimestamp: l.BlockTimestamp, TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
 		TransactionIndex: l.TransactionIndex, BlockHash: l.BlockHash, LogIndex: l.LogIndex, Removed: l.Removed,
 		MetadataContractName: l.Metadata.ContractName, MetadataEventName: l.Metadata.EventName,
 		MetadataFunctionName: l.Metadata.FunctionName, MetadataData: string(data),
@@ -123,7 +125,7 @@ func fromSqlLog(r sqlLog) types.EvmLog {
 	_ = json.Unmarshal([]byte(r.MetadataData), &data)
 	return types.EvmLog{
 		Id: r.Id, SourceId: r.SourceId, ChainId: r.ChainId, Address: r.Address, Topics: topics, Data: r.Data,
-		BlockNumber: r.BlockNumber, TransactionFrom: r.TransactionFrom, TransactionHash: r.TransactionHash,
+		BlockNumber: r.BlockNumber, BlockTimestamp: r.BlockTimestamp, TransactionFrom: r.TransactionFrom, TransactionHash: r.TransactionHash,
 		TransactionIndex: r.TransactionIndex, BlockHash: r.BlockHash, LogIndex: r.LogIndex, Removed: r.Removed,
 		Metadata: types.EvmMetadata{ContractName: r.MetadataContractName, EventName: r.MetadataEventName, FunctionName: r.MetadataFunctionName, Data: data},
 	}
@@ -132,7 +134,7 @@ func fromSqlLog(r sqlLog) types.EvmLog {
 func toSqlTx(t types.EvmTransaction) sqlTx {
 	data, _ := json.Marshal(t.Metadata.Data)
 	return sqlTx{
-		Id: t.Id, SourceId: t.SourceId, BlockNumber: t.BlockNumber, TransactionIndex: t.TransactionIndex, ChainId: t.ChainId,
+		Id: t.Id, SourceId: t.SourceId, BlockNumber: t.BlockNumber, BlockTimestamp: t.BlockTimestamp, TransactionIndex: t.TransactionIndex, ChainId: t.ChainId,
 		From: t.From, Data: t.Data, Value: t.Value, Nonce: t.Nonce, To: t.To, Hash: t.Hash,
 		MetadataContractName: t.Metadata.ContractName, MetadataEventName: t.Metadata.EventName,
 		MetadataFunctionName: t.Metadata.FunctionName, MetadataData: string(data),
@@ -143,7 +145,7 @@ func fromSqlTx(r sqlTx) types.EvmTransaction {
 	data := map[string]string{}
 	_ = json.Unmarshal([]byte(r.MetadataData), &data)
 	return types.EvmTransaction{
-		Id: r.Id, SourceId: r.SourceId, BlockNumber: r.BlockNumber, TransactionIndex: r.TransactionIndex, ChainId: r.ChainId,
+		Id: r.Id, SourceId: r.SourceId, BlockNumber: r.BlockNumber, BlockTimestamp: r.BlockTimestamp, TransactionIndex: r.TransactionIndex, ChainId: r.ChainId,
 		From: r.From, Data: r.Data, Value: r.Value, Nonce: r.Nonce, To: r.To, Hash: r.Hash,
 		Metadata: types.EvmMetadata{ContractName: r.MetadataContractName, EventName: r.MetadataEventName, FunctionName: r.MetadataFunctionName, Data: data},
 	}

@@ -114,6 +114,8 @@ message EvmLog {
   bool removed = 13;
 
   EvmMetadata metadata = 14;
+
+  uint64 block_timestamp = 15; // unix seconds, from the block header
 }
 
 message EvmTransaction {
@@ -132,6 +134,8 @@ message EvmTransaction {
   string hash = 11;
 
   EvmMetadata metadata = 12;
+
+  uint64 block_timestamp = 13; // unix seconds, from the block header
 }
 
 // Pagination

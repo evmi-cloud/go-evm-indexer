@@ -60,6 +60,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   {r.title}
                 </Link>
               ))}
+            <div className="nav-label">Data</div>
+            <Link href="/logs" className={isActive("/logs") ? "active" : ""}>
+              Logs
+            </Link>
             {isAdmin(user) && (
               <>
                 <div className="nav-label">Admin</div>

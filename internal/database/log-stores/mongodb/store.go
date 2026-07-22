@@ -72,6 +72,7 @@ type mongoLog struct {
 	Topics           []string      `bson:"topics"`
 	Data             string        `bson:"data"`
 	BlockNumber      uint64        `bson:"block_number"`
+	BlockTimestamp   uint64        `bson:"block_timestamp"`
 	TransactionFrom  string        `bson:"transaction_from"`
 	TransactionHash  string        `bson:"transaction_hash"`
 	TransactionIndex uint64        `bson:"transaction_index"`
@@ -85,6 +86,7 @@ type mongoTx struct {
 	Id               string        `bson:"_id"`
 	SourceId         uint          `bson:"source_id"`
 	BlockNumber      uint64        `bson:"block_number"`
+	BlockTimestamp   uint64        `bson:"block_timestamp"`
 	TransactionIndex uint64        `bson:"transaction_index"`
 	ChainId          uint64        `bson:"chain_id"`
 	From             string        `bson:"from"`
@@ -103,7 +105,7 @@ func toMongoMetadata(m types.EvmMetadata) mongoMetadata {
 func (d mongoLog) toType() types.EvmLog {
 	return types.EvmLog{
 		Id: d.Id, SourceId: d.SourceId, ChainId: d.ChainId, Address: d.Address, Topics: d.Topics, Data: d.Data,
-		BlockNumber: d.BlockNumber, TransactionFrom: d.TransactionFrom, TransactionHash: d.TransactionHash,
+		BlockNumber: d.BlockNumber, BlockTimestamp: d.BlockTimestamp, TransactionFrom: d.TransactionFrom, TransactionHash: d.TransactionHash,
 		TransactionIndex: d.TransactionIndex, BlockHash: d.BlockHash, LogIndex: d.LogIndex, Removed: d.Removed,
 		Metadata: types.EvmMetadata{ContractName: d.Metadata.ContractName, EventName: d.Metadata.EventName, FunctionName: d.Metadata.FunctionName, Data: d.Metadata.Data},
 	}
@@ -111,7 +113,7 @@ func (d mongoLog) toType() types.EvmLog {
 
 func (d mongoTx) toType() types.EvmTransaction {
 	return types.EvmTransaction{
-		Id: d.Id, SourceId: d.SourceId, BlockNumber: d.BlockNumber, TransactionIndex: d.TransactionIndex, ChainId: d.ChainId,
+		Id: d.Id, SourceId: d.SourceId, BlockNumber: d.BlockNumber, BlockTimestamp: d.BlockTimestamp, TransactionIndex: d.TransactionIndex, ChainId: d.ChainId,
 		From: d.From, Data: d.Data, Value: d.Value, Nonce: d.Nonce, To: d.To, Hash: d.Hash,
 		Metadata: types.EvmMetadata{ContractName: d.Metadata.ContractName, EventName: d.Metadata.EventName, FunctionName: d.Metadata.FunctionName, Data: d.Metadata.Data},
 	}
@@ -127,7 +129,7 @@ func (s *MongoStore) InsertLogs(logs []types.EvmLog) error {
 	for i, l := range logs {
 		doc := mongoLog{
 			Id: l.Id, SourceId: l.SourceId, ChainId: l.ChainId, Address: l.Address, Topics: l.Topics, Data: l.Data,
-			BlockNumber: l.BlockNumber, TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
+			BlockNumber: l.BlockNumber, BlockTimestamp: l.BlockTimestamp, TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
 			TransactionIndex: l.TransactionIndex, BlockHash: l.BlockHash, LogIndex: l.LogIndex, Removed: l.Removed,
 			Metadata: toMongoMetadata(l.Metadata),
 		}
@@ -144,7 +146,7 @@ func (s *MongoStore) InsertTransactions(txs []types.EvmTransaction) error {
 	models := make([]mongo.WriteModel, len(txs))
 	for i, t := range txs {
 		doc := mongoTx{
-			Id: t.Id, SourceId: t.SourceId, BlockNumber: t.BlockNumber, TransactionIndex: t.TransactionIndex, ChainId: t.ChainId,
+			Id: t.Id, SourceId: t.SourceId, BlockNumber: t.BlockNumber, BlockTimestamp: t.BlockTimestamp, TransactionIndex: t.TransactionIndex, ChainId: t.ChainId,
 			From: t.From, Data: t.Data, Value: t.Value, Nonce: t.Nonce, To: t.To, Hash: t.Hash, Metadata: toMongoMetadata(t.Metadata),
 		}
 		models[i] = mongo.NewReplaceOneModel().SetFilter(bson.M{"_id": t.Id}).SetReplacement(doc).SetUpsert(true)

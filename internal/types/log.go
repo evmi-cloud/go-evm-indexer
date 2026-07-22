@@ -15,6 +15,7 @@ type EvmLog struct {
 	Topics           []string
 	Data             string
 	BlockNumber      uint64
+	BlockTimestamp   uint64 // unix seconds, from the block header
 	TransactionFrom  string
 	TransactionHash  string
 	TransactionIndex uint64

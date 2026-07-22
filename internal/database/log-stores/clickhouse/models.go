@@ -26,6 +26,7 @@ type ClickHouseEvmLog struct {
 	Topics           []string `ch:"topics"`
 	Data             string   `ch:"data"`
 	BlockNumber      uint64   `ch:"block_number"`
+	BlockTimestamp   uint64   `ch:"block_timestamp"`
 	TransactionFrom  string   `ch:"transaction_from"`
 	TransactionHash  string   `ch:"transaction_hash"`
 	TransactionIndex uint32   `ch:"transaction_index"`
@@ -40,6 +41,7 @@ type ClickHouseEvmTransaction struct {
 	Id               string   `ch:"id"`
 	SourceId         uint32   `ch:"source_id"`
 	BlockNumber      uint64   `ch:"block_number"`
+	BlockTimestamp   uint64   `ch:"block_timestamp"`
 	TransactionIndex uint64   `ch:"transaction_index"`
 	ChainId          uint32   `ch:"chain_id"`
 	From             string   `ch:"from"`

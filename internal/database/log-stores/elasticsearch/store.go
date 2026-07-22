@@ -59,7 +59,7 @@ func (s *ElasticsearchStore) Init(config map[string]string) error {
 // numericMapping keeps the queried/sorted fields as longs so range, term and
 // sort behave correctly.
 const numericMapping = `{"mappings":{"properties":{
-  "source_id":{"type":"long"},"chain_id":{"type":"long"},"block_number":{"type":"long"},
+  "source_id":{"type":"long"},"chain_id":{"type":"long"},"block_number":{"type":"long"},"block_timestamp":{"type":"long"},
   "log_index":{"type":"long"},"transaction_index":{"type":"long"},"nonce":{"type":"long"},
   "address":{"type":"keyword"},"transaction_hash":{"type":"keyword"},"block_hash":{"type":"keyword"},
   "hash":{"type":"keyword"},"id":{"type":"keyword"},"topics":{"type":"keyword"}
@@ -104,6 +104,7 @@ type esLog struct {
 	Topics           []string   `json:"topics"`
 	Data             string     `json:"data"`
 	BlockNumber      uint64     `json:"block_number"`
+	BlockTimestamp   uint64     `json:"block_timestamp"`
 	TransactionFrom  string     `json:"transaction_from"`
 	TransactionHash  string     `json:"transaction_hash"`
 	TransactionIndex uint64     `json:"transaction_index"`
@@ -117,6 +118,7 @@ type esTx struct {
 	Id               string     `json:"id"`
 	SourceId         uint       `json:"source_id"`
 	BlockNumber      uint64     `json:"block_number"`
+	BlockTimestamp   uint64     `json:"block_timestamp"`
 	TransactionIndex uint64     `json:"transaction_index"`
 	ChainId          uint64     `json:"chain_id"`
 	From             string     `json:"from"`
@@ -135,7 +137,7 @@ func toEsMetadata(m types.EvmMetadata) esMetadata {
 func (d esLog) toType() types.EvmLog {
 	return types.EvmLog{
 		Id: d.Id, SourceId: d.SourceId, ChainId: d.ChainId, Address: d.Address, Topics: d.Topics, Data: d.Data,
-		BlockNumber: d.BlockNumber, TransactionFrom: d.TransactionFrom, TransactionHash: d.TransactionHash,
+		BlockNumber: d.BlockNumber, BlockTimestamp: d.BlockTimestamp, TransactionFrom: d.TransactionFrom, TransactionHash: d.TransactionHash,
 		TransactionIndex: d.TransactionIndex, BlockHash: d.BlockHash, LogIndex: d.LogIndex, Removed: d.Removed,
 		Metadata: types.EvmMetadata{ContractName: d.Metadata.ContractName, EventName: d.Metadata.EventName, FunctionName: d.Metadata.FunctionName, Data: d.Metadata.Data},
 	}
@@ -143,7 +145,7 @@ func (d esLog) toType() types.EvmLog {
 
 func (d esTx) toType() types.EvmTransaction {
 	return types.EvmTransaction{
-		Id: d.Id, SourceId: d.SourceId, BlockNumber: d.BlockNumber, TransactionIndex: d.TransactionIndex, ChainId: d.ChainId,
+		Id: d.Id, SourceId: d.SourceId, BlockNumber: d.BlockNumber, BlockTimestamp: d.BlockTimestamp, TransactionIndex: d.TransactionIndex, ChainId: d.ChainId,
 		From: d.From, Data: d.Data, Value: d.Value, Nonce: d.Nonce, To: d.To, Hash: d.Hash,
 		Metadata: types.EvmMetadata{ContractName: d.Metadata.ContractName, EventName: d.Metadata.EventName, FunctionName: d.Metadata.FunctionName, Data: d.Metadata.Data},
 	}
@@ -156,7 +158,7 @@ func (s *ElasticsearchStore) InsertLogs(logs []types.EvmLog) error {
 	for _, l := range logs {
 		doc := esLog{
 			Id: l.Id, SourceId: l.SourceId, ChainId: l.ChainId, Address: l.Address, Topics: l.Topics, Data: l.Data,
-			BlockNumber: l.BlockNumber, TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
+			BlockNumber: l.BlockNumber, BlockTimestamp: l.BlockTimestamp, TransactionFrom: l.TransactionFrom, TransactionHash: l.TransactionHash,
 			TransactionIndex: l.TransactionIndex, BlockHash: l.BlockHash, LogIndex: l.LogIndex, Removed: l.Removed,
 			Metadata: toEsMetadata(l.Metadata),
 		}
@@ -169,7 +171,7 @@ func (s *ElasticsearchStore) InsertTransactions(txs []types.EvmTransaction) erro
 	var body bytes.Buffer
 	for _, t := range txs {
 		doc := esTx{
-			Id: t.Id, SourceId: t.SourceId, BlockNumber: t.BlockNumber, TransactionIndex: t.TransactionIndex, ChainId: t.ChainId,
+			Id: t.Id, SourceId: t.SourceId, BlockNumber: t.BlockNumber, BlockTimestamp: t.BlockTimestamp, TransactionIndex: t.TransactionIndex, ChainId: t.ChainId,
 			From: t.From, Data: t.Data, Value: t.Value, Nonce: t.Nonce, To: t.To, Hash: t.Hash, Metadata: toEsMetadata(t.Metadata),
 		}
 		writeBulkEntry(&body, s.txIdx, t.Id, doc)

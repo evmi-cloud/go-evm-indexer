@@ -27,6 +27,7 @@ type LogEvent struct {
 	Topics           []string
 	Data             string
 	BlockNumber      uint64
+	BlockTimestamp   uint64 // unix seconds, from the block header
 	TransactionHash  string
 	TransactionFrom  string
 	TransactionIndex uint64

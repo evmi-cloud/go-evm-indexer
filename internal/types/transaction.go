@@ -4,6 +4,7 @@ type EvmTransaction struct {
 	Id               string
 	SourceId         uint
 	BlockNumber      uint64
+	BlockTimestamp   uint64 // unix seconds, from the block header
 	TransactionIndex uint64
 	ChainId          uint64
 	From             string
