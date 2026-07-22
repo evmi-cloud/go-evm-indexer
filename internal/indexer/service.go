@@ -108,9 +108,14 @@ func (s *IndexerService) EnableSource(sourceId uint) error {
 		return result.Error
 	}
 
+	// Column-scoped update: the row is shared with a possibly-running worker
+	// that owns sync_block, so a full-row Save would write this stale copy back.
 	source.Enabled = true
 	source.Status = string(evmi_database.StoppedLogSourceStatus)
-	result = s.db.Conn.Save(&source)
+	result = s.db.Conn.Model(&source).Updates(map[string]interface{}{
+		"enabled": true,
+		"status":  source.Status,
+	})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -127,8 +132,10 @@ func (s *IndexerService) DisableSource(sourceId uint) error {
 		return result.Error
 	}
 
+	// Column-scoped update: the worker still owns sync_block until it is removed
+	// below, so a full-row Save would write this stale copy back.
 	source.Enabled = false
-	result = s.db.Conn.Save(&source)
+	result = s.db.Conn.Model(&source).Update("enabled", false)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -147,8 +154,8 @@ func (s *IndexerService) DisableSource(sourceId uint) error {
 	s.logger.Info().Msg("disable source id " + fmt.Sprint(source.ID))
 	s.supervisor.RemoveAndWait(token, time.Minute)
 
-	source.Status = "STOPPED"
-	if result := s.db.Conn.Save(&source); result.Error != nil {
+	source.Status = string(evmi_database.StoppedLogSourceStatus)
+	if result := s.db.Conn.Model(&source).Update("status", source.Status); result.Error != nil {
 		return result.Error
 	}
 	return nil
