@@ -23,7 +23,7 @@ func (e *EvmIndexerServer) CreatePlugin(ctx context.Context, req *connect.Reques
 		Status:       string(evmi_database.NotInstalledPluginStatus),
 	}
 	if result := e.db.Conn.Create(&plugin); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.CreatePluginResponse{Id: uint32(plugin.ID)}), nil
 }
@@ -32,7 +32,7 @@ func (e *EvmIndexerServer) CreatePlugin(ctx context.Context, req *connect.Reques
 func (e *EvmIndexerServer) GetPlugin(ctx context.Context, req *connect.Request[evm_indexerv1.GetPluginRequest]) (*connect.Response[evm_indexerv1.GetPluginResponse], error) {
 	var plugin evmi_database.Plugin
 	if result := e.db.Conn.First(&plugin, req.Msg.Id); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.GetPluginResponse{Plugin: toGrpcPlugin(plugin)}), nil
 }
@@ -42,7 +42,7 @@ func (e *EvmIndexerServer) GetPlugin(ctx context.Context, req *connect.Request[e
 func (e *EvmIndexerServer) UpdatePlugin(ctx context.Context, req *connect.Request[evm_indexerv1.UpdatePluginRequest]) (*connect.Response[evm_indexerv1.UpdatePluginResponse], error) {
 	var plugin evmi_database.Plugin
 	if result := e.db.Conn.First(&plugin, req.Msg.Plugin.Id); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	sourceChanged := plugin.GitUrl != req.Msg.Plugin.GitUrl ||
@@ -62,7 +62,7 @@ func (e *EvmIndexerServer) UpdatePlugin(ctx context.Context, req *connect.Reques
 	}
 
 	if result := e.db.Conn.Save(&plugin); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.UpdatePluginResponse{}), nil
 }
@@ -76,7 +76,7 @@ func (e *EvmIndexerServer) ListPlugins(ctx context.Context, req *connect.Request
 		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
 	}
 	if result := query.Find(&plugins); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	out := make([]*evm_indexerv1.Plugin, 0, len(plugins))
@@ -91,14 +91,14 @@ func (e *EvmIndexerServer) DeletePlugin(ctx context.Context, req *connect.Reques
 	// Refuse to delete a plugin still referenced by an exporter.
 	var count int64
 	if result := e.db.Conn.Model(&evmi_database.EvmiExporter{}).Where("plugin_id = ?", req.Msg.Id).Count(&count); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	if count > 0 {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errPluginInUse)
 	}
 
 	if result := e.db.Conn.Delete(&evmi_database.Plugin{}, req.Msg.Id); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.DeletePluginResponse{}), nil
 }

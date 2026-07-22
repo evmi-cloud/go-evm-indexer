@@ -14,7 +14,7 @@ func (e *EvmIndexerServer) GetEvmiInstance(ctx context.Context, req *connect.Req
 
 	result := e.db.Conn.First(&instance, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.GetEvmiInstanceResponse]{
@@ -28,9 +28,13 @@ func (e *EvmIndexerServer) GetEvmiInstance(ctx context.Context, req *connect.Req
 func (e *EvmIndexerServer) ListEvmiInstances(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmiInstancesRequest]) (*connect.Response[evm_indexerv1.ListEvmiInstancesResponse], error) {
 	var instances []evmi_database.EvmiInstance
 
-	result := e.db.Conn.Model(&evmi_database.EvmiInstance{}).Find(&instances).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	query := e.db.Conn.Model(&evmi_database.EvmiInstance{})
+	if req.Msg.Pagination != nil && req.Msg.Pagination.Limit > 0 {
+		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	}
+	result := query.Find(&instances)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmiInstancesResponse]{

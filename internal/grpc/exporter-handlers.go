@@ -50,7 +50,7 @@ func (e *EvmIndexerServer) CreateEvmiExporter(ctx context.Context, req *connect.
 
 	result := e.db.Conn.Create(&newExporter)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return connect.NewResponse(&evm_indexerv1.CreateEvmiExporterResponse{
@@ -62,7 +62,7 @@ func (e *EvmIndexerServer) CreateEvmiExporter(ctx context.Context, req *connect.
 func (e *EvmIndexerServer) GetEvmiExporter(ctx context.Context, req *connect.Request[evm_indexerv1.GetEvmiExporterRequest]) (*connect.Response[evm_indexerv1.GetEvmiExporterResponse], error) {
 	var exporter evmi_database.EvmiExporter
 	if result := e.db.Conn.First(&exporter, req.Msg.Id); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.GetEvmiExporterResponse{
 		Exporter: toGrpcExporter(exporter),
@@ -75,7 +75,7 @@ func (e *EvmIndexerServer) GetEvmiExporter(ctx context.Context, req *connect.Req
 func (e *EvmIndexerServer) UpdateEvmiExporter(ctx context.Context, req *connect.Request[evm_indexerv1.UpdateEvmiExporterRequest]) (*connect.Response[evm_indexerv1.UpdateEvmiExporterResponse], error) {
 	var exporter evmi_database.EvmiExporter
 	if result := e.db.Conn.First(&exporter, req.Msg.Exporter.Id); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	config := req.Msg.Exporter.PluginConfigJson
@@ -95,7 +95,7 @@ func (e *EvmIndexerServer) UpdateEvmiExporter(ctx context.Context, req *connect.
 	exporter.PluginConfig = datatypes.JSON([]byte(config))
 
 	if result := e.db.Conn.Save(&exporter); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.UpdateEvmiExporterResponse{}), nil
 }
@@ -112,7 +112,7 @@ func (e *EvmIndexerServer) ListEvmiExporters(ctx context.Context, req *connect.R
 		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
 	}
 	if result := query.Find(&exporters); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return connect.NewResponse(&evm_indexerv1.ListEvmiExportersResponse{
@@ -123,7 +123,7 @@ func (e *EvmIndexerServer) ListEvmiExporters(ctx context.Context, req *connect.R
 // DeleteEvmiExporter implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) DeleteEvmiExporter(ctx context.Context, req *connect.Request[evm_indexerv1.DeleteEvmiExporterRequest]) (*connect.Response[evm_indexerv1.DeleteEvmiExporterResponse], error) {
 	if result := e.db.Conn.Delete(&evmi_database.EvmiExporter{}, req.Msg.Id); result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 	return connect.NewResponse(&evm_indexerv1.DeleteEvmiExporterResponse{}), nil
 }

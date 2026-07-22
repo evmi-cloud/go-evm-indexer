@@ -22,7 +22,7 @@ func (e *EvmIndexerServer) CreateEvmBlockchain(ctx context.Context, req *connect
 
 	result := e.db.Conn.Create(&newBlockchain)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.CreateEvmBlockchainResponse]{
@@ -39,7 +39,7 @@ func (e *EvmIndexerServer) GetEvmBlockchain(ctx context.Context, req *connect.Re
 
 	result := e.db.Conn.First(&blockchain, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.GetEvmBlockchainResponse]{
@@ -53,9 +53,13 @@ func (e *EvmIndexerServer) GetEvmBlockchain(ctx context.Context, req *connect.Re
 func (e *EvmIndexerServer) ListEvmBlockchains(ctx context.Context, req *connect.Request[evm_indexerv1.ListEvmBlockchainsRequest]) (*connect.Response[evm_indexerv1.ListEvmBlockchainsResponse], error) {
 	var blockchains []evmi_database.EvmBlockchain
 
-	result := e.db.Conn.Model(&evmi_database.EvmBlockchain{}).Find(&blockchains).Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	query := e.db.Conn.Model(&evmi_database.EvmBlockchain{})
+	if req.Msg.Pagination != nil && req.Msg.Pagination.Limit > 0 {
+		query = query.Offset(int(req.Msg.Pagination.Offset)).Limit(int(req.Msg.Pagination.Limit))
+	}
+	result := query.Find(&blockchains)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.ListEvmBlockchainsResponse]{
@@ -71,7 +75,7 @@ func (e *EvmIndexerServer) UpdateEvmBlockchain(ctx context.Context, req *connect
 
 	result := e.db.Conn.First(&blockchain, req.Msg.Blockchain.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	blockchain.ChainId = req.Msg.Blockchain.ChainId
@@ -84,7 +88,7 @@ func (e *EvmIndexerServer) UpdateEvmBlockchain(ctx context.Context, req *connect
 
 	result = e.db.Conn.Save(&blockchain)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.UpdateEvmBlockchainResponse]{
@@ -99,7 +103,7 @@ func (e *EvmIndexerServer) DeleteEvmBlockchain(ctx context.Context, req *connect
 
 	result := e.db.Conn.Delete(&evmi_database.EvmBlockchain{}, req.Msg.Id)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, dbError(result.Error)
 	}
 
 	return &connect.Response[evm_indexerv1.DeleteEvmBlockchainResponse]{
