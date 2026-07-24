@@ -5,6 +5,10 @@
             "dsn": "host=postgres user=evmi password=secret dbname=evmi port=5432 sslmode=disable"
         }
     },
+    "pluginStorage": {
+        "buildDir": "/tmp/evmi",
+        "installDir": "/evmi/plugins"
+    },
     "metrics": {
         "enabled": true,
         "path": "/metrics",

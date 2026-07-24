@@ -114,12 +114,13 @@ type Plugin struct {
 	Name        string
 	Description string
 
-	// Source. If LocalPath points at a prebuilt ".so" it is used directly.
-	// Otherwise the server builds from GitUrl (any git repository, cloned) or
-	// LocalPath (module root), compiling the RelativePath package.
-	GitUrl       string
-	RelativePath string
-	LocalPath    string
+	// Source: the server clones GitUrl (any git repository) at GitRef and compiles
+	// the repo root into a plugin. Git is the only supported source, and the
+	// plugin's `main` package must live at the repo root.
+	GitUrl string
+	// GitRef is an optional branch or tag to clone (empty = the repo's default
+	// branch).
+	GitRef string
 
 	// SoPath is the compiled/resolved shared object; Status is one of
 	// PluginStatus and Error holds the last install failure.

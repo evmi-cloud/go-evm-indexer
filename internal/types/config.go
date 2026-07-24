@@ -18,17 +18,32 @@ type Config struct {
 	// absent, matched by name) and installed.
 	Plugins []ConfigPlugin `json:"plugins"`
 
+	// PluginStorage overrides where exporter plugins are cloned/built and where the
+	// finished .so files are installed. Empty fields keep the defaults
+	// (buildDir=<tmp>/evmi, installDir=/evmi/plugins).
+	PluginStorage PluginStorageConfig `json:"pluginStorage"`
+
 	// Resources are metadata-DB rows (blockchains, ABIs, stores, pipelines,
 	// sources, exporters) declared in the config and created on startup if they
 	// don't already exist. See AutoloadResources.
 	Resources AutoloadResources `json:"resources"`
 }
 
+// PluginStorageConfig configures the plugin build/install directories.
+type PluginStorageConfig struct {
+	// BuildDir is the base of the ephemeral per-plugin clone/build work dir
+	// (<BuildDir>/<pluginName>). Default: <tmp>/evmi.
+	BuildDir string `json:"buildDir"`
+	// InstallDir is where finished .so files are copied (<InstallDir>/<pluginName>.so).
+	// Default: /evmi/plugins.
+	InstallDir string `json:"installDir"`
+}
+
 type ConfigPlugin struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	GitUrl       string `json:"gitUrl"`
-	RelativePath string `json:"relativePath"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	GitUrl      string `json:"gitUrl"`
+	GitRef      string `json:"gitRef"`
 }
 
 // AutoloadResources declares metadata-DB resources to create on startup with a

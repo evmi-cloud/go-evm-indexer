@@ -1,7 +1,10 @@
 import { client } from "@/lib/client";
 import type { Plugin } from "@/gen/evm_indexer/v1/evm_indexer_pb";
 import { PAGE, str, type Resource } from "./types";
+import { gitRefOptions } from "./options";
 
+// Plugins install from a git repository only: the server clones it at the chosen
+// branch/tag and builds the RelativePath package.
 export const plugins: Resource<Plugin> = {
   key: "plugins",
   title: "Plugins",
@@ -9,19 +12,20 @@ export const plugins: Resource<Plugin> = {
   fields: [
     { name: "name", label: "Name", type: "text", required: true },
     { name: "description", label: "Description", type: "text" },
+    { name: "gitUrl", label: "Git URL", type: "text", required: true, help: "Any git repo — cloned and built" },
     {
-      name: "localPath",
-      label: "Local path (.so or module dir)",
-      type: "text",
-      help: "A prebuilt .so is used directly; a directory is built.",
+      name: "gitRef",
+      label: "Branch or tag",
+      type: "select",
+      loadOptions: gitRefOptions,
+      depends: ["gitUrl"],
+      help: "Fetched from the repository — empty uses the default branch",
     },
-    { name: "gitUrl", label: "Git URL", type: "text", help: "Any git repo — cloned and built if no .so is given" },
-    { name: "relativePath", label: "Package path", type: "text", help: "Package within the module to build" },
   ],
   columns: [
     { label: "ID", get: (p) => String(p.id ?? "") },
     { label: "Name", get: (p) => p.name },
-    { label: "Source", get: (p) => p.localPath || p.gitUrl || "—", mono: true },
+    { label: "Source", get: (p) => (p.gitUrl ? (p.gitRef ? `${p.gitUrl} @ ${p.gitRef}` : p.gitUrl) : "—"), mono: true },
     {
       label: "Status",
       get: (p) => p.status || "NOT_INSTALLED",
@@ -49,9 +53,8 @@ export const plugins: Resource<Plugin> = {
   toForm: (p) => ({
     name: p.name,
     description: p.description,
-    localPath: p.localPath,
     gitUrl: p.gitUrl,
-    relativePath: p.relativePath,
+    gitRef: p.gitRef,
   }),
   actions: [
     // Build the shared object; the row's status reflects the outcome on refresh.
@@ -63,8 +66,7 @@ function pluginFromForm(v: Parameters<Resource<Plugin>["create"]>[0]) {
   return {
     name: str(v, "name"),
     description: str(v, "description"),
-    localPath: str(v, "localPath"),
     gitUrl: str(v, "gitUrl"),
-    relativePath: str(v, "relativePath"),
+    gitRef: str(v, "gitRef"),
   };
 }

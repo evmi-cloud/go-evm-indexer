@@ -180,7 +180,11 @@ plugin repos can import it — `internal/` can't be imported out-of-module) and 
 exporter field: `exporter.InstallPlugin` (via the `InstallPlugin` RPC) resolves the source and
 builds the `.so` with `-buildmode=plugin`, recording `SoPath`/`Status` on the `Plugin` row; an
 exporter references it by `PluginID` and `loader.go:loadInstalledPlugin` opens the installed
-`.so` via `plugin.Open` (an exporter only starts if its plugin is `INSTALLED`). A plugin may
+`.so` via `plugin.Open` (an exporter only starts if its plugin is `INSTALLED`). A plugin is
+cloned+built in an ephemeral `<buildDir>/<pluginName>` and the `.so` is copied to a persistent
+`<installDir>/<pluginName>.so` (= `SoPath`); both bases come from `config.pluginStorage`
+(`buildDir` default `<tmp>/evmi`, `installDir` default `/evmi/plugins`) via `exporter.Configure`.
+Mount a volume at `installDir` to avoid rebuilds across restarts. A plugin may
 implement the optional `pkg/exporter.Configurable` interface to declare a config schema;
 install extracts it into `Plugin.ConfigSchema`, the exporter handlers validate `PluginConfig`
 against it (`exporter.ValidatePluginConfig`, → `InvalidArgument`), and the web UI renders a
@@ -245,9 +249,9 @@ unmarshals these keys:
 - `database` — `type` = `SQLITE`/`POSTGRES`/`MYSQL`, plus a `config` string map. SQLite reads
   `config.filename`; Postgres/MySQL read `config.dsn`.
 - `metrics` — `enabled` / `path` / `port`.
-- `plugins` — a list of `{name, description, gitUrl, relativePath}` git-hosted exporter plugins
-  imported (created if absent, matched by name) and installed on startup by
-  `exporter.ImportConfigPlugins`.
+- `plugins` — a list of `{name, description, gitUrl, gitRef}` git-hosted exporter
+  plugins imported (created if absent, matched by name) and installed on startup by
+  `exporter.ImportConfigPlugins`. `gitRef` is an optional branch or tag (empty = default branch).
 - `resources` — an **optional autoloader** (`internal/autoloader`) that creates metadata-DB rows
   on startup with a **create-if-not-exists** policy (see below).
 

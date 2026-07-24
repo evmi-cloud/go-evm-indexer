@@ -10,6 +10,24 @@ export const abiOptions = async (): Promise<Option[]> =>
     label: `${a.contractName} (#${a.id})`,
   }));
 
+// gitRefOptions lists a plugin repo's branches and tags (the server runs
+// `git ls-remote`) for the git-ref select. Keeps the currently-selected ref in
+// the list even if the repo no longer advertises it, so an edit doesn't lose it.
+export const gitRefOptions = async (values: FormValues): Promise<Option[]> => {
+  const gitUrl = String(values.gitUrl ?? "").trim();
+  if (!gitUrl) return [];
+  const r = await client.listPluginGitRefs({ gitUrl });
+  const opts: Option[] = [
+    ...(r.branches ?? []).map((b) => ({ value: b, label: `${b} (branch)` })),
+    ...(r.tags ?? []).map((t) => ({ value: t, label: `${t} (tag)` })),
+  ];
+  const current = String(values.gitRef ?? "").trim();
+  if (current && !opts.some((o) => o.value === current)) {
+    opts.unshift({ value: current, label: `${current} (current)` });
+  }
+  return opts;
+};
+
 // A single ABI entry (function/event/…) as parsed from the stored JSON.
 type AbiParam = { name?: string; type: string; indexed?: boolean; components?: AbiParam[] };
 type AbiItem = { type: string; name?: string; inputs?: AbiParam[] };

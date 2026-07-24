@@ -214,6 +214,9 @@ const (
 	// EvmIndexerServiceInstallPluginProcedure is the fully-qualified name of the EvmIndexerService's
 	// InstallPlugin RPC.
 	EvmIndexerServiceInstallPluginProcedure = "/evm_indexer.v1.EvmIndexerService/InstallPlugin"
+	// EvmIndexerServiceListPluginGitRefsProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListPluginGitRefs RPC.
+	EvmIndexerServiceListPluginGitRefsProcedure = "/evm_indexer.v1.EvmIndexerService/ListPluginGitRefs"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -280,6 +283,7 @@ var (
 	evmIndexerServiceListPluginsMethodDescriptor               = evmIndexerServiceServiceDescriptor.Methods().ByName("ListPlugins")
 	evmIndexerServiceDeletePluginMethodDescriptor              = evmIndexerServiceServiceDescriptor.Methods().ByName("DeletePlugin")
 	evmIndexerServiceInstallPluginMethodDescriptor             = evmIndexerServiceServiceDescriptor.Methods().ByName("InstallPlugin")
+	evmIndexerServiceListPluginGitRefsMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListPluginGitRefs")
 )
 
 // EvmIndexerServiceClient is a client for the evm_indexer.v1.EvmIndexerService service.
@@ -360,6 +364,7 @@ type EvmIndexerServiceClient interface {
 	ListPlugins(context.Context, *connect.Request[v1.ListPluginsRequest]) (*connect.Response[v1.ListPluginsResponse], error)
 	DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error)
 	InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error)
+	ListPluginGitRefs(context.Context, *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error)
 }
 
 // NewEvmIndexerServiceClient constructs a client for the evm_indexer.v1.EvmIndexerService service.
@@ -738,6 +743,12 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceInstallPluginMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listPluginGitRefs: connect.NewClient[v1.ListPluginGitRefsRequest, v1.ListPluginGitRefsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListPluginGitRefsProcedure,
+			connect.WithSchema(evmIndexerServiceListPluginGitRefsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -804,6 +815,7 @@ type evmIndexerServiceClient struct {
 	listPlugins               *connect.Client[v1.ListPluginsRequest, v1.ListPluginsResponse]
 	deletePlugin              *connect.Client[v1.DeletePluginRequest, v1.DeletePluginResponse]
 	installPlugin             *connect.Client[v1.InstallPluginRequest, v1.InstallPluginResponse]
+	listPluginGitRefs         *connect.Client[v1.ListPluginGitRefsRequest, v1.ListPluginGitRefsResponse]
 }
 
 // GetEvmiInstance calls evm_indexer.v1.EvmIndexerService.GetEvmiInstance.
@@ -1111,6 +1123,11 @@ func (c *evmIndexerServiceClient) InstallPlugin(ctx context.Context, req *connec
 	return c.installPlugin.CallUnary(ctx, req)
 }
 
+// ListPluginGitRefs calls evm_indexer.v1.EvmIndexerService.ListPluginGitRefs.
+func (c *evmIndexerServiceClient) ListPluginGitRefs(ctx context.Context, req *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error) {
+	return c.listPluginGitRefs.CallUnary(ctx, req)
+}
+
 // EvmIndexerServiceHandler is an implementation of the evm_indexer.v1.EvmIndexerService service.
 type EvmIndexerServiceHandler interface {
 	// EvmiInstance
@@ -1189,6 +1206,7 @@ type EvmIndexerServiceHandler interface {
 	ListPlugins(context.Context, *connect.Request[v1.ListPluginsRequest]) (*connect.Response[v1.ListPluginsResponse], error)
 	DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error)
 	InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error)
+	ListPluginGitRefs(context.Context, *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error)
 }
 
 // NewEvmIndexerServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1563,6 +1581,12 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceInstallPluginMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	evmIndexerServiceListPluginGitRefsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListPluginGitRefsProcedure,
+		svc.ListPluginGitRefs,
+		connect.WithSchema(evmIndexerServiceListPluginGitRefsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/evm_indexer.v1.EvmIndexerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EvmIndexerServiceGetEvmiInstanceProcedure:
@@ -1687,6 +1711,8 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceDeletePluginHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceInstallPluginProcedure:
 			evmIndexerServiceInstallPluginHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListPluginGitRefsProcedure:
+			evmIndexerServiceListPluginGitRefsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1938,4 +1964,8 @@ func (UnimplementedEvmIndexerServiceHandler) DeletePlugin(context.Context, *conn
 
 func (UnimplementedEvmIndexerServiceHandler) InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.InstallPlugin is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListPluginGitRefs(context.Context, *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListPluginGitRefs is not implemented"))
 }

@@ -403,22 +403,43 @@ function DynamicSelectInput({
   onChange: (v: string | boolean) => void;
 }) {
   const [options, setOptions] = useState<Option[]>([]);
+  const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const depKey = (field.depends ?? []).map((d) => String(values[d] ?? "")).join("|");
 
   useEffect(() => {
     let cancelled = false;
-    field
-      .loadOptions!(values)
-      .then((opts) => !cancelled && setOptions(opts))
-      .catch(() => !cancelled && setOptions([]));
+    setState("loading");
+    // Debounced so a text dependency (e.g. a git URL) doesn't fire a request on
+    // every keystroke.
+    const timer = setTimeout(() => {
+      field
+        .loadOptions!(values)
+        .then((opts) => {
+          if (cancelled) return;
+          setOptions(opts);
+          setState("idle");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setOptions([]);
+          setState("error");
+        });
+    }, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // Re-run only when the depended-on values change; `values` is read inside.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depKey]);
 
-  return <FieldInput field={field} value={value} options={options} onChange={onChange} />;
+  return (
+    <>
+      <FieldInput field={field} value={value} options={options} onChange={onChange} />
+      {state === "loading" && <p className="field-help">Loading options…</p>}
+      {state === "error" && <p className="field-help error">Could not load options.</p>}
+    </>
+  );
 }
 
 // Encode a human-friendly indexed-argument value into its 32-byte topic hash

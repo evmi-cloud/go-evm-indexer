@@ -303,22 +303,19 @@ exporter**. In the web UI these are the **Plugins** and **Exporters** tabs.
 
 A `Plugin` record holds the code source:
 
-| field          | meaning                                                    |
-|----------------|------------------------------------------------------------|
-| `Name`         | display name (shown in the exporter's plugin picker)       |
-| `LocalPath`    | path to your `.so`, **or** a module root for EVMI to build |
-| `GitUrl`       | any git repo EVMI clones and builds (when no `.so` is given) |
-| `RelativePath` | package to build within the module root                    |
+| field     | meaning                                                       |
+|-----------|---------------------------------------------------------------|
+| `Name`    | display name (shown in the exporter's plugin picker)          |
+| `GitUrl`  | git repo EVMI clones and builds — **the only source**         |
+| `GitRef`  | optional branch or tag (empty = the repo's default branch)    |
 
-Then **Install** it. EVMI resolves the source in this order and stores the result:
-
-1. `LocalPath` ending in `.so` → used directly (you built it).
-2. `GitUrl` set → cloned (any git repository), then built (`RelativePath` is the package).
-3. `LocalPath` as a directory → treated as the module root and built.
+Then **Install** it: EVMI clones `GitUrl` at `GitRef` and builds the **repo root**
+(the plugin's `main` package must live there — there is no package path to set),
+storing the resulting `.so`. Git is the only supported source.
 
 Plugins can also be **declared in the server config** to be imported and installed
 on startup — add a `plugins` array (each entry `{name, description, gitUrl,
-relativePath}`); each is created if absent (matched by name) and installed.
+gitRef}`); each is created if absent (matched by name) and installed.
 
 Installing sets the plugin's status to `INSTALLED` (or `FAILED` with the build
 error). Editing the source resets it to `NOT_INSTALLED` — reinstall to rebuild.

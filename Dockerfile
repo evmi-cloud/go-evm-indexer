@@ -27,9 +27,15 @@ RUN go build -ldflags="-s -w" -o /evm-indexer ./cmd/evm-indexer
 
 
 # --- final image ------------------------------------------------------------
-# distroless/cc provides glibc, libgcc and ca-certificates — enough to run the
-# CGO binary. (scratch cannot: the binary is dynamically linked.)
-FROM gcr.io/distroless/cc-debian12
+# Runs on golang:1.24-bookworm (NOT distroless) because the exporter-plugin
+# subsystem shells out at runtime to:
+#   - `git` — clone repos / `git ls-remote` (ListPluginGitRefs, InstallPlugin);
+#   - the `go` toolchain + `gcc` — `go build -buildmode=plugin` to compile plugins.
+# The runtime Go version MUST match the build stage (1.24) or plugin.Open rejects
+# the .so, so we reuse the same golang image tag. Plugins install from git only,
+# so git + the go toolchain are required at runtime — do not swap this for a
+# distroless image unless you don't use exporter plugins at all.
+FROM golang:1.24-bookworm
 COPY --from=builder /evm-indexer /evm-indexer
 # The built web UI is served from EVMI_WEBUI_DIR (see internal/grpc/webui.go).
 COPY --from=webui /webui/out /public

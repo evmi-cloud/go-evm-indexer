@@ -204,6 +204,16 @@ func (g *Gateway) StreamEvmLogSourceUpdates(
 	return fanoutStream(ctx, addrs, open, stream.Send)
 }
 
+// ListPluginGitRefs is stateless (any instance runs `git ls-remote`), so it
+// routes to any RUNNING instance.
+func (g *Gateway) ListPluginGitRefs(ctx context.Context, req *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error) {
+	c, err := g.anyClient()
+	if err != nil {
+		return nil, err
+	}
+	return forward(ctx, req, c.ListPluginGitRefs)
+}
+
 // InstallPlugin fans out to every RUNNING instance instead of routing to one:
 // installing builds the plugin's shared object on that instance's local disk, so
 // each instance that might run an exporter using the plugin needs its own build.

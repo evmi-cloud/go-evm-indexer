@@ -15,12 +15,11 @@ var errPluginInUse = errors.New("plugin is referenced by one or more exporters")
 // CreatePlugin implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) CreatePlugin(ctx context.Context, req *connect.Request[evm_indexerv1.CreatePluginRequest]) (*connect.Response[evm_indexerv1.CreatePluginResponse], error) {
 	plugin := evmi_database.Plugin{
-		Name:         req.Msg.Plugin.Name,
-		Description:  req.Msg.Plugin.Description,
-		GitUrl:       req.Msg.Plugin.GitUrl,
-		RelativePath: req.Msg.Plugin.RelativePath,
-		LocalPath:    req.Msg.Plugin.LocalPath,
-		Status:       string(evmi_database.NotInstalledPluginStatus),
+		Name:        req.Msg.Plugin.Name,
+		Description: req.Msg.Plugin.Description,
+		GitUrl:      req.Msg.Plugin.GitUrl,
+		GitRef:      req.Msg.Plugin.GitRef,
+		Status:      string(evmi_database.NotInstalledPluginStatus),
 	}
 	if result := e.db.Conn.Create(&plugin); result.Error != nil {
 		return nil, dbError(result.Error)
@@ -46,14 +45,12 @@ func (e *EvmIndexerServer) UpdatePlugin(ctx context.Context, req *connect.Reques
 	}
 
 	sourceChanged := plugin.GitUrl != req.Msg.Plugin.GitUrl ||
-		plugin.RelativePath != req.Msg.Plugin.RelativePath ||
-		plugin.LocalPath != req.Msg.Plugin.LocalPath
+		plugin.GitRef != req.Msg.Plugin.GitRef
 
 	plugin.Name = req.Msg.Plugin.Name
 	plugin.Description = req.Msg.Plugin.Description
 	plugin.GitUrl = req.Msg.Plugin.GitUrl
-	plugin.RelativePath = req.Msg.Plugin.RelativePath
-	plugin.LocalPath = req.Msg.Plugin.LocalPath
+	plugin.GitRef = req.Msg.Plugin.GitRef
 	if sourceChanged {
 		plugin.Status = string(evmi_database.NotInstalledPluginStatus)
 		plugin.SoPath = ""
@@ -123,6 +120,19 @@ func (e *EvmIndexerServer) InstallPlugin(ctx context.Context, req *connect.Reque
 	}), nil
 }
 
+// ListPluginGitRefs lists a git repo's branches and tags (via `git ls-remote`)
+// so the UI can offer them as a select for the plugin's git ref.
+func (e *EvmIndexerServer) ListPluginGitRefs(ctx context.Context, req *connect.Request[evm_indexerv1.ListPluginGitRefsRequest]) (*connect.Response[evm_indexerv1.ListPluginGitRefsResponse], error) {
+	branches, tags, err := exporter.ListGitRefs(req.Msg.GitUrl)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	return connect.NewResponse(&evm_indexerv1.ListPluginGitRefsResponse{
+		Branches: branches,
+		Tags:     tags,
+	}), nil
+}
+
 func toGrpcPlugin(p evmi_database.Plugin) *evm_indexerv1.Plugin {
 	id := uint32(p.ID)
 	createdAt := uint32(p.CreatedAt.Unix())
@@ -134,8 +144,7 @@ func toGrpcPlugin(p evmi_database.Plugin) *evm_indexerv1.Plugin {
 		Name:             p.Name,
 		Description:      p.Description,
 		GitUrl:           p.GitUrl,
-		RelativePath:     p.RelativePath,
-		LocalPath:        p.LocalPath,
+		GitRef:           p.GitRef,
 		SoPath:           p.SoPath,
 		Status:           p.Status,
 		Error:            p.Error,

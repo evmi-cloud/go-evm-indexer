@@ -15,7 +15,7 @@
             "name": "erc20-balances",
             "description": "Track ERC20 balances",
             "gitUrl": "https://github.com/example/evmi-erc20-plugin",
-            "relativePath": "."
+            "gitRef": "v1.0.0"
         }
     ],
     "resources": {

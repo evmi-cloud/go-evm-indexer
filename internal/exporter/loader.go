@@ -1,14 +1,18 @@
 package exporter
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"plugin"
+	"sort"
 	"strings"
+	"time"
 
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
@@ -18,8 +22,116 @@ import (
 	"gorm.io/gorm"
 )
 
-// pluginCacheDir is where source repos are cloned and .so files are built.
-var pluginCacheDir = filepath.Join(os.TempDir(), "evmi-plugins")
+// ListGitRefs returns the branch and tag names of a remote git repository via
+// `git ls-remote` (no clone). Branches and tags are returned sorted; annotated-tag
+// peel entries (refs/tags/x^{}) are collapsed. It is read-only and bounded by a
+// timeout so a slow/hostile remote can't hang the server.
+func ListGitRefs(url string) (branches []string, tags []string, err error) {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return nil, nil, errors.New("git url is required")
+	}
+	// Never let the url be parsed as a git flag.
+	if strings.HasPrefix(url, "-") {
+		return nil, nil, errors.New("invalid git url")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", "--tags", "--", url)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, nil, errors.New("git ls-remote timed out")
+		}
+		return nil, nil, fmt.Errorf("git ls-remote failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	tagSet := map[string]struct{}{}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ref := fields[1]
+		switch {
+		case strings.HasPrefix(ref, "refs/heads/"):
+			branches = append(branches, strings.TrimPrefix(ref, "refs/heads/"))
+		case strings.HasPrefix(ref, "refs/tags/"):
+			name := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/tags/"), "^{}")
+			tagSet[name] = struct{}{}
+		}
+	}
+	for name := range tagSet {
+		tags = append(tags, name)
+	}
+	sort.Strings(branches)
+	sort.Strings(tags)
+	return branches, tags, nil
+}
+
+// Plugin storage paths (configurable via the server config, see Configure):
+//   - buildBaseDir  holds an ephemeral per-plugin work dir where the git repo is
+//     cloned and the .so is compiled: <buildBaseDir>/<pluginName>.
+//   - installBaseDir is where the finished .so is copied so it survives the tmp
+//     build dir being cleaned: <installBaseDir>/<pluginName>.so.
+var (
+	buildBaseDir   = filepath.Join(os.TempDir(), "evmi")
+	installBaseDir = "/evmi/plugins"
+)
+
+// Configure overrides the plugin build/install base directories from the server
+// config. Empty values keep the defaults. Call once at startup, before any
+// install/verify.
+func Configure(buildDir, installDir string) {
+	if strings.TrimSpace(buildDir) != "" {
+		buildBaseDir = buildDir
+	}
+	if strings.TrimSpace(installDir) != "" {
+		installBaseDir = installDir
+	}
+}
+
+// pluginSlug is a filesystem-safe, stable directory/file name for a plugin,
+// derived from its name (falling back to its id).
+func pluginSlug(p evmi_database.Plugin) string {
+	name := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_', r == '.':
+			return r
+		default:
+			return '-'
+		}
+	}, strings.TrimSpace(p.Name))
+	name = strings.Trim(name, "-.")
+	if name == "" {
+		name = fmt.Sprintf("plugin-%d", p.ID)
+	}
+	return name
+}
+
+// copyFile copies src to dst (creating dst's directory), used to move a freshly
+// built .so out of the ephemeral build dir into the persistent install dir.
+func copyFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
 
 // ImportConfigPlugins imports the plugins declared in the server config as Plugin
 // rows on startup: each is created if a plugin with the same name does not exist,
@@ -46,11 +158,11 @@ func ImportConfigPlugins(db *evmi_database.EvmiDatabase, plugins []types.ConfigP
 		}
 
 		plugin := evmi_database.Plugin{
-			Name:         cp.Name,
-			Description:  cp.Description,
-			GitUrl:       cp.GitUrl,
-			RelativePath: cp.RelativePath,
-			Status:       string(evmi_database.NotInstalledPluginStatus),
+			Name:        cp.Name,
+			Description: cp.Description,
+			GitUrl:      cp.GitUrl,
+			GitRef:      cp.GitRef,
+			Status:      string(evmi_database.NotInstalledPluginStatus),
 		}
 		if err := db.Conn.Create(&plugin).Error; err != nil {
 			logger.Error().Str("plugin", cp.Name).Msg("config plugin create failed: " + err.Error())
@@ -68,10 +180,10 @@ func installConfigPlugin(db *evmi_database.EvmiDatabase, id uint, name string, l
 }
 
 // VerifyPlugins is run at startup to make sure every installed plugin's shared
-// object is still on disk (the build cache is typically ephemeral across
-// restarts / container recreations). For a plugin whose .so is missing:
+// object is still on disk (the build dir is ephemeral, and the install dir may be
+// too unless persisted). For a plugin whose .so is missing:
 //   - if it has a git source, it is rebuilt (reinstalled);
-//   - otherwise it cannot be rebuilt, so it is marked FAILED.
+//   - otherwise (a malformed row with no GitUrl) it is marked FAILED.
 //
 // Plugins that were never installed (NOT_INSTALLED) or already FAILED are left
 // untouched.
@@ -127,6 +239,14 @@ func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog
 		return err
 	}
 
+	// Idempotent: if the plugin is already installed and its .so is present on
+	// disk, there is nothing to do. Changing the source (UpdatePlugin) resets
+	// Status and SoPath, so this never blocks a legitimate rebuild.
+	if p.Status == string(evmi_database.InstalledPluginStatus) && p.SoPath != "" && fileExists(p.SoPath) {
+		logger.Info().Str("plugin", p.Name).Str("so", p.SoPath).Msg("plugin already installed; skipping build")
+		return nil
+	}
+
 	db.Conn.Model(&p).Updates(map[string]interface{}{
 		"status": string(evmi_database.InstallingPluginStatus),
 		"error":  "",
@@ -169,41 +289,37 @@ func extractConfigSchema(soPath string, logger zerolog.Logger) datatypes.JSON {
 	return datatypes.JSON(raw)
 }
 
-// buildPluginSharedObject resolves the plugin source to a .so path.
-//
-// Resolution order:
-//   - LocalPath ending in ".so": used directly (prebuilt).
-//   - GitUrl set (any git repo): cloned into the cache, then built.
-//   - LocalPath (a directory): used as the module root, then built.
-//
-// The package built is RelativePath, relative to the module root.
+// buildPluginSharedObject clones the plugin's git repository at GitRef, builds the
+// repo root into a plugin, and copies the resulting .so to
+// <installBaseDir>/<pluginName>.so (returned). Git is the only supported source,
+// and the plugin's `main` package must live at the repo root.
 func buildPluginSharedObject(p evmi_database.Plugin, logger zerolog.Logger) (string, error) {
-	if strings.HasSuffix(p.LocalPath, ".so") {
-		if _, err := os.Stat(p.LocalPath); err != nil {
-			return "", fmt.Errorf("plugin .so not found at %s: %w", p.LocalPath, err)
-		}
-		return p.LocalPath, nil
+	if strings.TrimSpace(p.GitUrl) == "" {
+		return "", errors.New("plugin has no source: a git repository (GitUrl) is required")
 	}
 
-	var moduleRoot string
-	switch {
-	case p.GitUrl != "":
-		root, err := cloneRepo(p.GitUrl, p.ID, logger)
-		if err != nil {
-			return "", err
-		}
-		moduleRoot = root
-	case p.LocalPath != "":
-		moduleRoot = p.LocalPath
-	default:
-		return "", errors.New("plugin has no source: set LocalPath or GitUrl")
-	}
+	slug := pluginSlug(p)
+	// Ephemeral per-plugin work dir: /tmp/evmi/<pluginName>.
+	buildDir := filepath.Join(buildBaseDir, slug)
 
-	outPath := filepath.Join(pluginCacheDir, fmt.Sprintf("plugin-%d.so", p.ID))
-	if err := buildPlugin(moduleRoot, p.RelativePath, outPath, logger); err != nil {
+	moduleRoot, err := cloneRepo(p.GitUrl, p.GitRef, buildDir, logger)
+	if err != nil {
 		return "", err
 	}
-	return outPath, nil
+
+	builtSo := filepath.Join(buildDir, "built.so")
+	if err := buildPlugin(moduleRoot, builtSo, logger); err != nil {
+		return "", err
+	}
+
+	// Copy the built .so into the persistent install dir so it survives the tmp
+	// build dir being cleaned: /evmi/plugins/<pluginName>.so.
+	installedSo := filepath.Join(installBaseDir, slug+".so")
+	if err := copyFile(builtSo, installedSo); err != nil {
+		return "", fmt.Errorf("copy plugin .so to %s: %w", installedSo, err)
+	}
+	logger.Info().Str("plugin", p.Name).Str("so", installedSo).Msg("plugin installed")
+	return installedSo, nil
 }
 
 // loadInstalledPlugin opens the compiled shared object of an installed plugin and
@@ -223,42 +339,45 @@ func loadInstalledPlugin(db *evmi_database.EvmiDatabase, pluginID uint) (plugins
 	return openPlugin(p.SoPath)
 }
 
-// cloneRepo shallow-clones url into a per-plugin cache directory. If the
-// directory already exists it is reused as-is (no pull) to keep builds
-// reproducible for a given revision.
-func cloneRepo(url string, pluginID uint, logger zerolog.Logger) (string, error) {
-	dest := filepath.Join(pluginCacheDir, fmt.Sprintf("src-%d", pluginID))
-	if _, err := os.Stat(dest); err == nil {
-		return dest, nil
+// cloneRepo shallow-clones url into dest, at the given ref (branch or tag; empty
+// = the repo's default branch). Any existing clone at dest is removed first so a
+// changed url/ref always takes effect (install is an explicit action, and
+// VerifyPlugins only reaches here when the .so is already missing).
+func cloneRepo(url string, ref string, dest string, logger zerolog.Logger) (string, error) {
+	if err := os.RemoveAll(dest); err != nil {
+		return "", err
 	}
-	if err := os.MkdirAll(pluginCacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", err
 	}
 
-	logger.Info().Str("url", url).Str("dest", dest).Msg("cloning plugin repo")
-	cmd := exec.Command("git", "clone", "--depth", "1", url, dest)
+	args := []string{"clone", "--depth", "1"}
+	if ref != "" {
+		// --branch accepts both branch names and tags.
+		args = append(args, "--branch", ref)
+	}
+	args = append(args, url, dest)
+
+	logger.Info().Str("url", url).Str("ref", ref).Str("dest", dest).Msg("cloning plugin repo")
+	cmd := exec.Command("git", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("git clone failed: %v: %s", err, string(out))
 	}
 	return dest, nil
 }
 
-// buildPlugin compiles the package at relativePath (relative to moduleRoot) into
-// a Go plugin at outPath using the host toolchain. The toolchain and module
-// dependency versions MUST match the ones the EVMI server was built with, or
-// plugin.Open will reject the resulting .so.
-func buildPlugin(moduleRoot string, relativePath string, outPath string, logger zerolog.Logger) error {
+// buildPlugin compiles the module at moduleRoot (the plugin repo root, which is
+// the deterministic build target — the plugin's `main` package must live there)
+// into a Go plugin at outPath. The toolchain and module dependency versions MUST
+// match the ones the EVMI server was built with, or plugin.Open rejects the .so.
+func buildPlugin(moduleRoot string, outPath string, logger zerolog.Logger) error {
+	// Ensure the output directory exists (the .so is written here).
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
 
-	pkg := "./" + filepath.Clean(relativePath)
-	if relativePath == "" {
-		pkg = "."
-	}
-
-	logger.Info().Str("moduleRoot", moduleRoot).Str("pkg", pkg).Str("out", outPath).Msg("building plugin")
-	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", outPath, pkg)
+	logger.Info().Str("moduleRoot", moduleRoot).Str("out", outPath).Msg("building plugin")
+	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", outPath, ".")
 	cmd.Dir = moduleRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("plugin build failed: %v: %s", err, string(out))

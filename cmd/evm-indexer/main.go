@@ -127,6 +127,8 @@ func main() {
 					// Provision config-declared resources before the services start,
 					// so autoloaded sources/exporters are picked up on this boot.
 					// Plugins are imported first so exporters can reference them by name.
+					exporter.Configure(config.PluginStorage.BuildDir, config.PluginStorage.InstallDir)
+
 					logger.Info().Msg("Import config plugins")
 					exporter.ImportConfigPlugins(database, config.Plugins, logger)
 

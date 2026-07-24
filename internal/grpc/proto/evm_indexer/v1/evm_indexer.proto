@@ -511,11 +511,11 @@ message Plugin {
   string name = 2;
   string description = 3;
   string git_url = 4;
-  string relative_path = 5;
-  string local_path = 6;
+  reserved 5, 6; // was relative_path, local_path — build target is deterministic (repo root), git only
   string so_path = 7;
   string status = 8;
   string error = 9;
+  string git_ref = 14; // optional branch or tag to clone (empty = default branch)
   // Declared config schema (JSON array of {name,type,required,description,default}),
   // extracted from the plugin at install time. Read-only.
   string config_schema_json = 13;
@@ -557,6 +557,16 @@ message InstallPluginResponse {
   bool success = 1;
   string error = 2;
   string status = 3;
+}
+
+// Lists the branches and tags of a git repository (server runs `git ls-remote`),
+// so the UI can offer them as a select when choosing a plugin's git ref.
+message ListPluginGitRefsRequest {
+  string git_url = 1;
+}
+message ListPluginGitRefsResponse {
+  repeated string branches = 1;
+  repeated string tags = 2;
 }
 
 message CreateEvmiExporterRequest {
@@ -696,4 +706,5 @@ service EvmIndexerService {
   rpc ListPlugins(ListPluginsRequest) returns (ListPluginsResponse);
   rpc DeletePlugin(DeletePluginRequest) returns (DeletePluginResponse);
   rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);
+  rpc ListPluginGitRefs(ListPluginGitRefsRequest) returns (ListPluginGitRefsResponse);
 }

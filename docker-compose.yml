@@ -2,6 +2,8 @@
 volumes:
   postgres-data:
     driver: local
+  clickhouse-data:
+    driver: local
   prometheus-data:
     driver: local
   grafana-data:
@@ -51,7 +53,7 @@ services:
       CLICKHOUSE_PASSWORD: secret
     volumes:
       # Store data to HDD
-      - ./clickhouse-data:/var/lib/clickhouse/
+      - clickhouse-data:/var/lib/clickhouse/
     ports:
       - "8123:8123/tcp"
       - "9000:9000/tcp"

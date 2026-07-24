@@ -100,17 +100,17 @@ A `Plugin` row (managed via the API / the web UI's **Plugins** tab):
 | field          | meaning                                                        |
 |----------------|----------------------------------------------------------------|
 | `Name`         | display name (shown in the exporter's plugin picker)           |
-| `LocalPath`    | prebuilt `.so`, **or** a module root to build from             |
-| `GitUrl`    | any git repo to clone and build (used when no `.so` is given)          |
-| `RelativePath` | package to build within the module root                        |
-| `SoPath`       | the resolved/compiled `.so` (set on install)                   |
+| `GitUrl`       | git repository to clone and build (**the only source**)        |
+| `GitRef`       | optional branch or tag (empty = the repo's default branch)     |
+| `SoPath`       | the compiled `.so` (set on install)                            |
 | `Status`       | `NOT_INSTALLED` → `INSTALLING` → `INSTALLED` / `FAILED`         |
 
-**Install** (`InstallPlugin` RPC → `exporter.InstallPlugin`) resolves the source
-to a `.so` and records the result: a `LocalPath` ending in `.so` is used directly;
-otherwise the server builds from `GitUrl` (cloned) or `LocalPath` (module
-root), compiling the `RelativePath` package. Editing a plugin's source resets it
-to `NOT_INSTALLED`.
+**Install** (`InstallPlugin` RPC → `exporter.InstallPlugin`) is **git-only** and
+idempotent: if the plugin is already `INSTALLED` and its `.so` is present it does
+nothing; otherwise it clones `GitUrl` at `GitRef` and builds the **repo root**
+(the deterministic target — the plugin's `main` package must live there; no
+package path to configure), then records the result. Editing a plugin's source
+resets it to `NOT_INSTALLED`.
 
 **Config schema.** If the plugin implements the optional `Configurable`
 interface, install also extracts its declared config schema (a JSON array of
@@ -135,15 +135,22 @@ An `EvmiExporter` row then binds it to a pipeline:
 An exporter only loads a plugin whose `Status` is `INSTALLED`; otherwise it fails
 to start with "plugin is not installed".
 
-**Startup verification.** The build cache (`$TMPDIR/evmi-plugins`) is typically
-wiped across restarts / container recreations, so on every boot
-`exporter.VerifyPlugins` checks that each `INSTALLED` plugin's `SoPath` still
-exists on disk. If it is missing: a plugin with a `GitUrl` is **rebuilt**
-automatically; a plugin without one (a prebuilt `.so` or local dir that is gone)
-is set to **`FAILED`**, since it cannot be rebuilt from a remote source.
+**Storage paths.** A plugin is cloned + compiled in an ephemeral per-plugin work
+dir `<buildDir>/<pluginName>` (default `<tmp>/evmi/<pluginName>`), then the built
+`.so` is **copied** to `<installDir>/<pluginName>.so` (default `/evmi/plugins/…`)
+and that install path becomes the `Plugin.SoPath`. Both bases are configurable
+via `config.pluginStorage.{buildDir,installDir}` (`exporter.Configure`). To avoid
+rebuilding on every restart, mount a **persistent volume at `installDir`** — then
+the `.so` survives and `VerifyPlugins` finds it; the build dir can stay on tmpfs.
+
+**Startup verification.** If the install dir is *not* persisted it is wiped across
+restarts / container recreations, so on every boot `exporter.VerifyPlugins` checks
+that each `INSTALLED` plugin's `SoPath` still exists on disk. If it is missing it
+is **rebuilt** automatically from its `GitUrl` (a malformed row with no `GitUrl`
+is set to **`FAILED`**).
 
 **Config-declared plugins.** The server config may include a `plugins` array,
-each entry `{name, description, gitUrl, relativePath}`. On startup
+each entry `{name, description, gitUrl, gitRef}`. On startup
 `exporter.ImportConfigPlugins` creates a `Plugin` row for any that don't exist yet
 (matched by name) and installs them — so git-hosted plugins are available out of
 the box. See `configs/exemple-postgres.config.json`.
@@ -162,11 +169,12 @@ to the native-plugin approach:
   server's module version.
 - **Linux/macOS only.** Windows is unsupported by `-buildmode=plugin`.
 - **CGO required.** Plugins need `CGO_ENABLED=1`. The `Dockerfile` builds the
-  server with CGO enabled (Debian/glibc) into a `distroless/cc` image, so a
-  **prebuilt** `.so` compiled on a matching glibc base (e.g. `golang:1.23-bookworm`)
-  can be mounted and loaded. **Building a plugin from source at runtime** still
-  needs the Go toolchain + git + gcc, which the distroless image does not include —
-  use a fuller base image (or a sidecar/init step) for that.
+  server with CGO enabled (Debian/glibc) and ships it on **`golang:1.24-bookworm`**
+  (not distroless) precisely so that git-sourced plugins work at runtime: cloning
+  (`git`) and `go build -buildmode=plugin` (`go` toolchain + `gcc`) are all present,
+  and the runtime Go version matches the build stage (a mismatch fails `plugin.Open`).
+  Since plugins install from git only, `git` + the `go` toolchain must be present at
+  runtime — do not swap the final stage for a distroless image.
 - **No unload.** A loaded plugin cannot be unloaded; disabling an exporter stops
   its loop but the code stays resident until the process exits.
 
