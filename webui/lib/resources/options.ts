@@ -88,16 +88,18 @@ export const abiEventIndexedArgs = async (abiId: string, topic0: string): Promis
     .map((p) => ({ name: p.name!, type: p.type }));
 };
 
-// Event names of the ABI selected in `factoryChildEvmJsonAbi`.
+// Event names of the FACTORY source's own ABI (`evmJsonAbiId`). The creation
+// event is emitted by the factory contract and decoded with that ABI — NOT the
+// child contract's ABI.
 export const abiEventOptions = async (values: FormValues): Promise<Option[]> =>
-  (await abiItems(String(values.factoryChildEvmJsonAbi ?? "")))
+  (await abiItems(String(values.evmJsonAbiId ?? "")))
     .filter((e) => e.type === "event" && e.name)
     .map((e) => ({ value: e.name!, label: e.name! }));
 
 // Arguments of the event selected in `factoryCreationFunctionName`, within the
-// ABI selected in `factoryChildEvmJsonAbi`.
+// factory's own ABI (`evmJsonAbiId`).
 export const abiEventArgOptions = async (values: FormValues): Promise<Option[]> => {
-  const items = await abiItems(String(values.factoryChildEvmJsonAbi ?? ""));
+  const items = await abiItems(String(values.evmJsonAbiId ?? ""));
   const eventName = String(values.factoryCreationFunctionName ?? "");
   const event = items.find((e) => e.type === "event" && e.name === eventName);
   return (event?.inputs ?? [])

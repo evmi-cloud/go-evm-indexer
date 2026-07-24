@@ -36,8 +36,8 @@ export const sources: Resource<EvmLogSource> = {
     // Factory: how to discover child contracts.
     { name: "factoryChildEvmJsonAbi", label: "Child contract ABI", type: "select", optionsFrom: abiOptions, showIf: forType("FACTORY") },
     // Event / arg selects are derived from the child ABI selected above.
-    { name: "factoryCreationFunctionName", label: "Creation event name", type: "select", loadOptions: abiEventOptions, depends: ["factoryChildEvmJsonAbi"], showIf: forType("FACTORY") },
-    { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "select", loadOptions: abiEventArgOptions, depends: ["factoryChildEvmJsonAbi", "factoryCreationFunctionName"], showIf: forType("FACTORY") },
+    { name: "factoryCreationFunctionName", label: "Creation event name", type: "select", loadOptions: abiEventOptions, depends: ["evmJsonAbiId"], help: "Event on the factory's ABI that announces a new contract", showIf: forType("FACTORY") },
+    { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "select", loadOptions: abiEventArgOptions, depends: ["evmJsonAbiId", "factoryCreationFunctionName"], showIf: forType("FACTORY") },
   ],
   columns: [
     { label: "ID", get: (s) => String(s.id ?? "") },
