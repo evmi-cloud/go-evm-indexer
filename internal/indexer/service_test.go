@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"database/sql"
 	"path/filepath"
 	"testing"
 
@@ -18,14 +17,13 @@ func newSourceIndexerForTest(t *testing.T, factory evmi_database.EvmLogSource) *
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&evmi_database.EvmLogSource{}); err != nil {
+	if err := db.AutoMigrate(&evmi_database.EvmLogSource{}, &evmi_database.EvmFactoryRule{}, &evmi_database.EvmFactoryRuleCondition{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	if err := db.Create(&factory).Error; err != nil {
 		t.Fatalf("create factory: %v", err)
 	}
 	s := NewSourceIndexerService(&evmi_database.EvmiDatabase{Conn: db}, internal_bus.InitializeBus(), nil, factory)
-	// The method reads p.pipeline.ID / p.source; set them from the persisted factory.
 	s.source = factory
 	s.pipeline = evmi_database.EvmLogPipeline{}
 	s.pipeline.ID = factory.EvmLogPipelineID
@@ -35,15 +33,16 @@ func newSourceIndexerForTest(t *testing.T, factory evmi_database.EvmLogSource) *
 
 func TestRegisterFactoryChildCreatesAndDedupes(t *testing.T) {
 	factory := evmi_database.EvmLogSource{
-		Enabled:                true,
-		Type:                   string(evmi_database.FactoryLogSourceType),
-		EvmLogPipelineID:       3,
-		EvmBlockchainID:        2,
-		FactoryChildEvmJsonABI: sql.NullInt32{Int32: 7, Valid: true},
+		Enabled:          true,
+		Type:             string(evmi_database.FactoryLogSourceType),
+		EvmLogPipelineID: 3,
+		EvmBlockchainID:  2,
 	}
 	s := newSourceIndexerForTest(t, factory)
 
-	if err := s.registerFactoryChild("0xChildContract", 1200); err != nil {
+	rule := evmi_database.EvmFactoryRule{ChildType: string(evmi_database.ContractLogSourceType), EvmJsonAbiID: 7}
+
+	if err := s.registerFactoryChild(rule, "0xChildContract", 1200); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
@@ -69,7 +68,7 @@ func TestRegisterFactoryChildCreatesAndDedupes(t *testing.T) {
 	}
 
 	// Re-seeing the same (factory, address) deployment must not duplicate.
-	if err := s.registerFactoryChild("0xChildContract", 1200); err != nil {
+	if err := s.registerFactoryChild(rule, "0xChildContract", 1200); err != nil {
 		t.Fatalf("re-register: %v", err)
 	}
 	var count int64
@@ -80,19 +79,10 @@ func TestRegisterFactoryChildCreatesAndDedupes(t *testing.T) {
 }
 
 func TestRegisterFactoryChildUniquePerFactory(t *testing.T) {
-	factoryA := evmi_database.EvmLogSource{
-		Type:             string(evmi_database.FactoryLogSourceType),
-		EvmLogPipelineID: 3,
-		EvmBlockchainID:  2,
-	}
+	factoryA := evmi_database.EvmLogSource{Type: string(evmi_database.FactoryLogSourceType), EvmLogPipelineID: 3, EvmBlockchainID: 2}
 	sA := newSourceIndexerForTest(t, factoryA)
 
-	// A second factory persisted in the same DB, sharing the child address.
-	factoryB := evmi_database.EvmLogSource{
-		Type:             string(evmi_database.FactoryLogSourceType),
-		EvmLogPipelineID: 4,
-		EvmBlockchainID:  2,
-	}
+	factoryB := evmi_database.EvmLogSource{Type: string(evmi_database.FactoryLogSourceType), EvmLogPipelineID: 4, EvmBlockchainID: 2}
 	if err := sA.db.Conn.Create(&factoryB).Error; err != nil {
 		t.Fatalf("create factory B: %v", err)
 	}
@@ -101,11 +91,12 @@ func TestRegisterFactoryChildUniquePerFactory(t *testing.T) {
 	sB.pipeline.ID = factoryB.EvmLogPipelineID
 	sB.logger = zerolog.Nop()
 
-	if err := sA.registerFactoryChild("0xSharedChild", 100); err != nil {
+	rule := evmi_database.EvmFactoryRule{ChildType: string(evmi_database.ContractLogSourceType), EvmJsonAbiID: 5}
+	if err := sA.registerFactoryChild(rule, "0xSharedChild", 100); err != nil {
 		t.Fatalf("register A: %v", err)
 	}
 	// Same address from a different factory must still create (uniqueness is per factory).
-	if err := sB.registerFactoryChild("0xSharedChild", 100); err != nil {
+	if err := sB.registerFactoryChild(rule, "0xSharedChild", 100); err != nil {
 		t.Fatalf("register B: %v", err)
 	}
 
@@ -113,5 +104,57 @@ func TestRegisterFactoryChildUniquePerFactory(t *testing.T) {
 	sA.db.Conn.Model(&evmi_database.EvmLogSource{}).Where("address = ?", "0xSharedChild").Count(&count)
 	if count != 2 {
 		t.Fatalf("expected 2 children (one per factory), got %d", count)
+	}
+}
+
+func TestRegisterFactoryChildCreatesNestedFactory(t *testing.T) {
+	factory := evmi_database.EvmLogSource{Type: string(evmi_database.FactoryLogSourceType), EvmLogPipelineID: 3, EvmBlockchainID: 2}
+	s := newSourceIndexerForTest(t, factory)
+
+	// Top-level rule R: spawn a FACTORY child (ABI 7). R has a child rule R1: the
+	// child factory spawns CONTRACT grandchildren (ABI 9) on "PoolCreated".
+	rule := evmi_database.EvmFactoryRule{
+		EvmLogSourceID: s.source.ID,
+		ChildType:      string(evmi_database.FactoryLogSourceType),
+		EvmJsonAbiID:   7,
+	}
+	if err := s.db.Conn.Create(&rule).Error; err != nil {
+		t.Fatal(err)
+	}
+	grandRule := evmi_database.EvmFactoryRule{
+		ParentRuleID:          rule.ID,
+		CreationFunctionName:  "PoolCreated",
+		CreationAddressLogArg: "pool",
+		ChildType:             string(evmi_database.ContractLogSourceType),
+		EvmJsonAbiID:          9,
+	}
+	if err := s.db.Conn.Create(&grandRule).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.registerFactoryChild(rule, "0xSubFactory", 500); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	var child evmi_database.EvmLogSource
+	if err := s.db.Conn.Where("parent_source_id = ?", s.source.ID).First(&child).Error; err != nil {
+		t.Fatal(err)
+	}
+	if child.Type != string(evmi_database.FactoryLogSourceType) || child.EvmJsonAbiID != 7 {
+		t.Errorf("child factory wrong: %+v", child)
+	}
+
+	// The child factory must own a clone of R's child rules.
+	var childRules []evmi_database.EvmFactoryRule
+	if err := s.db.Conn.Where("evm_log_source_id = ? AND parent_rule_id = 0", child.ID).Find(&childRules).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(childRules) != 1 {
+		t.Fatalf("expected 1 cloned rule on the child factory, got %d", len(childRules))
+	}
+	cr := childRules[0]
+	if cr.CreationFunctionName != "PoolCreated" || cr.CreationAddressLogArg != "pool" ||
+		cr.ChildType != string(evmi_database.ContractLogSourceType) || cr.EvmJsonAbiID != 9 {
+		t.Errorf("cloned rule wrong: %+v", cr)
 	}
 }

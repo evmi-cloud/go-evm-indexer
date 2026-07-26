@@ -105,6 +105,11 @@ func LoadDatabase(dbType DatabaseType, config map[string]string, logger zerolog.
 		return nil, err
 	}
 
+	err = db.AutoMigrate(&EvmFactoryRule{}, &EvmFactoryRuleCondition{})
+	if err != nil {
+		return nil, err
+	}
+
 	err = db.AutoMigrate(&EvmiExporter{})
 	if err != nil {
 		return nil, err

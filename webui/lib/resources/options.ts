@@ -88,24 +88,19 @@ export const abiEventIndexedArgs = async (abiId: string, topic0: string): Promis
     .map((p) => ({ name: p.name!, type: p.type }));
 };
 
-// Event names of the FACTORY source's own ABI (`evmJsonAbiId`). The creation
-// event is emitted by the factory contract and decoded with that ABI — NOT the
-// child contract's ABI.
-export const abiEventOptions = async (values: FormValues): Promise<Option[]> =>
-  (await abiItems(String(values.evmJsonAbiId ?? "")))
-    .filter((e) => e.type === "event" && e.name)
-    .map((e) => ({ value: e.name!, label: e.name! }));
+// An event of an ABI: its name and (named) arguments.
+export type AbiEvent = { name: string; inputs: IndexedArg[] };
 
-// Arguments of the event selected in `factoryCreationFunctionName`, within the
-// factory's own ABI (`evmJsonAbiId`).
-export const abiEventArgOptions = async (values: FormValues): Promise<Option[]> => {
-  const items = await abiItems(String(values.evmJsonAbiId ?? ""));
-  const eventName = String(values.factoryCreationFunctionName ?? "");
-  const event = items.find((e) => e.type === "event" && e.name === eventName);
-  return (event?.inputs ?? [])
-    .filter((p) => p.name)
-    .map((p) => ({ value: p.name!, label: `${p.name} (${p.type})` }));
-};
+// Events of the ABI with the given id, with their named arguments. Used by the
+// factory rules editor to offer the creation event (and its address arg) as
+// selects, decoded against the ABI of the factory the rule belongs to.
+export const abiEvents = async (abiId: string): Promise<AbiEvent[]> =>
+  (await abiItems(abiId))
+    .filter((e) => e.type === "event" && e.name)
+    .map((e) => ({
+      name: e.name!,
+      inputs: (e.inputs ?? []).filter((p) => p.name).map((p) => ({ name: p.name!, type: p.type })),
+    }));
 
 export const blockchainOptions = async (): Promise<Option[]> =>
   ((await client.listEvmBlockchains(PAGE)).blockchains ?? []).map((b) => ({

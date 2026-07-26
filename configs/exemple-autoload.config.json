@@ -68,9 +68,14 @@
                 "enabled": true,
                 "startBlock": 10000835,
                 "address": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
-                "factoryChildAbi": "ERC20",
-                "factoryCreationFunctionName": "PairCreated",
-                "factoryCreationAddressLogArg": "pair"
+                "factoryRules": [
+                    {
+                        "creationFunctionName": "PairCreated",
+                        "creationAddressLogArg": "pair",
+                        "childAbi": "ERC20",
+                        "childType": "CONTRACT"
+                    }
+                ]
             }
         ],
         "exporters": [

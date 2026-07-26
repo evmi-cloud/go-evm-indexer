@@ -27,20 +27,6 @@ func (e *EvmIndexerServer) CreateEvmLogSource(ctx context.Context, req *connect.
 		},
 		TopicFilters: req.Msg.Source.TopicFilters,
 
-		// Factory type data
-		FactoryChildEvmJsonABI: sql.NullInt32{
-			Int32: DerefOrEmpty(req.Msg.Source.FactoryChildEvmJsonAbi),
-			Valid: IsNotNil(req.Msg.Source.FactoryChildEvmJsonAbi),
-		},
-		FactoryCreationFunctionName: sql.NullString{
-			String: DerefOrEmpty(req.Msg.Source.FactoryCreationFunctionName),
-			Valid:  IsNotNil(req.Msg.Source.FactoryCreationFunctionName),
-		},
-		FactoryCreationAddressLogArg: sql.NullString{
-			String: DerefOrEmpty(req.Msg.Source.FactoryCreationAddressLogArg),
-			Valid:  IsNotNil(req.Msg.Source.FactoryCreationAddressLogArg),
-		},
-
 		EvmLogPipelineID: uint(req.Msg.Source.EvmLogPipelineId),
 		EvmJsonAbiID:     uint(req.Msg.Source.EvmJsonAbiId),
 		EvmBlockchainID:  uint(req.Msg.Source.EvmBlockchainId),
@@ -49,6 +35,11 @@ func (e *EvmIndexerServer) CreateEvmLogSource(ctx context.Context, req *connect.
 	result := e.db.Conn.Create(&newLogSource)
 	if result.Error != nil {
 		return nil, dbError(result.Error)
+	}
+
+	// FACTORY sources carry N creation rules (recursive tree).
+	if err := e.saveFactoryRules(newLogSource.ID, req.Msg.Source.FactoryRules); err != nil {
+		return nil, dbError(err)
 	}
 
 	return &connect.Response[evm_indexerv1.CreateEvmLogSourceResponse]{
@@ -83,7 +74,7 @@ func (e *EvmIndexerServer) GetEvmLogSource(ctx context.Context, req *connect.Req
 
 	return &connect.Response[evm_indexerv1.GetEvmLogSourceResponse]{
 		Msg: &evm_indexerv1.GetEvmLogSourceResponse{
-			Source: toGrpcLogSource(logSource),
+			Source: e.toGrpcLogSource(logSource),
 		},
 	}, nil
 }
@@ -103,7 +94,7 @@ func (e *EvmIndexerServer) ListEvmLogSources(ctx context.Context, req *connect.R
 
 	return &connect.Response[evm_indexerv1.ListEvmLogSourcesResponse]{
 		Msg: &evm_indexerv1.ListEvmLogSourcesResponse{
-			Sources: toGrpcLogSources(logSources),
+			Sources: e.toGrpcLogSources(logSources),
 		},
 	}, nil
 }
@@ -130,19 +121,6 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 	}
 	logSoure.TopicFilters = req.Msg.Source.TopicFilters
 
-	logSoure.FactoryChildEvmJsonABI = sql.NullInt32{
-		Int32: DerefOrEmpty(req.Msg.Source.FactoryChildEvmJsonAbi),
-		Valid: IsNotNil(req.Msg.Source.FactoryChildEvmJsonAbi),
-	}
-	logSoure.FactoryCreationFunctionName = sql.NullString{
-		String: DerefOrEmpty(req.Msg.Source.FactoryCreationFunctionName),
-		Valid:  IsNotNil(req.Msg.Source.FactoryCreationFunctionName),
-	}
-	logSoure.FactoryCreationAddressLogArg = sql.NullString{
-		String: DerefOrEmpty(req.Msg.Source.FactoryCreationAddressLogArg),
-		Valid:  IsNotNil(req.Msg.Source.FactoryCreationAddressLogArg),
-	}
-
 	logSoure.EvmLogPipelineID = uint(req.Msg.Source.EvmLogPipelineId)
 	logSoure.EvmJsonAbiID = uint(req.Msg.Source.EvmJsonAbiId)
 	logSoure.EvmBlockchainID = uint(req.Msg.Source.EvmBlockchainId)
@@ -150,6 +128,12 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 	result = e.db.Conn.Save(&logSoure)
 	if result.Error != nil {
 		return nil, dbError(result.Error)
+	}
+
+	// Replace the source's factory rule tree (spawned children keep their own
+	// cloned rules, which live under a different source id).
+	if err := e.saveFactoryRules(logSoure.ID, req.Msg.Source.FactoryRules); err != nil {
+		return nil, dbError(err)
 	}
 
 	return &connect.Response[evm_indexerv1.UpdateEvmLogSourceResponse]{
@@ -256,27 +240,30 @@ func IsNotNil[T any](val *T) bool {
 	return val != nil
 }
 
-func toGrpcLogSource(logSource evmi_database.EvmLogSource) *evm_indexerv1.EvmLogSource {
+func (e *EvmIndexerServer) toGrpcLogSource(logSource evmi_database.EvmLogSource) *evm_indexerv1.EvmLogSource {
 	id := uint32(logSource.ID)
 	createdAt := uint32(logSource.CreatedAt.Unix())
 	updatedAt := uint32(logSource.UpdatedAt.Unix())
 	deletedAt := uint32(logSource.DeletedAt.Time.Unix())
+	// Only FACTORY sources have creation rules; skip the DB read otherwise.
+	var rules []*evm_indexerv1.FactoryRule
+	if logSource.Type == string(evmi_database.FactoryLogSourceType) {
+		rules, _ = e.loadFactoryRules(logSource.ID)
+	}
 	return &evm_indexerv1.EvmLogSource{
-		Id:                           &id,
-		Type:                         string(logSource.Type),
-		Enabled:                      logSource.Enabled,
-		Status:                       string(logSource.Status),
-		StartBlock:                   logSource.StartBlock,
-		SyncBlock:                    logSource.SyncBlock,
-		Address:                      &logSource.Address.String,
-		Topic0:                       &logSource.Topic0.String,
-		TopicFilters:                 logSource.TopicFilters,
-		FactoryChildEvmJsonAbi:       &logSource.FactoryChildEvmJsonABI.Int32,
-		FactoryCreationFunctionName:  &logSource.FactoryCreationFunctionName.String,
-		FactoryCreationAddressLogArg: &logSource.FactoryCreationAddressLogArg.String,
-		EvmBlockchainId:              uint32(logSource.EvmBlockchainID),
-		EvmLogPipelineId:             uint32(logSource.EvmLogPipelineID),
-		EvmJsonAbiId:                 uint32(logSource.EvmJsonAbiID),
+		Id:               &id,
+		Type:             string(logSource.Type),
+		Enabled:          logSource.Enabled,
+		Status:           string(logSource.Status),
+		StartBlock:       logSource.StartBlock,
+		SyncBlock:        logSource.SyncBlock,
+		Address:          &logSource.Address.String,
+		Topic0:           &logSource.Topic0.String,
+		TopicFilters:     logSource.TopicFilters,
+		FactoryRules:     rules,
+		EvmBlockchainId:  uint32(logSource.EvmBlockchainID),
+		EvmLogPipelineId: uint32(logSource.EvmLogPipelineID),
+		EvmJsonAbiId:     uint32(logSource.EvmJsonAbiID),
 
 		CreatedAt: &createdAt,
 		UpdatedAt: &updatedAt,
@@ -284,12 +271,121 @@ func toGrpcLogSource(logSource evmi_database.EvmLogSource) *evm_indexerv1.EvmLog
 	}
 }
 
-func toGrpcLogSources(logSources []evmi_database.EvmLogSource) []*evm_indexerv1.EvmLogSource {
-	var result []*evm_indexerv1.EvmLogSource
-
+func (e *EvmIndexerServer) toGrpcLogSources(logSources []evmi_database.EvmLogSource) []*evm_indexerv1.EvmLogSource {
+	result := make([]*evm_indexerv1.EvmLogSource, 0, len(logSources))
 	for _, logSource := range logSources {
-		result = append(result, toGrpcLogSource(logSource))
+		result = append(result, e.toGrpcLogSource(logSource))
 	}
-
 	return result
+}
+
+// --- factory rule tree persistence (recursive) ---
+
+// saveFactoryRules replaces a source's factory rule tree with the given rules
+// (rules cloned onto spawned children live under a different source id and are
+// untouched).
+func (e *EvmIndexerServer) saveFactoryRules(sourceID uint, rules []*evm_indexerv1.FactoryRule) error {
+	if err := e.deleteFactoryRules(sourceID); err != nil {
+		return err
+	}
+	return e.createFactoryRules(sourceID, 0, rules)
+}
+
+func (e *EvmIndexerServer) createFactoryRules(sourceID uint, parentRuleID uint, rules []*evm_indexerv1.FactoryRule) error {
+	for _, r := range rules {
+		row := evmi_database.EvmFactoryRule{
+			ParentRuleID:          parentRuleID,
+			CreationFunctionName:  r.CreationFunctionName,
+			CreationAddressLogArg: r.CreationAddressLogArg,
+			ChildType:             r.ChildType,
+			EvmJsonAbiID:          uint(r.EvmJsonAbiId),
+		}
+		if parentRuleID == 0 {
+			row.EvmLogSourceID = sourceID
+		}
+		for _, c := range r.Conditions {
+			row.Conditions = append(row.Conditions, evmi_database.EvmFactoryRuleCondition{
+				Arg: c.Arg, Operator: c.Operator, Value: c.Value,
+			})
+		}
+		if err := e.db.Conn.Create(&row).Error; err != nil {
+			return err
+		}
+		if len(r.ChildRules) > 0 {
+			if err := e.createFactoryRules(sourceID, row.ID, r.ChildRules); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (e *EvmIndexerServer) deleteFactoryRules(sourceID uint) error {
+	var top []evmi_database.EvmFactoryRule
+	if err := e.db.Conn.Where("evm_log_source_id = ? AND parent_rule_id = 0", sourceID).Find(&top).Error; err != nil {
+		return err
+	}
+	for _, r := range top {
+		if err := e.deleteRuleSubtree(r.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *EvmIndexerServer) deleteRuleSubtree(ruleID uint) error {
+	var children []evmi_database.EvmFactoryRule
+	if err := e.db.Conn.Where("parent_rule_id = ?", ruleID).Find(&children).Error; err != nil {
+		return err
+	}
+	for _, c := range children {
+		if err := e.deleteRuleSubtree(c.ID); err != nil {
+			return err
+		}
+	}
+	if err := e.db.Conn.Unscoped().Where("evm_factory_rule_id = ?", ruleID).Delete(&evmi_database.EvmFactoryRuleCondition{}).Error; err != nil {
+		return err
+	}
+	return e.db.Conn.Unscoped().Delete(&evmi_database.EvmFactoryRule{}, ruleID).Error
+}
+
+func (e *EvmIndexerServer) loadFactoryRules(sourceID uint) ([]*evm_indexerv1.FactoryRule, error) {
+	return e.loadRulesAt(sourceID, 0)
+}
+
+func (e *EvmIndexerServer) loadRulesAt(sourceID uint, parentRuleID uint) ([]*evm_indexerv1.FactoryRule, error) {
+	var rows []evmi_database.EvmFactoryRule
+	q := e.db.Conn.Preload("Conditions")
+	if parentRuleID != 0 {
+		q = q.Where("parent_rule_id = ?", parentRuleID)
+	} else {
+		q = q.Where("evm_log_source_id = ? AND parent_rule_id = 0", sourceID)
+	}
+	if err := q.Order("id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*evm_indexerv1.FactoryRule, 0, len(rows))
+	for _, row := range rows {
+		rid := uint32(row.ID)
+		children, err := e.loadRulesAt(0, row.ID)
+		if err != nil {
+			return nil, err
+		}
+		conditions := make([]*evm_indexerv1.FactoryRuleCondition, 0, len(row.Conditions))
+		for _, c := range row.Conditions {
+			conditions = append(conditions, &evm_indexerv1.FactoryRuleCondition{
+				Arg: c.Arg, Operator: c.Operator, Value: c.Value,
+			})
+		}
+		out = append(out, &evm_indexerv1.FactoryRule{
+			Id:                    &rid,
+			CreationFunctionName:  row.CreationFunctionName,
+			CreationAddressLogArg: row.CreationAddressLogArg,
+			ChildType:             row.ChildType,
+			EvmJsonAbiId:          uint32(row.EvmJsonAbiID),
+			ChildRules:            children,
+			Conditions:            conditions,
+		})
+	}
+	return out, nil
 }

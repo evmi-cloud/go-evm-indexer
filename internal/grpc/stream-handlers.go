@@ -35,7 +35,7 @@ func (e *EvmIndexerServer) StreamEvmLogSourceUpdates(
 				return
 			}
 			select {
-			case updates <- toGrpcLogSource(source):
+			case updates <- e.toGrpcLogSource(source):
 			default:
 				// Drop when the client can't keep up; the next update supersedes it.
 			}

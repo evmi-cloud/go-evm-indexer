@@ -12,7 +12,8 @@ export type FieldType =
   | "select"
   | "pluginConfig"
   | "keyedConfig"
-  | "topicFilters";
+  | "topicFilters"
+  | "factoryRules";
 
 // One declared plugin config parameter (mirrors pkg/exporter.ConfigField).
 export type PluginConfigField = {

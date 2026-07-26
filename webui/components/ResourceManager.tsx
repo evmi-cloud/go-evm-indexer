@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectError } from "@connectrpc/connect";
 import { client } from "@/lib/client";
 import type { ConfigParam, Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
-import { abiEventIndexedArgs, type IndexedArg } from "@/lib/resources/options";
+import { abiEventIndexedArgs, abiEvents, type AbiEvent, type IndexedArg } from "@/lib/resources/options";
 
 function errorMessage(err: unknown): string {
   return err instanceof ConnectError ? err.message : err instanceof Error ? err.message : "error";
@@ -282,6 +282,14 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                   topic0={String(values.topic0 ?? "")}
                   onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
                 />
+              ) : f.type === "factoryRules" ? (
+                <FactoryRulesInput
+                  key={f.name}
+                  field={f}
+                  value={String(values[f.name] ?? "")}
+                  abiId={String(values.evmJsonAbiId ?? "")}
+                  onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
+                />
               ) : f.type === "select" && f.loadOptions ? (
                 <DynamicSelectInput
                   key={f.name}
@@ -499,6 +507,239 @@ function topicPlaceholder(type: string): string {
   if (type === "bool") return "true / false (blank = any)";
   if (/^bytes\d+$/.test(type)) return "0x… (blank = any)";
   return "0x… 32-byte topic (blank = any)";
+}
+
+// A factory creation rule (mirrors the proto FactoryRule). A FACTORY source has N
+// of these; a rule whose child is a FACTORY carries its own childRules (recursive).
+type FactoryRuleCondition = { arg?: string; operator?: string; value?: string };
+type FactoryRule = {
+  creationFunctionName?: string;
+  creationAddressLogArg?: string;
+  evmJsonAbiId?: number;
+  childType?: "CONTRACT" | "FACTORY";
+  conditions?: FactoryRuleCondition[];
+  childRules?: FactoryRule[];
+};
+
+const CONDITION_OPS = ["eq", "neq", "gt", "gte", "lt", "lte", "contains"];
+
+// ConditionsEditor edits a rule's conditions (arg / operator / value); a child is
+// created only when all pass. The arg is picked from the creation event's args.
+function ConditionsEditor({
+  conditions,
+  eventArgs,
+  onChange,
+}: {
+  conditions: FactoryRuleCondition[];
+  eventArgs: IndexedArg[];
+  onChange: (c: FactoryRuleCondition[]) => void;
+}) {
+  function set(ci: number, patch: Partial<FactoryRuleCondition>) {
+    onChange(conditions.map((c, k) => (k === ci ? { ...c, ...patch } : c)));
+  }
+  return (
+    <div>
+      <label>Conditions (all must pass to create the child)</label>
+      {conditions.map((c, ci) => (
+        <div key={ci} className="row" style={{ gap: 6, marginBottom: 4 }}>
+          <select value={c.arg ?? ""} onChange={(e) => set(ci, { arg: e.target.value })}>
+            <option value="">arg…</option>
+            {eventArgs.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name} ({p.type})
+              </option>
+            ))}
+          </select>
+          <select value={c.operator ?? "eq"} onChange={(e) => set(ci, { operator: e.target.value })}>
+            {CONDITION_OPS.map((op) => (
+              <option key={op} value={op}>
+                {op}
+              </option>
+            ))}
+          </select>
+          <input type="text" placeholder="value" value={c.value ?? ""} onChange={(e) => set(ci, { value: e.target.value })} />
+          <button type="button" className="danger small" onClick={() => onChange(conditions.filter((_, k) => k !== ci))}>
+            ×
+          </button>
+        </div>
+      ))}
+      <button type="button" className="secondary small" onClick={() => onChange([...conditions, { operator: "eq" }])}>
+        + Add condition
+      </button>
+    </div>
+  );
+}
+
+function useAbiOptions(): Option[] {
+  const [abis, setAbis] = useState<Option[]>([]);
+  useEffect(() => {
+    client
+      .listEvmJsonAbis({ pagination: { offset: 0, limit: 200 } })
+      .then((r) => setAbis((r.abis ?? []).map((a) => ({ value: String(a.id ?? 0), label: `${a.contractName} (#${a.id})` }))))
+      .catch(() => setAbis([]));
+  }, []);
+  return abis;
+}
+
+// useAbiEvents loads the events (with their args) of a given ABI id, so a rule's
+// creation event / address arg can be picked from the ABI it's decoded against.
+function useAbiEvents(abiId: string): AbiEvent[] {
+  const [events, setEvents] = useState<AbiEvent[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!abiId) {
+      setEvents([]);
+      return;
+    }
+    abiEvents(abiId)
+      .then((e) => !cancelled && setEvents(e))
+      .catch(() => !cancelled && setEvents([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [abiId]);
+  return events;
+}
+
+// FactoryRulesInput edits the list of a factory's creation rules as JSON (an
+// array of FactoryRule), recursing into childRules when a rule spawns factories.
+// abiId is the ABI of the factory these top-level rules belong to (the source's
+// own ABI); nested rules use their parent rule's child ABI.
+function FactoryRulesInput({
+  field,
+  value,
+  abiId,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  abiId: string;
+  onChange: (v: string) => void;
+}) {
+  const abis = useAbiOptions();
+
+  const rules = useMemo<FactoryRule[]>(() => {
+    try {
+      const parsed = JSON.parse(value || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [value]);
+
+  return (
+    <div>
+      <label>{field.label}</label>
+      <RuleList rules={rules} abis={abis} ownerAbiId={abiId} onChange={(next) => onChange(JSON.stringify(next))} depth={0} />
+    </div>
+  );
+}
+
+// RuleList renders and edits an array of FactoryRule, with add/remove and nested
+// child rules for factory children. ownerAbiId is the ABI the rules' creation
+// events are decoded against.
+function RuleList({
+  rules,
+  abis,
+  ownerAbiId,
+  onChange,
+  depth,
+}: {
+  rules: FactoryRule[];
+  abis: Option[];
+  ownerAbiId: string;
+  onChange: (rules: FactoryRule[]) => void;
+  depth: number;
+}) {
+  const events = useAbiEvents(ownerAbiId);
+  function update(i: number, patch: Partial<FactoryRule>) {
+    const next = rules.map((r, j) => (j === i ? { ...r, ...patch } : r));
+    onChange(next);
+  }
+  function remove(i: number) {
+    onChange(rules.filter((_, j) => j !== i));
+  }
+  function add() {
+    onChange([...rules, { childType: "CONTRACT" }]);
+  }
+
+  return (
+    <div className="config-schema" style={depth ? { borderLeft: "2px solid var(--border, #333)", paddingLeft: 12 } : undefined}>
+      {rules.length === 0 && <p className="field-help">No rules — a factory needs at least one.</p>}
+      {rules.map((r, i) => (
+        <div key={i} style={{ border: "1px solid var(--border, #333)", borderRadius: 6, padding: 8, marginBottom: 8 }}>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <strong style={{ fontSize: 13 }}>Rule {i + 1}</strong>
+            <button type="button" className="danger small" onClick={() => remove(i)}>
+              Remove
+            </button>
+          </div>
+          <div>
+            <label>Creation event name</label>
+            {/* Events of the ABI this rule's factory is decoded with; reset the arg when the event changes. */}
+            <select value={r.creationFunctionName ?? ""} onChange={(e) => update(i, { creationFunctionName: e.target.value, creationAddressLogArg: undefined })}>
+              <option value="">{ownerAbiId ? "—" : "select an ABI first"}</option>
+              {events.map((ev) => (
+                <option key={ev.name} value={ev.name}>
+                  {ev.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Creation address arg</label>
+            <select value={r.creationAddressLogArg ?? ""} onChange={(e) => update(i, { creationAddressLogArg: e.target.value })}>
+              <option value="">—</option>
+              {(events.find((ev) => ev.name === r.creationFunctionName)?.inputs ?? []).map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name} ({p.type})
+                </option>
+              ))}
+            </select>
+          </div>
+          <ConditionsEditor
+            conditions={r.conditions ?? []}
+            eventArgs={events.find((ev) => ev.name === r.creationFunctionName)?.inputs ?? []}
+            onChange={(c) => update(i, { conditions: c })}
+          />
+          <div>
+            <label>Child contract ABI</label>
+            <select value={String(r.evmJsonAbiId ?? "")} onChange={(e) => update(i, { evmJsonAbiId: e.target.value ? Number(e.target.value) : undefined })}>
+              <option value="">—</option>
+              {abis.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Child source type</label>
+            <select
+              value={r.childType ?? "CONTRACT"}
+              onChange={(e) => {
+                const t = e.target.value as "CONTRACT" | "FACTORY";
+                update(i, { childType: t, childRules: t === "FACTORY" ? r.childRules ?? [] : undefined });
+              }}
+            >
+              <option value="CONTRACT">Contract</option>
+              <option value="FACTORY">Factory (nested)</option>
+            </select>
+          </div>
+          {r.childType === "FACTORY" && (
+            <div>
+              <label>Child factory rules</label>
+              {/* Nested rules are decoded against this rule's child ABI. */}
+              <RuleList rules={r.childRules ?? []} abis={abis} ownerAbiId={String(r.evmJsonAbiId ?? "")} depth={depth + 1} onChange={(cr) => update(i, { childRules: cr })} />
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" className="secondary small" onClick={add}>
+        + Add rule
+      </button>
+    </div>
+  );
 }
 
 // TopicFiltersInput renders one filter input per indexed argument of the event

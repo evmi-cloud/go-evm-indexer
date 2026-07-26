@@ -66,13 +66,116 @@ func NewSourceIndexerService(
 	}
 }
 
-// registerFactoryChild creates a CONTRACT source for a contract newly deployed
-// by this FACTORY source. Uniqueness is per (factory source id, child address):
-// re-seeing the same deployment is a no-op. It returns an error on DB failure so
-// the caller can block the factory cursor and let the supervisor retry the range
-// (the child is created enabled and started best-effort via the enable topic,
-// which is idempotent and also picked up on restart).
-func (p *SourceIndexerService) registerFactoryChild(address string, startBlock uint64) error {
+// factoryRules returns this FACTORY source's top-level creation rules.
+func (p *SourceIndexerService) factoryRules() ([]evmi_database.EvmFactoryRule, error) {
+	var rules []evmi_database.EvmFactoryRule
+	err := p.db.Conn.
+		Preload("Conditions").
+		Where("evm_log_source_id = ? AND parent_rule_id = 0", p.source.ID).
+		Order("id").
+		Find(&rules).Error
+	return rules, err
+}
+
+// ruleConditionsPass reports whether every condition of a rule holds for the
+// decoded event args. An empty condition set always passes.
+func ruleConditionsPass(rule evmi_database.EvmFactoryRule, args map[string]string) bool {
+	for _, c := range rule.Conditions {
+		if !evalCondition(args[c.Arg], c.Operator, c.Value) {
+			return false
+		}
+	}
+	return true
+}
+
+// evalCondition compares a decoded arg value against expected using operator.
+// Numeric comparison is used when both parse as integers; otherwise a
+// case-insensitive string comparison (so e.g. addresses match regardless of case).
+func evalCondition(actual, operator, expected string) bool {
+	if an, aok := new(big.Int).SetString(strings.TrimSpace(actual), 10); aok {
+		if en, eok := new(big.Int).SetString(strings.TrimSpace(expected), 10); eok {
+			switch cmp := an.Cmp(en); operator {
+			case "eq":
+				return cmp == 0
+			case "neq":
+				return cmp != 0
+			case "gt":
+				return cmp > 0
+			case "gte":
+				return cmp >= 0
+			case "lt":
+				return cmp < 0
+			case "lte":
+				return cmp <= 0
+			}
+		}
+	}
+
+	a := strings.ToLower(strings.TrimSpace(actual))
+	e := strings.ToLower(strings.TrimSpace(expected))
+	switch operator {
+	case "eq":
+		return a == e
+	case "neq":
+		return a != e
+	case "contains":
+		return strings.Contains(a, e)
+	case "gt":
+		return a > e
+	case "gte":
+		return a >= e
+	case "lt":
+		return a < e
+	case "lte":
+		return a <= e
+	}
+	return false
+}
+
+// cloneFactoryRuleSubtree copies the rules nested under templateParentRuleID onto a
+// spawned FACTORY child, re-parenting them: the rule's immediate children become
+// the child's top-level rules (EvmLogSourceID = childSourceID, ParentRuleID = 0),
+// and deeper rules become nested rules of the clones. Recurses so the whole
+// subtree is available for further nesting.
+func (p *SourceIndexerService) cloneFactoryRuleSubtree(childSourceID uint, templateParentRuleID uint, newParentRuleID uint) error {
+	var templates []evmi_database.EvmFactoryRule
+	if err := p.db.Conn.Preload("Conditions").Where("parent_rule_id = ?", templateParentRuleID).Order("id").Find(&templates).Error; err != nil {
+		return err
+	}
+	for _, t := range templates {
+		clone := evmi_database.EvmFactoryRule{
+			ParentRuleID:          newParentRuleID,
+			CreationFunctionName:  t.CreationFunctionName,
+			CreationAddressLogArg: t.CreationAddressLogArg,
+			ChildType:             t.ChildType,
+			EvmJsonAbiID:          t.EvmJsonAbiID,
+		}
+		if newParentRuleID == 0 {
+			clone.EvmLogSourceID = childSourceID // a top-level rule of the child
+		}
+		// Copy the rule's conditions onto the clone.
+		for _, c := range t.Conditions {
+			clone.Conditions = append(clone.Conditions, evmi_database.EvmFactoryRuleCondition{
+				Arg: c.Arg, Operator: c.Operator, Value: c.Value,
+			})
+		}
+		if err := p.db.Conn.Create(&clone).Error; err != nil {
+			return err
+		}
+		if err := p.cloneFactoryRuleSubtree(childSourceID, t.ID, clone.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// registerFactoryChild creates a source for a contract newly deployed by this
+// FACTORY source, per one matched rule. Uniqueness is per (factory source id,
+// child address): re-seeing the same deployment is a no-op. It returns an error
+// on DB failure so the caller can block the factory cursor and let the supervisor
+// retry the range (the child is created enabled and started best-effort via the
+// enable topic, which is idempotent and also picked up on restart).
+func (p *SourceIndexerService) registerFactoryChild(rule evmi_database.EvmFactoryRule, address string, startBlock uint64) error {
 	var existing int64
 	if err := p.db.Conn.Model(&evmi_database.EvmLogSource{}).
 		Where("parent_source_id = ? AND address = ?", p.source.ID, address).
@@ -83,54 +186,77 @@ func (p *SourceIndexerService) registerFactoryChild(address string, startBlock u
 		return nil
 	}
 
+	childType := rule.ChildType
+	if childType == "" {
+		childType = string(evmi_database.ContractLogSourceType)
+	}
+
 	child := evmi_database.EvmLogSource{
 		Enabled:          true,
 		Status:           string(evmi_database.StoppedLogSourceStatus),
-		Type:             string(evmi_database.ContractLogSourceType),
+		Type:             childType,
 		StartBlock:       startBlock,
 		SyncBlock:        startBlock,
 		Address:          sql.NullString{String: address, Valid: true},
 		ParentSourceID:   p.source.ID,
 		EvmLogPipelineID: p.pipeline.ID,
-		EvmJsonAbiID:     uint(p.source.FactoryChildEvmJsonABI.Int32),
+		EvmJsonAbiID:     rule.EvmJsonAbiID,
 		EvmBlockchainID:  p.source.EvmBlockchainID,
 	}
 	if err := p.db.Conn.Create(&child).Error; err != nil {
 		return err
 	}
 
-	p.logger.Info().Msg("registered factory child source id " + fmt.Sprint(child.ID) + " for " + address)
+	// A FACTORY child gets its own copy of the rule's nested rules.
+	if childType == string(evmi_database.FactoryLogSourceType) {
+		if err := p.cloneFactoryRuleSubtree(child.ID, rule.ID, 0); err != nil {
+			return err
+		}
+	}
+
+	p.logger.Info().Msg("registered factory child source id " + fmt.Sprint(child.ID) + " (" + childType + ") for " + address)
 	// Best-effort start; the manager creates+supervises the indexer. On failure the
 	// child stays enabled in DB and is started on the next manager boot.
 	p.bus.Emit(context.Background(), internal_bus.EnableSourceTopic, child.ID)
 	return nil
 }
 
-// registerFactoryChildren scans a batch of decoded logs for this factory's
-// creation event and registers a child source for each deployed contract. A
-// failure must NOT advance the cursor: the error is returned so the supervisor
-// retries the range and re-attempts registration.
+// registerFactoryChildren scans a batch of decoded logs against every active
+// creation rule and registers a child source for each matched deployment (one
+// factory can create N kinds of contract). A failure must NOT advance the cursor:
+// the error is returned so the supervisor retries the range and re-attempts.
 func (p *SourceIndexerService) registerFactoryChildren(dbLogs []types.EvmLog) error {
-	for _, log := range dbLogs {
-		if log.Metadata.EventName != p.source.FactoryCreationFunctionName.String {
-			continue
-		}
+	rules, err := p.factoryRules()
+	if err != nil {
+		return err
+	}
 
-		newContractAddress, ok := log.Metadata.Data[p.source.FactoryCreationAddressLogArg.String]
-		if !ok {
-			logParams := map[string]interface{}{
-				"transaction": log.TransactionHash,
-				"logIndex":    log.LogIndex,
-				"block":       log.BlockNumber,
+	for _, log := range dbLogs {
+		for _, rule := range rules {
+			if log.Metadata.EventName != rule.CreationFunctionName {
+				continue
 			}
 
-			p.logger.Error().Fields(logParams).Msg("Unable to retrieve new contract from factory log")
-			continue
-		}
+			// Only create the child when the rule's conditions on the event args hold.
+			if !ruleConditionsPass(rule, log.Metadata.Data) {
+				continue
+			}
 
-		if err := p.registerFactoryChild(newContractAddress, log.BlockNumber); err != nil {
-			p.logger.Error().Msg("factory child registration failed: " + err.Error())
-			return err
+			newContractAddress, ok := log.Metadata.Data[rule.CreationAddressLogArg]
+			if !ok {
+				p.logger.Error().Fields(map[string]interface{}{
+					"transaction": log.TransactionHash,
+					"logIndex":    log.LogIndex,
+					"block":       log.BlockNumber,
+					"rule":        rule.ID,
+				}).Msg("Unable to retrieve new contract from factory log")
+				continue
+			}
+
+			if err := p.registerFactoryChild(rule, newContractAddress, log.BlockNumber); err != nil {
+				p.logger.Error().Msg("factory child registration failed: " + err.Error())
+				return err
+			}
 		}
 	}
 

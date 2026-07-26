@@ -1,7 +1,28 @@
 import { client } from "@/lib/client";
 import type { EvmLogSource } from "@/gen/evm_indexer/v1/evm_indexer_pb";
-import { PAGE, big, bool, num, optNum, optStr, str, type FormValues, type Option, type Resource } from "./types";
-import { abiEventArgOptions, abiEventOptions, abiOptions, abiTopic0Options, blockchainOptions, pipelineOptions } from "./options";
+import { PAGE, big, bool, num, optStr, str, type FormValues, type Option, type Resource } from "./types";
+import { abiOptions, abiTopic0Options, blockchainOptions, pipelineOptions } from "./options";
+
+// A FactoryRule init shape (keys match the proto message; recursive).
+type FactoryRuleInit = {
+  creationFunctionName?: string;
+  creationAddressLogArg?: string;
+  childType?: string;
+  evmJsonAbiId?: number;
+  conditions?: { arg?: string; operator?: string; value?: string }[];
+  childRules?: FactoryRuleInit[];
+};
+
+// parseFactoryRules turns the rules-editor JSON back into the FactoryRule array
+// the API expects (keys already match the proto message fields).
+function parseFactoryRules(s: string): FactoryRuleInit[] {
+  try {
+    const parsed = JSON.parse(s || "[]");
+    return Array.isArray(parsed) ? (parsed as FactoryRuleInit[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 const sourceTypeOptions: Option[] = [
   { value: "CONTRACT", label: "Contract" },
@@ -33,11 +54,9 @@ export const sources: Resource<EvmLogSource> = {
     // Topic: pick the event from the selected ABI (stored as its topic0 hash).
     { name: "topic0", label: "Event (topic0)", type: "select", loadOptions: abiTopic0Options, depends: ["evmJsonAbiId"], help: "Derived from the selected ABI", showIf: forType("TOPIC") },
     { name: "topicFilters", label: "Indexed argument filters", type: "topicFilters", showIf: forType("TOPIC") },
-    // Factory: how to discover child contracts.
-    { name: "factoryChildEvmJsonAbi", label: "Child contract ABI", type: "select", optionsFrom: abiOptions, showIf: forType("FACTORY") },
-    // Event / arg selects are derived from the child ABI selected above.
-    { name: "factoryCreationFunctionName", label: "Creation event name", type: "select", loadOptions: abiEventOptions, depends: ["evmJsonAbiId"], help: "Event on the factory's ABI that announces a new contract", showIf: forType("FACTORY") },
-    { name: "factoryCreationAddressLogArg", label: "Creation address arg", type: "select", loadOptions: abiEventArgOptions, depends: ["evmJsonAbiId", "factoryCreationFunctionName"], showIf: forType("FACTORY") },
+    // Factory: N creation rules (each: creation event → child of a type/ABI).
+    // A rule that creates a factory carries its own nested rules (recursive).
+    { name: "factoryRules", label: "Factory rules", type: "factoryRules", showIf: forType("FACTORY") },
   ],
   columns: [
     { label: "ID", get: (s) => String(s.id ?? "") },
@@ -71,9 +90,7 @@ export const sources: Resource<EvmLogSource> = {
     address: s.address ?? "",
     topic0: s.topic0 ?? "",
     topicFilters: (s.topicFilters ?? []).join("\n"),
-    factoryChildEvmJsonAbi: s.factoryChildEvmJsonAbi != null ? String(s.factoryChildEvmJsonAbi) : "",
-    factoryCreationFunctionName: s.factoryCreationFunctionName ?? "",
-    factoryCreationAddressLogArg: s.factoryCreationAddressLogArg ?? "",
+    factoryRules: JSON.stringify(s.factoryRules ?? []),
   }),
   actions: [
     { label: "Start", run: async (s) => void (await client.startSourceIndexer({ id: s.id ?? 0 })) },
@@ -110,9 +127,7 @@ function sourceFromForm(v: Parameters<Resource<EvmLogSource>["create"]>[0]) {
     // Positional topics[1..] filters: keep interior blanks (wildcards) in place,
     // trim only trailing blanks. Do NOT use splitList — it drops empties.
     topicFilters: parseTopicFilters(str(v, "topicFilters")),
-    factoryChildEvmJsonAbi: optNum(v, "factoryChildEvmJsonAbi"),
-    factoryCreationFunctionName: optStr(v, "factoryCreationFunctionName"),
-    factoryCreationAddressLogArg: optStr(v, "factoryCreationAddressLogArg"),
+    factoryRules: parseFactoryRules(str(v, "factoryRules")),
   };
 }
 

@@ -71,11 +71,23 @@ Source **types** (`LogSourceType` in `models.go`) select the poll strategy in `S
 - `TOPIC` → `serveTopicIndexation` (filter by topic0 + optional topic filters)
 - `FULL` → `serveFullIndexation` (all logs, no ABI decode)
 
-`FACTORY` additionally watches for a creation event (matched by `EventName` against the
-source's `FactoryCreationFunctionName`), reads the new contract address from the decoded event
-args, and calls `SourceIndexerService.registerFactoryChild` **inline, before the cursor
-advances**. That method **creates a new enabled `CONTRACT` child source** (uniqueness is per
-`(ParentSourceID, Address)`, so re-seeing the same deployment is a no-op) and starts it
+`FACTORY` sources have **N creation rules** (`EvmFactoryRule`, a self-referential table — a source
+has 1-to-N rules via `EvmLogSourceID`; a rule that spawns factory children has 1-to-N nested rules
+via `ParentRuleID`, making it recursive). `registerFactoryChildren` loads the source's top-level
+rules (`factoryRules()`) and, for each decoded log, matches every rule's `CreationFunctionName`
+against `EventName`, then checks the rule's **conditions** (`EvmFactoryRuleCondition` rows, 1-to-N
+via `EvmFactoryRuleID`): each is an `(Arg, Operator, Value)` gate on the decoded event args
+(`log.Metadata.Data`) and **ALL must pass** (`ruleConditionsPass`) or the rule is skipped for this
+log — so a child spawns only when the creation event's values satisfy the rule. `evalCondition`
+compares numerically (`big.Int`) when both sides parse as base-10 integers, else case-insensitively
+as strings; operators are `eq`/`neq`/`gt`/`gte`/`lt`/`lte`/`contains`. When the conditions pass it
+reads the new address from `CreationAddressLogArg` and calls
+`registerFactoryChild(rule, …)` **inline, before the cursor advances**. That method **creates a new
+enabled child source** of `rule.ChildType` (`CONTRACT` or `FACTORY`) with `rule.EvmJsonAbiID`; a
+`FACTORY` child gets its own copy of the rule's nested rules (and each rule's conditions) via
+`cloneFactoryRuleSubtree` (so each spawned factory owns its rules, independent of later edits to the
+parent). Uniqueness is per
+`(ParentSourceID, Address)`, so re-seeing the same deployment is a no-op, and it starts the child
 best-effort by emitting `source.enable`. If child creation fails it returns the error, which
 propagates out of `serve*Indexation` → `Serve`; suture then restarts the range (SyncBlock was
 not advanced) so the factory blocks and retries rather than skipping the deployment. The child

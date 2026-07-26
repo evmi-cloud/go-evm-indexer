@@ -116,9 +116,26 @@ type ConfigSource struct {
 	Topic0       string   `json:"topic0,omitempty"`
 	TopicFilters []string `json:"topicFilters,omitempty"`
 
-	FactoryChildAbi              string `json:"factoryChildAbi,omitempty"`
-	FactoryCreationFunctionName  string `json:"factoryCreationFunctionName,omitempty"`
-	FactoryCreationAddressLogArg string `json:"factoryCreationAddressLogArg,omitempty"`
+	// FactoryRules (Type == FACTORY): the creation rules, recursive.
+	FactoryRules []ConfigFactoryRule `json:"factoryRules,omitempty"`
+}
+
+// ConfigFactoryRule is one creation rule of a FACTORY source, referencing the
+// child ABI by contract name. ChildRules apply when ChildType is FACTORY.
+type ConfigFactoryRule struct {
+	CreationFunctionName  string                       `json:"creationFunctionName"`
+	CreationAddressLogArg string                       `json:"creationAddressLogArg"`
+	ChildAbi              string                       `json:"childAbi"`  // ABI by contractName
+	ChildType             string                       `json:"childType"` // CONTRACT | FACTORY
+	Conditions            []ConfigFactoryRuleCondition `json:"conditions,omitempty"`
+	ChildRules            []ConfigFactoryRule          `json:"childRules,omitempty"`
+}
+
+// ConfigFactoryRuleCondition gates a factory rule on a decoded event arg.
+type ConfigFactoryRuleCondition struct {
+	Arg      string `json:"arg"`
+	Operator string `json:"operator"` // eq | neq | gt | gte | lt | lte | contains
+	Value    string `json:"value"`
 }
 
 // ConfigExporter matches an EvmiExporter by (Name, pipeline). Pipeline and Plugin

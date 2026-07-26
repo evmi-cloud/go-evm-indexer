@@ -206,10 +206,13 @@ type EvmLogSource struct {
 	Topic0       sql.NullString
 	TopicFilters pq.StringArray `gorm:"type:text[]"`
 
-	// Factory type data
-	FactoryChildEvmJsonABI       sql.NullInt32
-	FactoryCreationFunctionName  sql.NullString
-	FactoryCreationAddressLogArg sql.NullString
+	// Factory rules (Type == FACTORY). A FACTORY source has N creation rules
+	// (EvmFactoryRule with EvmLogSourceID = this source, ParentRuleID = 0). Each
+	// rule matches a creation event and spawns a child of a given type/ABI; a rule
+	// that spawns FACTORY children carries its own nested rules (recursive). When
+	// such a rule spawns a child, its subtree is cloned onto the child source so
+	// the child owns its own rules. See EvmFactoryRule.
+	FactoryRules []EvmFactoryRule `gorm:"foreignKey:EvmLogSourceID"`
 
 	// ParentSourceID is the FACTORY source that dynamically created this source
 	// (0 for manually-created sources). A factory child is unique per
@@ -219,6 +222,51 @@ type EvmLogSource struct {
 	EvmLogPipelineID uint
 	EvmJsonAbiID     uint
 	EvmBlockchainID  uint
+}
+
+// EvmFactoryRule is one creation rule of a FACTORY source: "when CreationFunctionName
+// fires, read the new address from CreationAddressLogArg and create a child of
+// ChildType using EvmJsonAbiID". A source has N rules (1-to-N). A rule whose
+// ChildType is FACTORY carries ChildRules — the rules the spawned child factory
+// uses — making the model recursive (factories of factories).
+type EvmFactoryRule struct {
+	gorm.Model
+
+	// Owner — exactly one is set: EvmLogSourceID for a source's top-level rules,
+	// ParentRuleID for the nested rules of a FACTORY rule.
+	EvmLogSourceID uint `gorm:"index"`
+	ParentRuleID   uint `gorm:"index"`
+
+	CreationFunctionName  string
+	CreationAddressLogArg string
+	// ChildType is the spawned source's type: CONTRACT or FACTORY.
+	ChildType string
+	// EvmJsonAbiID is the ABI assigned to the spawned child (its own ABI — for a
+	// FACTORY child, the ABI its creation events are decoded with).
+	EvmJsonAbiID uint
+
+	// Conditions gate the rule: a child is created only when ALL conditions on the
+	// creation event's decoded args pass (empty = always).
+	Conditions []EvmFactoryRuleCondition `gorm:"foreignKey:EvmFactoryRuleID"`
+
+	// ChildRules are used only when ChildType == FACTORY: the rules the spawned
+	// child factory runs.
+	ChildRules []EvmFactoryRule `gorm:"foreignKey:ParentRuleID"`
+}
+
+// EvmFactoryRuleCondition gates an EvmFactoryRule on a decoded event arg. The rule
+// only spawns a child when every condition holds. Comparison is numeric when both
+// the arg value and Value parse as integers, otherwise case-insensitive string.
+type EvmFactoryRuleCondition struct {
+	gorm.Model
+
+	EvmFactoryRuleID uint `gorm:"index"`
+
+	// Arg is the decoded event argument name; Operator is one of eq, neq, gt, gte,
+	// lt, lte, contains; Value is compared against the arg's decoded value.
+	Arg      string
+	Operator string
+	Value    string
 }
 
 type EvmiExporter struct {

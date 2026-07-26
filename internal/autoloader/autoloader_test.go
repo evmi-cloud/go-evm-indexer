@@ -29,6 +29,7 @@ func newDBForTest(t *testing.T) *evmi_database.EvmiDatabase {
 		&evmi_database.EvmLogStore{},
 		&evmi_database.EvmLogPipeline{},
 		&evmi_database.EvmLogSource{},
+		&evmi_database.EvmFactoryRule{},
 		&evmi_database.EvmiExporter{},
 		&evmi_database.Plugin{},
 	); err != nil {
@@ -56,7 +57,9 @@ func fullConfig() types.AutoloadResources {
 			{Pipeline: "erc20-pipe", Abi: "ERC20", Type: "CONTRACT", Enabled: true, StartBlock: 100, Address: "0xToken"},
 			{
 				Pipeline: "erc20-pipe", Abi: "Factory", Type: "FACTORY", Enabled: true, Address: "0xFactory",
-				FactoryChildAbi: "ERC20", FactoryCreationFunctionName: "PoolCreated", FactoryCreationAddressLogArg: "pool",
+				FactoryRules: []types.ConfigFactoryRule{
+					{CreationFunctionName: "PoolCreated", CreationAddressLogArg: "pool", ChildAbi: "ERC20", ChildType: "CONTRACT"},
+				},
 			},
 		},
 	}
@@ -115,11 +118,17 @@ func TestLoadCreatesResourcesAndResolvesRefs(t *testing.T) {
 	}
 	var erc20 evmi_database.EvmJsonAbi
 	db.Conn.Where("contract_name = ?", "ERC20").First(&erc20)
-	if !factory.FactoryChildEvmJsonABI.Valid || uint(factory.FactoryChildEvmJsonABI.Int32) != erc20.ID {
-		t.Errorf("factory child ABI not resolved: %+v", factory)
+	// The factory rule must be created and resolve the child ABI by name.
+	var rules []evmi_database.EvmFactoryRule
+	if err := db.Conn.Where("evm_log_source_id = ?", factory.ID).Find(&rules).Error; err != nil {
+		t.Fatal(err)
 	}
-	if factory.FactoryCreationFunctionName.String != "PoolCreated" {
-		t.Errorf("factory creation event not set: %+v", factory)
+	if len(rules) != 1 {
+		t.Fatalf("expected 1 factory rule, got %d", len(rules))
+	}
+	if rules[0].CreationFunctionName != "PoolCreated" || rules[0].CreationAddressLogArg != "pool" ||
+		rules[0].ChildType != "CONTRACT" || rules[0].EvmJsonAbiID != erc20.ID {
+		t.Errorf("factory rule wrong: %+v", rules[0])
 	}
 }
 

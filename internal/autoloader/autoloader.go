@@ -234,25 +234,61 @@ func ensureSource(db *evmi_database.EvmiDatabase, instanceID uint, cfg types.Con
 	if len(cfg.TopicFilters) > 0 {
 		row.TopicFilters = pq.StringArray(cfg.TopicFilters)
 	}
-	if sourceType == string(evmi_database.FactoryLogSourceType) {
-		if cfg.FactoryChildAbi != "" {
-			childID, err := abiIDByName(db, cfg.FactoryChildAbi)
-			if err != nil {
-				return err
-			}
-			row.FactoryChildEvmJsonABI = sql.NullInt32{Int32: int32(childID), Valid: true}
-		}
-		if cfg.FactoryCreationFunctionName != "" {
-			row.FactoryCreationFunctionName = sql.NullString{String: cfg.FactoryCreationFunctionName, Valid: true}
-		}
-		if cfg.FactoryCreationAddressLogArg != "" {
-			row.FactoryCreationAddressLogArg = sql.NullString{String: cfg.FactoryCreationAddressLogArg, Valid: true}
-		}
-	}
 	if err := db.Conn.Create(&row).Error; err != nil {
 		return err
 	}
+
+	// FACTORY sources: create the recursive creation-rule tree.
+	if sourceType == string(evmi_database.FactoryLogSourceType) && len(cfg.FactoryRules) > 0 {
+		if err := createFactoryRules(db, row.ID, 0, cfg.FactoryRules); err != nil {
+			return err
+		}
+	}
+
 	logger.Info().Str("pipeline", cfg.Pipeline).Str("type", sourceType).Msg("autoloaded source")
+	return nil
+}
+
+// createFactoryRules recursively creates EvmFactoryRule rows for a source's
+// factory rules, resolving each rule's child ABI by contract name.
+func createFactoryRules(db *evmi_database.EvmiDatabase, sourceID uint, parentRuleID uint, rules []types.ConfigFactoryRule) error {
+	for _, r := range rules {
+		var abiID uint
+		if r.ChildAbi != "" {
+			id, err := abiIDByName(db, r.ChildAbi)
+			if err != nil {
+				return err
+			}
+			abiID = id
+		}
+		childType := r.ChildType
+		if childType == "" {
+			childType = string(evmi_database.ContractLogSourceType)
+		}
+		rule := evmi_database.EvmFactoryRule{
+			ParentRuleID:          parentRuleID,
+			CreationFunctionName:  r.CreationFunctionName,
+			CreationAddressLogArg: r.CreationAddressLogArg,
+			ChildType:             childType,
+			EvmJsonAbiID:          abiID,
+		}
+		if parentRuleID == 0 {
+			rule.EvmLogSourceID = sourceID
+		}
+		for _, c := range r.Conditions {
+			rule.Conditions = append(rule.Conditions, evmi_database.EvmFactoryRuleCondition{
+				Arg: c.Arg, Operator: c.Operator, Value: c.Value,
+			})
+		}
+		if err := db.Conn.Create(&rule).Error; err != nil {
+			return err
+		}
+		if len(r.ChildRules) > 0 {
+			if err := createFactoryRules(db, sourceID, rule.ID, r.ChildRules); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
