@@ -171,6 +171,17 @@ func (db *ClickHouseStore) InsertTransactions(txs []types.EvmTransaction) error 
 	return batch.Send()
 }
 
+// DeleteSourceData removes every log and transaction for the source via mutations
+// (ALTER TABLE ... DELETE), which apply across all parts including as-yet-unmerged
+// ReplacingMergeTree duplicates.
+func (db *ClickHouseStore) DeleteSourceData(sourceId uint64) error {
+	ctx := context.Background()
+	if err := db.store.Exec(ctx, fmt.Sprintf("ALTER TABLE %s DELETE WHERE source_id = %d", db.logTableName, sourceId)); err != nil {
+		return err
+	}
+	return db.store.Exec(ctx, fmt.Sprintf("ALTER TABLE %s DELETE WHERE source_id = %d", db.txTableName, sourceId))
+}
+
 func (db *ClickHouseStore) GetLogsCount() (uint64, error) {
 	var result struct {
 		Count uint64 `ch:"count"`

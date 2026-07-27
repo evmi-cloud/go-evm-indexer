@@ -3,11 +3,14 @@ package grpc
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"connectrpc.com/connect"
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
+	log_stores "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores"
 	evm_indexerv1 "github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1"
 )
 
@@ -51,16 +54,100 @@ func (e *EvmIndexerServer) CreateEvmLogSource(ctx context.Context, req *connect.
 
 // DeleteEvmLogSource implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) DeleteEvmLogSource(ctx context.Context, req *connect.Request[evm_indexerv1.DeleteEvmLogSourceRequest]) (*connect.Response[evm_indexerv1.DeleteEvmLogSourceResponse], error) {
-	//TODO: verify there is dependent entities
+	var logSource evmi_database.EvmLogSource
+	if err := e.db.Conn.First(&logSource, req.Msg.Id).Error; err != nil {
+		return nil, dbError(err)
+	}
+	// Factory-created child sources are managed by their parent factory and can't be
+	// deleted directly — only their indexation can be started/stopped. (Deleting the
+	// parent factory cascades to them below.)
+	if logSource.ParentSourceID != 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			errors.New("this source was created by a factory and cannot be deleted; only its indexation can be started or stopped"))
+	}
 
-	result := e.db.Conn.Delete(&evmi_database.EvmLogSource{}, req.Msg.Id)
-	if result.Error != nil {
-		return nil, dbError(result.Error)
+	// Deleting a source deletes its whole subtree: the source itself plus every
+	// factory-spawned descendant (recursively). A FACTORY source can have children,
+	// which can themselves be factories with children.
+	ids, err := e.collectSourceSubtree(logSource.ID)
+	if err != nil {
+		return nil, dbError(err)
+	}
+
+	// Stop indexing for every source about to be deleted so no worker keeps polling
+	// or writing after its rows/data are gone.
+	for _, id := range ids {
+		e.bus.Emit(context.Background(), internal_bus.DisableSourceTopic, id)
+	}
+
+	// Delete the stored logs & transactions for every source in the subtree. Factory
+	// children inherit their parent's pipeline (hence store), so one store handles
+	// the whole subtree.
+	if err := e.deleteSubtreeStoreData(logSource, ids); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Delete each source's factory rules (+conditions), then the source rows.
+	for _, id := range ids {
+		if err := e.deleteFactoryRules(id); err != nil {
+			return nil, dbError(err)
+		}
+	}
+	if err := e.db.Conn.Where("id IN ?", ids).Delete(&evmi_database.EvmLogSource{}).Error; err != nil {
+		return nil, dbError(err)
 	}
 
 	return &connect.Response[evm_indexerv1.DeleteEvmLogSourceResponse]{
 		Msg: &evm_indexerv1.DeleteEvmLogSourceResponse{},
 	}, nil
+}
+
+// collectSourceSubtree returns rootID followed by every descendant source id
+// (breadth-first over parent_source_id), so deleting walks the whole factory tree.
+func (e *EvmIndexerServer) collectSourceSubtree(rootID uint) ([]uint, error) {
+	ids := []uint{rootID}
+	for queue := []uint{rootID}; len(queue) > 0; {
+		parent := queue[0]
+		queue = queue[1:]
+		var children []evmi_database.EvmLogSource
+		if err := e.db.Conn.Where("parent_source_id = ?", parent).Find(&children).Error; err != nil {
+			return nil, err
+		}
+		for _, c := range children {
+			ids = append(ids, c.ID)
+			queue = append(queue, c.ID)
+		}
+	}
+	return ids, nil
+}
+
+// deleteSubtreeStoreData removes the stored logs and transactions of every source
+// id from the pipeline's log store. The store is resolved from the (top) source's
+// pipeline, which all factory children share.
+func (e *EvmIndexerServer) deleteSubtreeStoreData(source evmi_database.EvmLogSource, ids []uint) error {
+	var pipeline evmi_database.EvmLogPipeline
+	if err := e.db.Conn.First(&pipeline, source.EvmLogPipelineID).Error; err != nil {
+		return err
+	}
+	var storeInfo evmi_database.EvmLogStore
+	if err := e.db.Conn.First(&storeInfo, pipeline.EvmLogStoreId).Error; err != nil {
+		return err
+	}
+	var storeConfig map[string]string
+	if err := json.Unmarshal(storeInfo.StoreConfig, &storeConfig); err != nil {
+		return err
+	}
+	store, err := log_stores.LoadStore(storeInfo.StoreType, storeConfig, e.logger)
+	if err != nil {
+		return err
+	}
+	storage := store.GetStorage()
+	for _, id := range ids {
+		if err := storage.DeleteSourceData(uint64(id)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetEvmLogSource implements evm_indexerv1connect.EvmIndexerServiceHandler.
@@ -106,6 +193,13 @@ func (e *EvmIndexerServer) UpdateEvmLogSource(ctx context.Context, req *connect.
 	result := e.db.Conn.First(&logSoure, req.Msg.Source.Id)
 	if result.Error != nil {
 		return nil, dbError(result.Error)
+	}
+
+	// Factory-created child sources are managed by their parent factory and can't be
+	// edited — only their indexation can be started/stopped.
+	if logSoure.ParentSourceID != 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			errors.New("this source was created by a factory and cannot be edited; only its indexation can be started or stopped"))
 	}
 
 	logSoure.Type = req.Msg.Source.Type
@@ -261,6 +355,7 @@ func (e *EvmIndexerServer) toGrpcLogSource(logSource evmi_database.EvmLogSource)
 		Topic0:           &logSource.Topic0.String,
 		TopicFilters:     logSource.TopicFilters,
 		FactoryRules:     rules,
+		ParentSourceId:   uint32(logSource.ParentSourceID),
 		EvmBlockchainId:  uint32(logSource.EvmBlockchainID),
 		EvmLogPipelineId: uint32(logSource.EvmLogPipelineID),
 		EvmJsonAbiId:     uint32(logSource.EvmJsonAbiID),
@@ -288,10 +383,14 @@ func (e *EvmIndexerServer) saveFactoryRules(sourceID uint, rules []*evm_indexerv
 	if err := e.deleteFactoryRules(sourceID); err != nil {
 		return err
 	}
-	return e.createFactoryRules(sourceID, 0, rules)
+	return e.createFactoryRules(sourceID, nil, rules)
 }
 
-func (e *EvmIndexerServer) createFactoryRules(sourceID uint, parentRuleID uint, rules []*evm_indexerv1.FactoryRule) error {
+// createFactoryRules persists rules under an owner: a nil parentRuleID means these
+// are the source's top-level rules (EvmLogSourceID set, ParentRuleID NULL); a
+// non-nil parentRuleID means they are nested under that rule (ParentRuleID set,
+// EvmLogSourceID NULL).
+func (e *EvmIndexerServer) createFactoryRules(sourceID uint, parentRuleID *uint, rules []*evm_indexerv1.FactoryRule) error {
 	for _, r := range rules {
 		row := evmi_database.EvmFactoryRule{
 			ParentRuleID:          parentRuleID,
@@ -300,8 +399,9 @@ func (e *EvmIndexerServer) createFactoryRules(sourceID uint, parentRuleID uint, 
 			ChildType:             r.ChildType,
 			EvmJsonAbiID:          uint(r.EvmJsonAbiId),
 		}
-		if parentRuleID == 0 {
-			row.EvmLogSourceID = sourceID
+		if parentRuleID == nil {
+			sid := sourceID
+			row.EvmLogSourceID = &sid
 		}
 		for _, c := range r.Conditions {
 			row.Conditions = append(row.Conditions, evmi_database.EvmFactoryRuleCondition{
@@ -312,7 +412,8 @@ func (e *EvmIndexerServer) createFactoryRules(sourceID uint, parentRuleID uint, 
 			return err
 		}
 		if len(r.ChildRules) > 0 {
-			if err := e.createFactoryRules(sourceID, row.ID, r.ChildRules); err != nil {
+			rid := row.ID
+			if err := e.createFactoryRules(sourceID, &rid, r.ChildRules); err != nil {
 				return err
 			}
 		}
@@ -322,7 +423,7 @@ func (e *EvmIndexerServer) createFactoryRules(sourceID uint, parentRuleID uint, 
 
 func (e *EvmIndexerServer) deleteFactoryRules(sourceID uint) error {
 	var top []evmi_database.EvmFactoryRule
-	if err := e.db.Conn.Where("evm_log_source_id = ? AND parent_rule_id = 0", sourceID).Find(&top).Error; err != nil {
+	if err := e.db.Conn.Where("evm_log_source_id = ? AND parent_rule_id IS NULL", sourceID).Find(&top).Error; err != nil {
 		return err
 	}
 	for _, r := range top {
@@ -350,16 +451,19 @@ func (e *EvmIndexerServer) deleteRuleSubtree(ruleID uint) error {
 }
 
 func (e *EvmIndexerServer) loadFactoryRules(sourceID uint) ([]*evm_indexerv1.FactoryRule, error) {
-	return e.loadRulesAt(sourceID, 0)
+	return e.loadRulesAt(sourceID, nil)
 }
 
-func (e *EvmIndexerServer) loadRulesAt(sourceID uint, parentRuleID uint) ([]*evm_indexerv1.FactoryRule, error) {
+// loadRulesAt returns the rules under an owner: a nil parentRuleID loads the
+// source's top-level rules (parent_rule_id IS NULL), a non-nil one loads that
+// rule's nested children.
+func (e *EvmIndexerServer) loadRulesAt(sourceID uint, parentRuleID *uint) ([]*evm_indexerv1.FactoryRule, error) {
 	var rows []evmi_database.EvmFactoryRule
 	q := e.db.Conn.Preload("Conditions")
-	if parentRuleID != 0 {
-		q = q.Where("parent_rule_id = ?", parentRuleID)
+	if parentRuleID != nil {
+		q = q.Where("parent_rule_id = ?", *parentRuleID)
 	} else {
-		q = q.Where("evm_log_source_id = ? AND parent_rule_id = 0", sourceID)
+		q = q.Where("evm_log_source_id = ? AND parent_rule_id IS NULL", sourceID)
 	}
 	if err := q.Order("id").Find(&rows).Error; err != nil {
 		return nil, err
@@ -367,7 +471,8 @@ func (e *EvmIndexerServer) loadRulesAt(sourceID uint, parentRuleID uint) ([]*evm
 	out := make([]*evm_indexerv1.FactoryRule, 0, len(rows))
 	for _, row := range rows {
 		rid := uint32(row.ID)
-		children, err := e.loadRulesAt(0, row.ID)
+		ruleID := row.ID
+		children, err := e.loadRulesAt(0, &ruleID)
 		if err != nil {
 			return nil, err
 		}

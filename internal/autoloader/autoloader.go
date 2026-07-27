@@ -240,7 +240,7 @@ func ensureSource(db *evmi_database.EvmiDatabase, instanceID uint, cfg types.Con
 
 	// FACTORY sources: create the recursive creation-rule tree.
 	if sourceType == string(evmi_database.FactoryLogSourceType) && len(cfg.FactoryRules) > 0 {
-		if err := createFactoryRules(db, row.ID, 0, cfg.FactoryRules); err != nil {
+		if err := createFactoryRules(db, row.ID, nil, cfg.FactoryRules); err != nil {
 			return err
 		}
 	}
@@ -251,7 +251,7 @@ func ensureSource(db *evmi_database.EvmiDatabase, instanceID uint, cfg types.Con
 
 // createFactoryRules recursively creates EvmFactoryRule rows for a source's
 // factory rules, resolving each rule's child ABI by contract name.
-func createFactoryRules(db *evmi_database.EvmiDatabase, sourceID uint, parentRuleID uint, rules []types.ConfigFactoryRule) error {
+func createFactoryRules(db *evmi_database.EvmiDatabase, sourceID uint, parentRuleID *uint, rules []types.ConfigFactoryRule) error {
 	for _, r := range rules {
 		var abiID uint
 		if r.ChildAbi != "" {
@@ -272,8 +272,9 @@ func createFactoryRules(db *evmi_database.EvmiDatabase, sourceID uint, parentRul
 			ChildType:             childType,
 			EvmJsonAbiID:          abiID,
 		}
-		if parentRuleID == 0 {
-			rule.EvmLogSourceID = sourceID
+		if parentRuleID == nil {
+			sid := sourceID
+			rule.EvmLogSourceID = &sid
 		}
 		for _, c := range r.Conditions {
 			rule.Conditions = append(rule.Conditions, evmi_database.EvmFactoryRuleCondition{
@@ -284,7 +285,8 @@ func createFactoryRules(db *evmi_database.EvmiDatabase, sourceID uint, parentRul
 			return err
 		}
 		if len(r.ChildRules) > 0 {
-			if err := createFactoryRules(db, sourceID, rule.ID, r.ChildRules); err != nil {
+			rid := rule.ID
+			if err := createFactoryRules(db, sourceID, &rid, r.ChildRules); err != nil {
 				return err
 			}
 		}

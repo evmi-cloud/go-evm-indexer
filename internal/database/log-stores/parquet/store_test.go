@@ -148,3 +148,34 @@ func TestParquetInsertReplayDoesNotDuplicate(t *testing.T) {
 		t.Fatalf("GetTransactions after replay = %+v, err %v (want 1)", txs, err)
 	}
 }
+
+func TestParquetDeleteSourceData(t *testing.T) {
+	s := newStore(t)
+	if err := s.InsertLogs([]types.EvmLog{mkLog(1, 10, 0), mkLog(2, 10, 0)}); err != nil {
+		t.Fatalf("insert logs: %v", err)
+	}
+	if err := s.InsertTransactions([]types.EvmTransaction{
+		{Id: "1:tx", SourceId: 1, BlockNumber: 10, ChainId: 1, Hash: "0xh1"},
+		{Id: "2:tx", SourceId: 2, BlockNumber: 10, ChainId: 1, Hash: "0xh2"},
+	}); err != nil {
+		t.Fatalf("insert txs: %v", err)
+	}
+
+	if err := s.DeleteSourceData(1); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	if logs, _ := s.GetLogs(1, 0, 100); len(logs) != 0 {
+		t.Errorf("source 1 logs not deleted: %d", len(logs))
+	}
+	if txs, _ := s.GetTransactions(1, 0, 100); len(txs) != 0 {
+		t.Errorf("source 1 txs not deleted: %d", len(txs))
+	}
+	if logs, _ := s.GetLogs(2, 0, 100); len(logs) != 1 {
+		t.Errorf("source 2 logs should remain, got %d", len(logs))
+	}
+	// Deleting a source with nothing stored is a no-op, not an error.
+	if err := s.DeleteSourceData(999); err != nil {
+		t.Errorf("delete of empty source should be no-op, got %v", err)
+	}
+}

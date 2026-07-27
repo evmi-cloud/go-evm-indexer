@@ -207,7 +207,7 @@ type EvmLogSource struct {
 	TopicFilters pq.StringArray `gorm:"type:text[]"`
 
 	// Factory rules (Type == FACTORY). A FACTORY source has N creation rules
-	// (EvmFactoryRule with EvmLogSourceID = this source, ParentRuleID = 0). Each
+	// (EvmFactoryRule with EvmLogSourceID = this source, ParentRuleID = NULL). Each
 	// rule matches a creation event and spawns a child of a given type/ABI; a rule
 	// that spawns FACTORY children carries its own nested rules (recursive). When
 	// such a rule spawns a child, its subtree is cloned onto the child source so
@@ -232,10 +232,13 @@ type EvmLogSource struct {
 type EvmFactoryRule struct {
 	gorm.Model
 
-	// Owner — exactly one is set: EvmLogSourceID for a source's top-level rules,
-	// ParentRuleID for the nested rules of a FACTORY rule.
-	EvmLogSourceID uint `gorm:"index"`
-	ParentRuleID   uint `gorm:"index"`
+	// Owner — exactly one is set, the other is NULL: EvmLogSourceID for a source's
+	// top-level rules, ParentRuleID for the nested rules of a FACTORY rule. These are
+	// nullable pointers (not a 0 sentinel) so the self/source foreign keys are
+	// satisfied on databases that enforce them (Postgres/MySQL) — a 0 would reference
+	// a non-existent row.
+	EvmLogSourceID *uint `gorm:"index"`
+	ParentRuleID   *uint `gorm:"index"`
 
 	CreationFunctionName  string
 	CreationAddressLogArg string

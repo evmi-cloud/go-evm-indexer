@@ -54,7 +54,10 @@ event bus → start metrics → open metadata DB (auto-migrates GORM models) →
   selected per-`EvmLogStore` row via its `StoreType` + JSON `StoreConfig`, so different pipelines
   can target different stores. The Parquet and SQL stores have self-contained unit tests (SQL via
   SQLite); the Elasticsearch and MongoDB stores have integration tests gated behind
-  `ELASTICSEARCH_URL` / `MONGODB_URI`.
+  `ELASTICSEARCH_URL` / `MONGODB_URI`. `DeleteSourceData(sourceId)` removes a source's stored logs
+  and transactions (SQL `DELETE`, ClickHouse `ALTER TABLE … DELETE` mutation, Parquet removes the
+  source's partition dirs, ES `delete_by_query`, Mongo `DeleteMany`) — called by the source-delete
+  cascade; deleting data for a source with nothing stored is a no-op.
 
 **Indexing runtime** (`internal/indexer`): `IndexerService` (`service.go`) loads all
 pipelines/sources for this instance and, for each *enabled* source, adds a
@@ -252,7 +255,21 @@ needs `protoc-gen-go v1.35.1`) and the web UI (`npm run generate` in `webui/`, n
 CRUD app: one App Router route per entity (`/blockchains`, `/abis`, `/stores`, `/pipelines`,
 `/sources`, `/exporters`) under the `app/(app)/` route group (its `layout.tsx` is the
 auth guard + sidebar), plus `/login`. Each entity is defined declaratively one-per-file in
-`webui/lib/resources/` and rendered by the generic `webui/components/ResourceManager.tsx`.
+`webui/lib/resources/` and rendered by the generic `webui/components/ResourceManager.tsx`. A
+resource may set `parentIdOf` to render its list as a **hierarchy** (children nested under their
+parent with an expand/collapse toggle) — used by sources so factory-created children nest under the
+FACTORY source that spawned them, keyed by the `EvmLogSource.parent_source_id` proto field
+(populated from `ParentSourceID`). A resource may also set `readOnly(item)` to hide a row's
+Edit/Delete buttons (row actions like Start/Stop still show); sources mark factory-created children
+(`parentSourceId != 0`) read-only. This is **also enforced server-side**: `UpdateEvmLogSource` /
+`DeleteEvmLogSource` reject a source with `ParentSourceID != 0` with `FailedPrecondition` — a
+factory child is managed by its parent and can only be started/stopped, not edited or deleted.
+**Deleting a (top-level) source cascades** (`DeleteEvmLogSource`): it collects the source plus every
+factory-spawned descendant (`collectSourceSubtree` over `parent_source_id`), disables each, deletes
+their stored logs/transactions from the pipeline's store (`deleteSubtreeStoreData` →
+`EvmIndexerStorage.DeleteSourceData`, children share the parent's pipeline/store), then removes each
+source's factory rules and the source rows — so removing a factory tears down its whole subtree and
+all associated stored data.
 
 ## Config file vs. runtime topology
 

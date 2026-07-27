@@ -194,6 +194,16 @@ func writeBatchFile[T any](dir string, minBlock, maxBlock uint64, rows []T) erro
 	return os.Rename(tmp, final)
 }
 
+// DeleteSourceData removes the source's log and transaction partition directories
+// (and every parquet file in them). Removing a directory that was never written is
+// a no-op.
+func (s *ParquetStore) DeleteSourceData(sourceId uint64) error {
+	if err := os.RemoveAll(s.sourceDir(s.logsDir, sourceId)); err != nil {
+		return err
+	}
+	return os.RemoveAll(s.sourceDir(s.txDir, sourceId))
+}
+
 // --- reads ----------------------------------------------------------------
 
 func (s *ParquetStore) GetLogsCount() (uint64, error) {

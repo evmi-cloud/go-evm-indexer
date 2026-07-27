@@ -213,6 +213,37 @@ func (s *ElasticsearchStore) bulk(body *bytes.Buffer) error {
 	return nil
 }
 
+// DeleteSourceData removes every log and transaction document for the source via
+// delete_by_query (term on source_id), refreshing so the deletes are visible.
+func (s *ElasticsearchStore) DeleteSourceData(sourceId uint64) error {
+	if err := s.deleteBySource(s.logsIdx, sourceId); err != nil {
+		return err
+	}
+	return s.deleteBySource(s.txIdx, sourceId)
+}
+
+func (s *ElasticsearchStore) deleteBySource(index string, sourceId uint64) error {
+	body, err := json.Marshal(map[string]any{"query": term("source_id", sourceId)})
+	if err != nil {
+		return err
+	}
+	res, err := s.client.DeleteByQuery(
+		[]string{index},
+		bytes.NewReader(body),
+		s.client.DeleteByQuery.WithContext(context.Background()),
+		s.client.DeleteByQuery.WithRefresh(true),
+	)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("elasticsearch delete_by_query failed: %s", string(b))
+	}
+	return nil
+}
+
 // --- reads ----------------------------------------------------------------
 
 func (s *ElasticsearchStore) GetLogsCount() (uint64, error) {

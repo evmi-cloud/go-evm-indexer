@@ -155,6 +155,16 @@ func (s *MongoStore) InsertTransactions(txs []types.EvmTransaction) error {
 	return err
 }
 
+// DeleteSourceData removes every log and transaction document for the source.
+func (s *MongoStore) DeleteSourceData(sourceId uint64) error {
+	ctx := context.Background()
+	if _, err := s.logs.DeleteMany(ctx, bson.M{"source_id": sourceId}); err != nil {
+		return err
+	}
+	_, err := s.txs.DeleteMany(ctx, bson.M{"source_id": sourceId})
+	return err
+}
+
 // --- reads ----------------------------------------------------------------
 
 var sortAsc = options.Find().SetSort(bson.D{{Key: "block_number", Value: 1}, {Key: "log_index", Value: 1}})

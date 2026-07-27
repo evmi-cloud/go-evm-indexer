@@ -13,7 +13,10 @@ import (
 
 func newSourceIndexerForTest(t *testing.T, factory evmi_database.EvmLogSource) *SourceIndexerService {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "idx.db")), &gorm.Config{})
+	// Enforce foreign keys (off by default in SQLite) so the tests exercise the same
+	// referential-integrity rules as Postgres/MySQL — a factory rule's owner columns
+	// must be NULL, not a 0 that would violate the self/source FK.
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "idx.db")+"?_foreign_keys=on"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
@@ -61,7 +64,9 @@ func TestRegisterFactoryChildCreatesAndDedupes(t *testing.T) {
 	if !got.Enabled {
 		t.Error("factory child should be enabled")
 	}
-	if got.Address.String != "0xChildContract" || got.StartBlock != 1200 ||
+	// The child starts one block before the creation block (startBlock-1) so its
+	// poll loop re-scans the deployment block itself.
+	if got.Address.String != "0xChildContract" || got.StartBlock != 1199 ||
 		got.EvmLogPipelineID != 3 || got.EvmJsonAbiID != 7 || got.EvmBlockchainID != 2 ||
 		got.ParentSourceID != s.source.ID {
 		t.Errorf("fields not carried over: %+v", got)
@@ -113,8 +118,9 @@ func TestRegisterFactoryChildCreatesNestedFactory(t *testing.T) {
 
 	// Top-level rule R: spawn a FACTORY child (ABI 7). R has a child rule R1: the
 	// child factory spawns CONTRACT grandchildren (ABI 9) on "PoolCreated".
+	sourceID := s.source.ID
 	rule := evmi_database.EvmFactoryRule{
-		EvmLogSourceID: s.source.ID,
+		EvmLogSourceID: &sourceID,
 		ChildType:      string(evmi_database.FactoryLogSourceType),
 		EvmJsonAbiID:   7,
 	}
@@ -122,7 +128,7 @@ func TestRegisterFactoryChildCreatesNestedFactory(t *testing.T) {
 		t.Fatal(err)
 	}
 	grandRule := evmi_database.EvmFactoryRule{
-		ParentRuleID:          rule.ID,
+		ParentRuleID:          &rule.ID,
 		CreationFunctionName:  "PoolCreated",
 		CreationAddressLogArg: "pool",
 		ChildType:             string(evmi_database.ContractLogSourceType),
@@ -146,7 +152,7 @@ func TestRegisterFactoryChildCreatesNestedFactory(t *testing.T) {
 
 	// The child factory must own a clone of R's child rules.
 	var childRules []evmi_database.EvmFactoryRule
-	if err := s.db.Conn.Where("evm_log_source_id = ? AND parent_rule_id = 0", child.ID).Find(&childRules).Error; err != nil {
+	if err := s.db.Conn.Where("evm_log_source_id = ? AND parent_rule_id IS NULL", child.ID).Find(&childRules).Error; err != nil {
 		t.Fatal(err)
 	}
 	if len(childRules) != 1 {

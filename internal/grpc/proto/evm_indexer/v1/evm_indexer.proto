@@ -98,6 +98,10 @@ message EvmLogSource {
   optional string topic0 = 8;
   repeated string topic_filters = 9;
 
+  // ParentSourceId is the FACTORY source that dynamically created this source
+  // (0 for manually-created sources) — lets clients build the source hierarchy.
+  uint32 parent_source_id = 12;
+
   reserved 10, 11, 20, 21, 22; // was flat factory_child_* fields — replaced by factory_rules
   // FACTORY sources: the creation rules (1-to-N). Recursive via FactoryRule.
   repeated FactoryRule factory_rules = 23;

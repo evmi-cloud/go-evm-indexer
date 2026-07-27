@@ -70,6 +70,12 @@ export const sources: Resource<EvmLogSource> = {
     },
   ],
   idOf: (s) => s.id ?? 0,
+  // Factory-created sources carry the id of the factory source that spawned them,
+  // so the list can be rendered as a hierarchy (children nested under the factory).
+  parentIdOf: (s) => s.parentSourceId ?? 0,
+  // A factory-created child source is managed by its parent factory: it can only be
+  // started/stopped, not edited or deleted.
+  readOnly: (s) => (s.parentSourceId ?? 0) !== 0,
   list: async () => (await client.listEvmLogSources(PAGE)).sources ?? [],
   create: async (v) => {
     await client.createEvmLogSource({ source: sourceFromForm(v) });

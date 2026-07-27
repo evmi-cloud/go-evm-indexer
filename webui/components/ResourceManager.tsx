@@ -30,6 +30,49 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
   const [formError, setFormError] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<T | null>(null);
+  // Ids of expanded parents in the hierarchical (tree) list view.
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  const toggleExpanded = useCallback((id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Flatten items into visible rows. Without parentIdOf this is a plain list; with
+  // it, children are nested under their parent and only shown when the parent is
+  // expanded. Roots are items with no parent (or whose parent isn't in the list).
+  const flatRows = useMemo(() => {
+    const parentIdOf = resource.parentIdOf;
+    if (!parentIdOf) return items.map((item) => ({ item, depth: 0, childCount: 0 }));
+    const ids = new Set(items.map((i) => resource.idOf(i)));
+    const childrenByParent = new Map<number, T[]>();
+    const roots: T[] = [];
+    for (const item of items) {
+      const pid = parentIdOf(item);
+      if (pid && ids.has(pid)) {
+        const arr = childrenByParent.get(pid) ?? [];
+        arr.push(item);
+        childrenByParent.set(pid, arr);
+      } else {
+        roots.push(item);
+      }
+    }
+    const out: { item: T; depth: number; childCount: number }[] = [];
+    const walk = (nodes: T[], depth: number) => {
+      for (const item of nodes) {
+        const id = resource.idOf(item);
+        const kids = childrenByParent.get(id) ?? [];
+        out.push({ item, depth, childCount: kids.length });
+        if (kids.length > 0 && expanded.has(id)) walk(kids, depth + 1);
+      }
+    };
+    walk(roots, 0);
+    return out;
+  }, [items, resource, expanded]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -201,15 +244,36 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => {
+              {flatRows.map(({ item, depth, childCount }) => {
                 const id = resource.idOf(item);
+                const isExpanded = expanded.has(id);
                 return (
                   <tr key={id}>
-                    {resource.columns.map((c) => {
+                    {resource.columns.map((c, ci) => {
                       const text = c.get(item);
+                      const content = c.tone ? <span className={`badge badge-${c.tone(item)}`}>{text}</span> : text;
                       return (
                         <td key={c.label} title={text} className={c.mono ? "mono" : undefined}>
-                          {c.tone ? <span className={`badge badge-${c.tone(item)}`}>{text}</span> : text}
+                          {ci === 0 && resource.parentIdOf ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, paddingLeft: depth * 18 }}>
+                              {childCount > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpanded(id)}
+                                  title={isExpanded ? "Collapse children" : "Expand children"}
+                                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, width: 14, color: "inherit", fontSize: 12, lineHeight: 1 }}
+                                >
+                                  {isExpanded ? "▾" : "▸"}
+                                </button>
+                              ) : (
+                                <span style={{ display: "inline-block", width: 14 }} />
+                              )}
+                              {content}
+                              {childCount > 0 && <span className="muted" style={{ fontSize: 11 }}>({childCount})</span>}
+                            </span>
+                          ) : (
+                            content
+                          )}
                         </td>
                       );
                     })}
@@ -230,14 +294,16 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                             Details
                           </button>
                         )}
-                        {resource.update && (
+                        {resource.update && !resource.readOnly?.(item) && (
                           <button className="secondary small" onClick={() => openForm(item)}>
                             Edit
                           </button>
                         )}
-                        <button className="danger small" disabled={busy === `del-${id}`} onClick={() => remove(item)}>
-                          Delete
-                        </button>
+                        {!resource.readOnly?.(item) && (
+                          <button className="danger small" disabled={busy === `del-${id}`} onClick={() => remove(item)}>
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -249,8 +315,8 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
       )}
 
       {editing !== undefined && (
-        <div className="modal-backdrop" onClick={() => setEditing(undefined)}>
-          <form className="modal panel" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <div className="modal-backdrop">
+          <form className="modal panel" onSubmit={submit}>
             <h3>
               {editing ? "Edit" : "New"} {resource.singular}
             </h3>
@@ -322,8 +388,8 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
       )}
 
       {detailItem !== null && resource.detail && (
-        <div className="modal-backdrop" onClick={() => setDetailItem(null)}>
-          <div className="modal panel modal-wide" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal panel modal-wide">
             <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Details</h3>
               <button className="secondary small" onClick={() => setDetailItem(null)}>

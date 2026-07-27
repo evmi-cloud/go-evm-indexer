@@ -79,6 +79,11 @@ export type Resource<T> = {
   fields: Field[];
   columns: Column<T>[];
   idOf: (item: T) => number;
+  // Optional parent id for a hierarchical (tree) list — returns 0 (or an id not
+  // present in the list) for a root. When set, ResourceManager renders children
+  // nested under their parent with an expand/collapse toggle (e.g. factory-created
+  // sources under the factory that created them).
+  parentIdOf?: (item: T) => number;
   list: () => Promise<T[]>;
   // Returning a string surfaces it as a one-time secret to copy (e.g. a token).
   create: (values: FormValues) => Promise<string | void>;
@@ -86,6 +91,10 @@ export type Resource<T> = {
   update?: (id: number, values: FormValues) => Promise<void>;
   remove: (id: number) => Promise<void>;
   toForm?: (item: T) => FormValues;
+  // When it returns true for a row, that row hides its Edit and Delete buttons
+  // (row actions like Start/Stop still show) — e.g. factory-created child sources
+  // that are managed by their parent and can only be started/stopped.
+  readOnly?: (item: T) => boolean;
   actions?: RowAction<T>[];
   stream?: StreamSubscribe<T>;
   // Read-only detail view rendered in a modal via a "Details" button.

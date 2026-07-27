@@ -71,7 +71,7 @@ func (p *SourceIndexerService) factoryRules() ([]evmi_database.EvmFactoryRule, e
 	var rules []evmi_database.EvmFactoryRule
 	err := p.db.Conn.
 		Preload("Conditions").
-		Where("evm_log_source_id = ? AND parent_rule_id = 0", p.source.ID).
+		Where("evm_log_source_id = ? AND parent_rule_id IS NULL", p.source.ID).
 		Order("id").
 		Find(&rules).Error
 	return rules, err
@@ -134,10 +134,11 @@ func evalCondition(actual, operator, expected string) bool {
 
 // cloneFactoryRuleSubtree copies the rules nested under templateParentRuleID onto a
 // spawned FACTORY child, re-parenting them: the rule's immediate children become
-// the child's top-level rules (EvmLogSourceID = childSourceID, ParentRuleID = 0),
+// the child's top-level rules (EvmLogSourceID = childSourceID, ParentRuleID NULL),
 // and deeper rules become nested rules of the clones. Recurses so the whole
-// subtree is available for further nesting.
-func (p *SourceIndexerService) cloneFactoryRuleSubtree(childSourceID uint, templateParentRuleID uint, newParentRuleID uint) error {
+// subtree is available for further nesting. A nil newParentRuleID marks the clones
+// as the child's top-level rules.
+func (p *SourceIndexerService) cloneFactoryRuleSubtree(childSourceID uint, templateParentRuleID uint, newParentRuleID *uint) error {
 	var templates []evmi_database.EvmFactoryRule
 	if err := p.db.Conn.Preload("Conditions").Where("parent_rule_id = ?", templateParentRuleID).Order("id").Find(&templates).Error; err != nil {
 		return err
@@ -150,8 +151,9 @@ func (p *SourceIndexerService) cloneFactoryRuleSubtree(childSourceID uint, templ
 			ChildType:             t.ChildType,
 			EvmJsonAbiID:          t.EvmJsonAbiID,
 		}
-		if newParentRuleID == 0 {
-			clone.EvmLogSourceID = childSourceID // a top-level rule of the child
+		if newParentRuleID == nil {
+			sid := childSourceID
+			clone.EvmLogSourceID = &sid // a top-level rule of the child
 		}
 		// Copy the rule's conditions onto the clone.
 		for _, c := range t.Conditions {
@@ -162,7 +164,8 @@ func (p *SourceIndexerService) cloneFactoryRuleSubtree(childSourceID uint, templ
 		if err := p.db.Conn.Create(&clone).Error; err != nil {
 			return err
 		}
-		if err := p.cloneFactoryRuleSubtree(childSourceID, t.ID, clone.ID); err != nil {
+		cloneID := clone.ID
+		if err := p.cloneFactoryRuleSubtree(childSourceID, t.ID, &cloneID); err != nil {
 			return err
 		}
 	}
@@ -195,8 +198,8 @@ func (p *SourceIndexerService) registerFactoryChild(rule evmi_database.EvmFactor
 		Enabled:          true,
 		Status:           string(evmi_database.StoppedLogSourceStatus),
 		Type:             childType,
-		StartBlock:       startBlock,
-		SyncBlock:        startBlock,
+		StartBlock:       startBlock - 1,
+		SyncBlock:        startBlock - 1,
 		Address:          sql.NullString{String: address, Valid: true},
 		ParentSourceID:   p.source.ID,
 		EvmLogPipelineID: p.pipeline.ID,
@@ -209,7 +212,7 @@ func (p *SourceIndexerService) registerFactoryChild(rule evmi_database.EvmFactor
 
 	// A FACTORY child gets its own copy of the rule's nested rules.
 	if childType == string(evmi_database.FactoryLogSourceType) {
-		if err := p.cloneFactoryRuleSubtree(child.ID, rule.ID, 0); err != nil {
+		if err := p.cloneFactoryRuleSubtree(child.ID, rule.ID, nil); err != nil {
 			return err
 		}
 	}

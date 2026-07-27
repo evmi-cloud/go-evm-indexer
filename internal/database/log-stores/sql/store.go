@@ -175,6 +175,14 @@ func (s *SQLStore) InsertTransactions(txs []types.EvmTransaction) error {
 	return s.db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(rows, 200).Error
 }
 
+// DeleteSourceData removes every log and transaction row for the source.
+func (s *SQLStore) DeleteSourceData(sourceId uint64) error {
+	if err := s.db.Where("source_id = ?", sourceId).Delete(&sqlLog{}).Error; err != nil {
+		return err
+	}
+	return s.db.Where("source_id = ?", sourceId).Delete(&sqlTx{}).Error
+}
+
 // --- reads ----------------------------------------------------------------
 
 func (s *SQLStore) GetLogsCount() (uint64, error) {

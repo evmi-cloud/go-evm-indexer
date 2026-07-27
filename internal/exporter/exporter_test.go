@@ -85,6 +85,7 @@ func (f *fakeStore) Init(map[string]string) error                    { return ni
 func (f *fakeStore) InsertLogs([]types.EvmLog) error                 { return nil }
 func (f *fakeStore) InsertTransactions([]types.EvmTransaction) error { return nil }
 func (f *fakeStore) GetLogsCount() (uint64, error)                   { return uint64(len(f.logs)), nil }
+func (f *fakeStore) DeleteSourceData(uint64) error                   { return nil }
 func (f *fakeStore) GetLogs(uint64, uint64, uint64) ([]types.EvmLog, error) {
 	return nil, nil
 }

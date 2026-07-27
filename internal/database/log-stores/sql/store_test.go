@@ -96,3 +96,37 @@ func TestSQLTransactionsRoundTrip(t *testing.T) {
 		t.Errorf("block_timestamp not round-tripped: got %d", txs[0].BlockTimestamp)
 	}
 }
+
+func TestSQLDeleteSourceData(t *testing.T) {
+	s := newStore(t)
+	// mkLog's Id derives from (block, idx) only, so keep block/idx distinct across
+	// sources to avoid a primary-key collision that DoNothing would swallow.
+	if err := s.InsertLogs([]types.EvmLog{mkLog(1, 10, 0), mkLog(1, 11, 0), mkLog(2, 20, 0)}); err != nil {
+		t.Fatalf("insert logs: %v", err)
+	}
+	if err := s.InsertTransactions([]types.EvmTransaction{
+		{Id: "1:tx", SourceId: 1, BlockNumber: 10, ChainId: 1, Hash: "0xh1"},
+		{Id: "2:tx", SourceId: 2, BlockNumber: 10, ChainId: 1, Hash: "0xh2"},
+	}); err != nil {
+		t.Fatalf("insert txs: %v", err)
+	}
+
+	if err := s.DeleteSourceData(1); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	// Source 1's logs and transactions are gone.
+	if logs, _ := s.GetLogs(1, 0, 100); len(logs) != 0 {
+		t.Errorf("source 1 logs not deleted: %d", len(logs))
+	}
+	if txs, _ := s.GetTransactions(1, 0, 100); len(txs) != 0 {
+		t.Errorf("source 1 txs not deleted: %d", len(txs))
+	}
+	// Source 2 is untouched.
+	if logs, _ := s.GetLogs(2, 0, 100); len(logs) != 1 {
+		t.Errorf("source 2 logs should remain, got %d", len(logs))
+	}
+	if txs, _ := s.GetTransactions(2, 0, 100); len(txs) != 1 {
+		t.Errorf("source 2 txs should remain, got %d", len(txs))
+	}
+}
