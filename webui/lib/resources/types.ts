@@ -63,7 +63,17 @@ export type Field = {
 export type Tone = "ok" | "warn" | "danger" | "muted" | "neutral";
 import type { ComponentType } from "react";
 
-export type Column<T> = { label: string; get: (item: T) => string; tone?: (item: T) => Tone; mono?: boolean };
+// Optional data loaded once for the table (via Resource.loadColumnContext) and
+// passed to every column's get() — e.g. an id→name map for a related entity.
+export type ColumnContext = Record<string, unknown>;
+export type Column<T> = {
+  label: string;
+  get: (item: T, ctx: ColumnContext) => string;
+  tone?: (item: T) => Tone;
+  mono?: boolean;
+  // Optional tooltip (title attr) — e.g. the full value when get() is truncated.
+  title?: (item: T, ctx: ColumnContext) => string;
+};
 export type RowAction<T> = { label: string; run: (item: T) => Promise<void> };
 // Optional per-row read-only detail view, opened via a "Details" button.
 export type DetailComponent<T> = ComponentType<{ item: T }>;
@@ -79,6 +89,9 @@ export type Resource<T> = {
   fields: Field[];
   columns: Column<T>[];
   idOf: (item: T) => number;
+  // Optional data loaded once when the list loads and passed to every column's
+  // get(item, ctx) — e.g. a related entity's id→name map to render in a column.
+  loadColumnContext?: () => Promise<ColumnContext>;
   // Optional parent id for a hierarchical (tree) list — returns 0 (or an id not
   // present in the list) for a root. When set, ResourceManager renders children
   // nested under their parent with an expand/collapse toggle (e.g. factory-created

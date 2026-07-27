@@ -214,6 +214,16 @@ func (g *Gateway) ListPluginGitRefs(ctx context.Context, req *connect.Request[v1
 	return forward(ctx, req, c.ListPluginGitRefs)
 }
 
+// ExportConfiguration reads the shared metadata DB, so it routes to any RUNNING
+// instance.
+func (g *Gateway) ExportConfiguration(ctx context.Context, req *connect.Request[v1.ExportConfigurationRequest]) (*connect.Response[v1.ExportConfigurationResponse], error) {
+	c, err := g.anyClient()
+	if err != nil {
+		return nil, err
+	}
+	return forward(ctx, req, c.ExportConfiguration)
+}
+
 // InstallPlugin fans out to every RUNNING instance instead of routing to one:
 // installing builds the plugin's shared object on that instance's local disk, so
 // each instance that might run an exporter using the plugin needs its own build.

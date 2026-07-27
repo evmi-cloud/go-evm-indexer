@@ -14,6 +14,7 @@ import (
 	"github.com/evmi-cloud/go-evm-indexer/internal/auth"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/grpc/generated/evm_indexer/v1/evm_indexerv1connect"
+	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 )
 
 // ServerPort is the TCP port the gRPC/HTTP server always listens on. Exported so
@@ -26,9 +27,13 @@ type EvmIndexerServer struct {
 	bus    *bus.Bus
 	auth   *auth.Authenticator
 	logger zerolog.Logger
+	// config is the loaded config file, kept so ExportConfiguration can re-emit the
+	// non-DB entries (database, metrics, pluginStorage) alongside the DB resources.
+	config types.Config
 }
 
 func StartGrpcServer(
+	config types.Config,
 	db *evmi_database.EvmiDatabase,
 	bus *bus.Bus,
 	logger zerolog.Logger,
@@ -40,6 +45,7 @@ func StartGrpcServer(
 		bus:    bus,
 		auth:   authenticator,
 		logger: logger,
+		config: config,
 	}
 
 	mux := http.NewServeMux()

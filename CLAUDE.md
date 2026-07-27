@@ -305,6 +305,19 @@ best-effort — an unresolved reference logs an error and skips just that row. E
 `internal/types/config.go` (`AutoloadResources` + `Config*` structs; store/plugin config blobs are
 `json.RawMessage` → `datatypes.JSON`).
 
+**Config export** is the inverse of the autoloader: the `ExportConfiguration` RPC
+(`internal/grpc/config-export-handlers.go`) emits a pretty-printed **complete config file** — the
+non-DB entries (`database`, `metrics`, `pluginStorage`) come verbatim from the loaded config (kept on
+`EvmIndexerServer.config`, passed into `StartGrpcServer`), and `plugins` + `resources` are rebuilt
+from the metadata DB, with all cross-references by natural name/identifier. **Factory-created child
+sources (`ParentSourceID != 0`) are excluded** (they're re-derived from their parent's rules at
+runtime, not declared); a FACTORY source's rule tree is re-emitted as `factoryRules`. Save the output
+as a config file to recreate everything on another instance. **Admin-only** (`requireAdmin`) because
+the output contains database/store credentials; the gateway routes it to any RUNNING instance (shared
+metadata DB, `gateway.go`), and the web UI's sidebar **Export config** button (admin-only) downloads
+it as `evmi-config.json`. Round-trips: export → `autoloader.Load` recreates every resource (verified
+in `config_export_handlers_test.go`).
+
 Note the field is `config` (a `map[string]string`), so `dsn`/`filename` must be nested
 under `database.config`, not at the top of `database`. `cmd/evm-indexer/staging.config.json`
 places `dsn` at the wrong level (top of `database`) — it only works because it uses SQLite

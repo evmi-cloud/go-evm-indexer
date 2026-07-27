@@ -157,7 +157,7 @@ func main() {
 					}
 
 					logger.Info().Msg("Start gRPC server")
-					grpc.StartGrpcServer(database, internalBus, logger)
+					grpc.StartGrpcServer(config, database, internalBus, logger)
 					return nil
 				},
 			},

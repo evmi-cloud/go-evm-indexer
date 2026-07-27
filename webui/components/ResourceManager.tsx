@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectError } from "@connectrpc/connect";
 import { client } from "@/lib/client";
-import type { ConfigParam, Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
+import type { ColumnContext, ConfigParam, Field, FormValues, Option, PluginConfigField, Resource } from "@/lib/resources";
 import { abiEventIndexedArgs, abiEvents, type AbiEvent, type IndexedArg } from "@/lib/resources/options";
 
 function errorMessage(err: unknown): string {
@@ -30,6 +30,8 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
   const [formError, setFormError] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<T | null>(null);
+  // Optional related-entity data passed to every column's get() (e.g. ABI names).
+  const [columnContext, setColumnContext] = useState<ColumnContext>({});
   // Ids of expanded parents in the hierarchical (tree) list view.
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -78,7 +80,11 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
     setLoading(true);
     setError(null);
     try {
-      setItems(await resource.list());
+      const [list] = await Promise.all([
+        resource.list(),
+        resource.loadColumnContext?.().then(setColumnContext).catch(() => setColumnContext({})),
+      ]);
+      setItems(list);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -250,10 +256,10 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                 return (
                   <tr key={id}>
                     {resource.columns.map((c, ci) => {
-                      const text = c.get(item);
+                      const text = c.get(item, columnContext);
                       const content = c.tone ? <span className={`badge badge-${c.tone(item)}`}>{text}</span> : text;
                       return (
-                        <td key={c.label} title={text} className={c.mono ? "mono" : undefined}>
+                        <td key={c.label} title={c.title ? c.title(item, columnContext) : text} className={c.mono ? "mono" : undefined}>
                           {ci === 0 && resource.parentIdOf ? (
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, paddingLeft: depth * 18 }}>
                               {childCount > 0 ? (

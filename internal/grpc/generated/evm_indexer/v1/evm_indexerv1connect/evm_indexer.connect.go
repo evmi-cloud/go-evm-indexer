@@ -217,6 +217,9 @@ const (
 	// EvmIndexerServiceListPluginGitRefsProcedure is the fully-qualified name of the
 	// EvmIndexerService's ListPluginGitRefs RPC.
 	EvmIndexerServiceListPluginGitRefsProcedure = "/evm_indexer.v1.EvmIndexerService/ListPluginGitRefs"
+	// EvmIndexerServiceExportConfigurationProcedure is the fully-qualified name of the
+	// EvmIndexerService's ExportConfiguration RPC.
+	EvmIndexerServiceExportConfigurationProcedure = "/evm_indexer.v1.EvmIndexerService/ExportConfiguration"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -284,6 +287,7 @@ var (
 	evmIndexerServiceDeletePluginMethodDescriptor              = evmIndexerServiceServiceDescriptor.Methods().ByName("DeletePlugin")
 	evmIndexerServiceInstallPluginMethodDescriptor             = evmIndexerServiceServiceDescriptor.Methods().ByName("InstallPlugin")
 	evmIndexerServiceListPluginGitRefsMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListPluginGitRefs")
+	evmIndexerServiceExportConfigurationMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("ExportConfiguration")
 )
 
 // EvmIndexerServiceClient is a client for the evm_indexer.v1.EvmIndexerService service.
@@ -365,6 +369,8 @@ type EvmIndexerServiceClient interface {
 	DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error)
 	InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error)
 	ListPluginGitRefs(context.Context, *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error)
+	// Configuration export: dump all resources as autoloader-compatible JSON.
+	ExportConfiguration(context.Context, *connect.Request[v1.ExportConfigurationRequest]) (*connect.Response[v1.ExportConfigurationResponse], error)
 }
 
 // NewEvmIndexerServiceClient constructs a client for the evm_indexer.v1.EvmIndexerService service.
@@ -749,6 +755,12 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(evmIndexerServiceListPluginGitRefsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		exportConfiguration: connect.NewClient[v1.ExportConfigurationRequest, v1.ExportConfigurationResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceExportConfigurationProcedure,
+			connect.WithSchema(evmIndexerServiceExportConfigurationMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -816,6 +828,7 @@ type evmIndexerServiceClient struct {
 	deletePlugin              *connect.Client[v1.DeletePluginRequest, v1.DeletePluginResponse]
 	installPlugin             *connect.Client[v1.InstallPluginRequest, v1.InstallPluginResponse]
 	listPluginGitRefs         *connect.Client[v1.ListPluginGitRefsRequest, v1.ListPluginGitRefsResponse]
+	exportConfiguration       *connect.Client[v1.ExportConfigurationRequest, v1.ExportConfigurationResponse]
 }
 
 // GetEvmiInstance calls evm_indexer.v1.EvmIndexerService.GetEvmiInstance.
@@ -1128,6 +1141,11 @@ func (c *evmIndexerServiceClient) ListPluginGitRefs(ctx context.Context, req *co
 	return c.listPluginGitRefs.CallUnary(ctx, req)
 }
 
+// ExportConfiguration calls evm_indexer.v1.EvmIndexerService.ExportConfiguration.
+func (c *evmIndexerServiceClient) ExportConfiguration(ctx context.Context, req *connect.Request[v1.ExportConfigurationRequest]) (*connect.Response[v1.ExportConfigurationResponse], error) {
+	return c.exportConfiguration.CallUnary(ctx, req)
+}
+
 // EvmIndexerServiceHandler is an implementation of the evm_indexer.v1.EvmIndexerService service.
 type EvmIndexerServiceHandler interface {
 	// EvmiInstance
@@ -1207,6 +1225,8 @@ type EvmIndexerServiceHandler interface {
 	DeletePlugin(context.Context, *connect.Request[v1.DeletePluginRequest]) (*connect.Response[v1.DeletePluginResponse], error)
 	InstallPlugin(context.Context, *connect.Request[v1.InstallPluginRequest]) (*connect.Response[v1.InstallPluginResponse], error)
 	ListPluginGitRefs(context.Context, *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error)
+	// Configuration export: dump all resources as autoloader-compatible JSON.
+	ExportConfiguration(context.Context, *connect.Request[v1.ExportConfigurationRequest]) (*connect.Response[v1.ExportConfigurationResponse], error)
 }
 
 // NewEvmIndexerServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1587,6 +1607,12 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 		connect.WithSchema(evmIndexerServiceListPluginGitRefsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	evmIndexerServiceExportConfigurationHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceExportConfigurationProcedure,
+		svc.ExportConfiguration,
+		connect.WithSchema(evmIndexerServiceExportConfigurationMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/evm_indexer.v1.EvmIndexerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EvmIndexerServiceGetEvmiInstanceProcedure:
@@ -1713,6 +1739,8 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceInstallPluginHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceListPluginGitRefsProcedure:
 			evmIndexerServiceListPluginGitRefsHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceExportConfigurationProcedure:
+			evmIndexerServiceExportConfigurationHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1968,4 +1996,8 @@ func (UnimplementedEvmIndexerServiceHandler) InstallPlugin(context.Context, *con
 
 func (UnimplementedEvmIndexerServiceHandler) ListPluginGitRefs(context.Context, *connect.Request[v1.ListPluginGitRefsRequest]) (*connect.Response[v1.ListPluginGitRefsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListPluginGitRefs is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ExportConfiguration(context.Context, *connect.Request[v1.ExportConfigurationRequest]) (*connect.Response[v1.ExportConfigurationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ExportConfiguration is not implemented"))
 }

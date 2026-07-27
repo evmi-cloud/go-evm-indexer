@@ -24,6 +24,12 @@ function parseFactoryRules(s: string): FactoryRuleInit[] {
   }
 }
 
+// shortHex truncates a long 0x value (address/topic) to `0x1234…cdef`; short
+// values are returned unchanged.
+function shortHex(v: string): string {
+  return v.length > 12 ? `${v.slice(0, 6)}…${v.slice(-4)}` : v;
+}
+
 const sourceTypeOptions: Option[] = [
   { value: "CONTRACT", label: "Contract" },
   { value: "TOPIC", label: "Topic" },
@@ -61,7 +67,18 @@ export const sources: Resource<EvmLogSource> = {
   columns: [
     { label: "ID", get: (s) => String(s.id ?? "") },
     { label: "Type", get: (s) => s.type },
-    { label: "Target", get: (s) => s.address || s.topic0 || "—", mono: true },
+    // Address (or topic0) shown truncated; hover shows the full value (title attr).
+    {
+      label: "Target",
+      get: (s) => (s.address ? shortHex(s.address) : s.topic0 ? shortHex(s.topic0) : "—"),
+      title: (s) => s.address || s.topic0 || "",
+      mono: true,
+    },
+    // Contract ABI name, resolved from the loaded abi id→name map.
+    {
+      label: "Contract",
+      get: (s, ctx) => (ctx.abiNames as Record<number, string> | undefined)?.[s.evmJsonAbiId ?? 0] || "—",
+    },
     { label: "Sync block", get: (s) => String(s.syncBlock) },
     {
       label: "Status",
@@ -69,6 +86,13 @@ export const sources: Resource<EvmLogSource> = {
       tone: (s) => (!s.enabled ? "muted" : s.status === "RUNNING" ? "ok" : s.status === "LOOPBACKOFF" ? "warn" : "neutral"),
     },
   ],
+  // Load abi id→name so the Contract column can label each source's ABI.
+  loadColumnContext: async () => {
+    const abis = (await client.listEvmJsonAbis(PAGE)).abis ?? [];
+    const abiNames: Record<number, string> = {};
+    for (const a of abis) abiNames[a.id ?? 0] = a.contractName;
+    return { abiNames };
+  },
   idOf: (s) => s.id ?? 0,
   // Factory-created sources carry the id of the factory source that spawned them,
   // so the list can be rendered as a hierarchy (children nested under the factory).

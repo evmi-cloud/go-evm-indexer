@@ -44,6 +44,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
+  // Download the current configuration (blockchains, ABIs, stores, pipelines,
+  // sources — excluding factory-created ones — plugins and exporters) as an
+  // autoloader-compatible JSON file.
+  async function exportConfig() {
+    try {
+      const res = await client.exportConfiguration({});
+      const blob = new Blob([res.configJson], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "evmi-config.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   const isActive = (href: string) => pathname === href || pathname === `${href}/`;
 
   return (
@@ -85,6 +105,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="user-role">{user.role}</div>
               </div>
             </div>
+            {isAdmin(user) && (
+              <button className="secondary small" onClick={exportConfig}>
+                Export config
+              </button>
+            )}
             <button className="secondary small" onClick={logout}>
               Sign out
             </button>

@@ -811,6 +811,7 @@ func (p *SourceIndexerService) computeLogsAndTxs(client *w3.Client, logs []ethTy
 		l := types.EvmLog{
 			Id:               fmt.Sprintf("%d:%d:%d", transaction.ChainId().Uint64(), log.BlockNumber, log.Index),
 			SourceId:         p.source.ID,
+			ChainId:          p.chain.ChainId,
 			Address:          log.Address.Hex(),
 			Topics:           logTopics,
 			Data:             common.Bytes2Hex(log.Data),

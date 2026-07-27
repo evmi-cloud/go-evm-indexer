@@ -641,6 +641,15 @@ message StreamEvmiExporterUpdatesRequest {
   uint32 pipeline_id = 1;
 }
 
+message ExportConfigurationRequest {}
+message ExportConfigurationResponse {
+  // config_json is a pretty-printed JSON object with `plugins` and `resources`
+  // keys, matching the config-file autoloader schema — paste it under a config
+  // file to recreate blockchains, ABIs, stores, pipelines, sources (excluding
+  // factory-created children), plugins and exporters.
+  string config_json = 1;
+}
+
 
 service EvmIndexerService {
   // EvmiInstance
@@ -732,4 +741,7 @@ service EvmIndexerService {
   rpc DeletePlugin(DeletePluginRequest) returns (DeletePluginResponse);
   rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);
   rpc ListPluginGitRefs(ListPluginGitRefsRequest) returns (ListPluginGitRefsResponse);
+
+  // Configuration export: dump all resources as autoloader-compatible JSON.
+  rpc ExportConfiguration(ExportConfigurationRequest) returns (ExportConfigurationResponse);
 }
