@@ -24,10 +24,14 @@ go run ./cmd/evm-indexer start --config <config.json> --instance <INSTANCE_ID>
 buf generate           # writes to internal/grpc/generated (config in buf.gen.yaml)
 buf lint               # STANDARD lint ruleset (buf.yaml)
 
+# Regenerate the exporter-plugin wire protocol (separate buf module)
+cd pkg/exporter/proto && buf generate   # needs protoc-gen-go-grpc v1.5.1 too
+
 # Full local stack (indexer + ClickHouse + ch-ui + Prometheus + Grafana)
 docker compose up --build
 
-go test ./...          # no tests currently exist in the repo
+go test ./...
+go test -short ./...   # skips the exporter-plugin tests, which compile a plugin binary
 ```
 
 The gRPC server always listens on `0.0.0.0:8080` (hardcoded in `internal/grpc/server.go`),
@@ -149,7 +153,7 @@ server-streams route by `pipeline_id`, or **fan out and merge across the whole f
 each instance validates it against the shared DB. Non-API paths (web UI at `/`, `/auth/oauth/callback`)
 are reverse-proxied to any instance (`server.go`). **`InstallPlugin` is the one exception to
 single-instance routing:** it is hand-written in `gateway.go` (not in `handlers_gen.go`) to **fan
-out to every RUNNING instance concurrently**, because installing builds the plugin `.so` on that
+out to every RUNNING instance concurrently**, because installing builds the plugin executable on that
 instance's *local* disk — so every instance that might run an exporter using the plugin needs its
 own build. The aggregate (via `aggregateInstall`) succeeds only if all instances succeed; otherwise
 the response error names each failing instance.
@@ -186,28 +190,42 @@ surface + flows in `AUTH.md`. Note: auth RPCs live in the shared proto, so regen
 indexer's manager/supervisor shape — `ExporterServiceManager` starts one `ExporterService`
 per enabled `EvmiExporter` (bound to a pipeline), reacting to `exporter.enable`/
 `exporter.disable` bus events. Each service streams the pipeline's stored logs, in
-`(block_number, log_index)` order, into a user-written native Go plugin's `NewLogEvent`,
+`(block_number, log_index)` order, into a user-written plugin's `NewLogEvent`,
 committing `EvmiExporter.SyncBlock` at block boundaries (at-least-once; plugins dedupe on the
 stable `LogEvent.Id`). The safe export head is the *min* `SyncBlock` across the pipeline's
-sources. Plugins implement the public `pkg/exporter.Exporter` interface (public so external
-plugin repos can import it — `internal/` can't be imported out-of-module) and export a
-`func New() exporter.Exporter` symbol. **Plugin code is a separate `Plugin` entity**, not an
-exporter field: `exporter.InstallPlugin` (via the `InstallPlugin` RPC) resolves the source and
-builds the `.so` with `-buildmode=plugin`, recording `SoPath`/`Status` on the `Plugin` row; an
-exporter references it by `PluginID` and `loader.go:loadInstalledPlugin` opens the installed
-`.so` via `plugin.Open` (an exporter only starts if its plugin is `INSTALLED`). A plugin is
-cloned+built in an ephemeral `<buildDir>/<pluginName>` and the `.so` is copied to a persistent
-`<installDir>/<pluginName>.so` (= `SoPath`); both bases come from `config.pluginStorage`
-(`buildDir` default `<tmp>/evmi`, `installDir` default `/evmi/plugins`) via `exporter.Configure`.
-Mount a volume at `installDir` to avoid rebuilds across restarts. A plugin may
+sources.
+
+**Plugins are hashicorp/go-plugin subprocesses.** A plugin is an ordinary executable EVMI
+launches and calls over gRPC, so it builds with a plain `go build`, needs no CGO or
+toolchain/dependency-version match with the server, runs isolated (a panic kills only the
+plugin), and is actually terminated when its exporter stops. Plugins implement the public
+`pkg/exporter.Exporter` interface (public so external plugin repos can import it — `internal/`
+can't be imported out-of-module) and serve it from `main` via `pkg/exporter.Serve`. The
+host↔plugin wire protocol is its own proto module, `pkg/exporter/proto/exporter.proto`, with a
+**separate `buf.yaml`/`buf.gen.yaml` in that directory** (`cd pkg/exporter/proto && buf generate`,
+protoc-gen-go v1.35.1 + protoc-gen-go-grpc v1.5.1) so it never collides with the root Connect API
+codegen; `pkg/exporter/grpc_client.go` / `grpc_server.go` adapt it to the Go interface on each
+side, and `Handshake.ProtocolVersion` (`pkg/exporter/plugin.go`) gates compatibility.
+
+**Plugin code is a separate `Plugin` entity**, not an exporter field: `exporter.InstallPlugin`
+(via the `InstallPlugin` RPC) clones the source and `go build`s it, recording
+`BinaryPath`/`Status` on the `Plugin` row; an exporter references it by `PluginID` and
+`loader.go:launchInstalledPlugin` → `plugin_process.go:startPlugin` runs the binary (an exporter
+only starts if its plugin is `INSTALLED`). The subprocess is killed when `ExporterService.Serve`
+returns. A plugin is cloned+built in an ephemeral `<buildDir>/<pluginName>` and the executable is
+copied to a persistent `<installDir>/<pluginName>` (= `BinaryPath`); both bases come from
+`config.pluginStorage` (`buildDir` default `<tmp>/evmi`, `installDir` default `/evmi/plugins`)
+via `exporter.Configure`. Mount a volume at `installDir` to avoid rebuilds across restarts. A plugin may
 implement the optional `pkg/exporter.Configurable` interface to declare a config schema;
-install extracts it into `Plugin.ConfigSchema`, the exporter handlers validate `PluginConfig`
+install extracts it (by running the built binary once and killing it) into `Plugin.ConfigSchema`,
+the exporter handlers validate `PluginConfig`
 against it (`exporter.ValidatePluginConfig`, → `InvalidArgument`), and the web UI renders a
 typed config form from it. Wired into
-`main.go` after the indexer, which first calls `exporter.VerifyPlugins` — the `.so` build cache
-is ephemeral across restarts, so each boot re-checks every `INSTALLED` plugin's `SoPath` and
-rebuilds missing GitHub-sourced plugins (or marks non-GitHub ones `FAILED`). **Design + native-plugin caveats (CGO, toolchain/version match, no
-isolation, runtime image needs a Go toolchain to build plugins from source) live in
+`main.go` after the indexer, which first calls `exporter.VerifyPlugins` — the build cache
+is ephemeral across restarts, so each boot re-checks every `INSTALLED` plugin's `BinaryPath` and
+rebuilds missing git-sourced plugins (or marks sourceless ones `FAILED`). **Design + operational
+caveats (one process per running exporter, per-log gRPC round trip, runtime image needs a Go
+toolchain + git to build plugins from source) live in
 `docs/exporters.md` — read it before touching this subsystem.** Cross-source ordered reads use
 `EvmIndexerStorage.GetLogsAfter`. Plugins and exporters are managed over the Connect API
 (`internal/grpc/plugin-handlers.go` CRUD + `InstallPlugin`; `exporter-handlers.go` CRUD +

@@ -225,7 +225,7 @@ func (g *Gateway) ExportConfiguration(ctx context.Context, req *connect.Request[
 }
 
 // InstallPlugin fans out to every RUNNING instance instead of routing to one:
-// installing builds the plugin's shared object on that instance's local disk, so
+// installing builds the plugin executable on that instance's local disk, so
 // each instance that might run an exporter using the plugin needs its own build.
 // Installs run concurrently; the aggregate succeeds only if every instance
 // succeeds, and the error lists the instances that failed. A per-instance call

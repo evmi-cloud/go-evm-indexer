@@ -1,0 +1,100 @@
+// Wire protocol between the EVMI server (host) and an exporter plugin
+// (subprocess), spoken over hashicorp/go-plugin's gRPC transport.
+//
+// The Go types in pkg/exporter (Exporter, LogEvent, Context, ConfigField) are the
+// author-facing API; these messages are their transport encoding. Keep the two in
+// sync: adding a field to LogEvent means adding it here and in the client/server
+// adapters (grpc_client.go / grpc_server.go).
+syntax = "proto3";
+
+package evmi.exporter.v1;
+
+option go_package = "github.com/evmi-cloud/go-evm-indexer/pkg/exporter/proto;exporterproto";
+
+// ExporterPluginService is served by the plugin process and called by the EVMI server.
+// Calls are made strictly sequentially, in this order: ConfigSchema (install
+// time only), Init, then NewLogEvent once per stored log in (block, log_index)
+// order, then Close.
+service ExporterPluginService {
+  // Name returns the plugin's human-readable identifier.
+  rpc Name(NameRequest) returns (NameResponse);
+  // ConfigSchema returns the plugin's declared config parameters. Called once at
+  // install time to record the schema on the Plugin row.
+  rpc ConfigSchema(ConfigSchemaRequest) returns (ConfigSchemaResponse);
+  // Init is called once before any NewLogEvent.
+  rpc Init(InitRequest) returns (InitResponse);
+  // NewLogEvent delivers one stored log.
+  rpc NewLogEvent(NewLogEventRequest) returns (NewLogEventResponse);
+  // Close asks the plugin to flush and release resources. The host kills the
+  // process afterwards.
+  rpc Close(CloseRequest) returns (CloseResponse);
+}
+
+message NameRequest {}
+
+message NameResponse {
+  string name = 1;
+}
+
+// ConfigField mirrors exporter.ConfigField.
+message ConfigField {
+  string name = 1;
+  // type is one of "string", "number", "bool" (exporter.ConfigFieldType).
+  string type = 2;
+  bool required = 3;
+  string description = 4;
+  string default_value = 5;
+}
+
+message ConfigSchemaRequest {}
+
+message ConfigSchemaResponse {
+  // implemented is false when the plugin does not implement the optional
+  // exporter.Configurable interface, which means "accepts any config".
+  bool implemented = 1;
+  repeated ConfigField fields = 2;
+}
+
+// InitRequest mirrors exporter.Context.
+message InitRequest {
+  string exporter_name = 1;
+  uint64 pipeline_id = 2;
+  uint64 chain_id = 3;
+  // config is the raw PluginConfig JSON configured for this exporter.
+  bytes config = 4;
+}
+
+message InitResponse {}
+
+// LogEvent mirrors exporter.LogEvent.
+message LogEvent {
+  string id = 1;
+  uint64 source_id = 2;
+  uint64 chain_id = 3;
+  string address = 4;
+  repeated string topics = 5;
+  string data = 6;
+  uint64 block_number = 7;
+  uint64 block_timestamp = 8;
+  string transaction_hash = 9;
+  string transaction_from = 10;
+  uint64 transaction_index = 11;
+  string block_hash = 12;
+  uint64 log_index = 13;
+  bool removed = 14;
+
+  // Decoded metadata (empty for undecoded/FULL logs).
+  string contract_name = 15;
+  string event_name = 16;
+  map<string, string> args = 17;
+}
+
+message NewLogEventRequest {
+  LogEvent log = 1;
+}
+
+message NewLogEventResponse {}
+
+message CloseRequest {}
+
+message CloseResponse {}

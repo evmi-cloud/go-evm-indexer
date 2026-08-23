@@ -26,18 +26,18 @@ func newPluginDB(t *testing.T) *evmi_database.EvmiDatabase {
 	return &evmi_database.EvmiDatabase{Conn: db}
 }
 
-// Already installed and the .so is on disk → InstallPlugin does nothing (no
+// Already installed and the binary is on disk → InstallPlugin does nothing (no
 // rebuild), leaving the row untouched.
-func TestInstallPluginSkipsWhenSoPresent(t *testing.T) {
+func TestInstallPluginSkipsWhenBinaryPresent(t *testing.T) {
 	db := newPluginDB(t)
-	so := filepath.Join(t.TempDir(), "p.so")
-	if err := os.WriteFile(so, []byte("SO"), 0o644); err != nil {
+	so := filepath.Join(t.TempDir(), "p"+exeSuffix())
+	if err := os.WriteFile(so, []byte("BIN"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	p := evmi_database.Plugin{
-		Name:   "already-there",
-		Status: string(evmi_database.InstalledPluginStatus),
-		SoPath: so,
+		Name:       "already-there",
+		Status:     string(evmi_database.InstalledPluginStatus),
+		BinaryPath: so,
 		// A bogus git source that would fail to build — proving no build is attempted.
 		GitUrl: "https://example.invalid/nope.git",
 	}
@@ -48,19 +48,20 @@ func TestInstallPluginSkipsWhenSoPresent(t *testing.T) {
 	}
 	var got evmi_database.Plugin
 	db.Conn.First(&got, p.ID)
-	if got.Status != string(evmi_database.InstalledPluginStatus) || got.SoPath != so {
-		t.Errorf("row should be unchanged, got status=%q so=%q", got.Status, got.SoPath)
+	if got.Status != string(evmi_database.InstalledPluginStatus) || got.BinaryPath != so {
+		t.Errorf("row should be unchanged, got status=%q binary=%q", got.Status, got.BinaryPath)
 	}
 }
 
-// Marked installed but the .so is gone → InstallPlugin does NOT skip; it attempts
-// a build (which fails here for lack of a real source), ending in FAILED.
-func TestInstallPluginBuildsWhenSoMissing(t *testing.T) {
+// Marked installed but the binary is gone → InstallPlugin does NOT skip; it
+// attempts a build (which fails here for lack of a real source), ending in
+// FAILED.
+func TestInstallPluginBuildsWhenBinaryMissing(t *testing.T) {
 	db := newPluginDB(t)
 	p := evmi_database.Plugin{
-		Name:   "missing-so",
-		Status: string(evmi_database.InstalledPluginStatus),
-		SoPath: filepath.Join(t.TempDir(), "gone.so"), // does not exist
+		Name:       "missing-so",
+		Status:     string(evmi_database.InstalledPluginStatus),
+		BinaryPath: filepath.Join(t.TempDir(), "gone"), // does not exist
 		// No GitUrl → build resolution fails deterministically (git is required).
 	}
 	db.Conn.Create(&p)

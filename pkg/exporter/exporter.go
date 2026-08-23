@@ -1,14 +1,22 @@
 // Package exporter is the public SDK that custom EVMI exporter plugins import.
 //
-// An exporter plugin is a Go package built with `-buildmode=plugin` that the
-// EVMI server loads in-process. The server calls NewLogEvent once for every log
-// stored in a pipeline's log store, in ascending (block_number, log_index)
-// order, and tracks how far each exporter has progressed so it resumes from the
-// last committed block after a restart.
+// An exporter plugin is a **standalone Go program** that EVMI launches as a
+// subprocess and talks to over gRPC via hashicorp/go-plugin. Build it with any
+// Go toolchain and any dependency versions you like; a panicking plugin takes
+// down only its own process, not the server.
 //
-// A plugin MUST be `package main`, implement Exporter, and export a symbol named
-// `New` with the signature `func() exporter.Exporter`. The EVMI server looks up
-// that symbol to instantiate the plugin. See examples/exporters for a template.
+// The server calls NewLogEvent once for every log stored in a pipeline's log
+// store, in ascending (block_number, log_index) order, and tracks how far each
+// exporter has progressed so it resumes from the last committed block after a
+// restart.
+//
+// A plugin MUST be `package main`, implement Exporter, and hand the
+// implementation to Serve from main():
+//
+//	func main() { exporter.Serve(&myExporter{}) }
+//
+// Build it like any other program (`go build -o my-exporter .`). See
+// examples/exporters/logcount for a template.
 package exporter
 
 // LogEvent is a single decoded EVM log delivered to a plugin. It mirrors the
@@ -65,9 +73,6 @@ type Exporter interface {
 	// Close is called when the exporter is stopped. Flush and release resources.
 	Close() error
 }
-
-// Factory is the type of the exported `New` symbol the server looks up.
-type Factory = func() Exporter
 
 // ConfigFieldType enumerates the supported configuration parameter types. The
 // value in the exporter's config JSON must be a JSON string / number / boolean

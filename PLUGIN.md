@@ -25,10 +25,22 @@ type Exporter interface {
 }
 ```
 
-and exports a factory symbol EVMI looks up by name:
+and hands it to `exporter.Serve` from `main`:
 
 ```go
-func New() exporter.Exporter { return &myExporter{} }
+func main() { exporter.Serve(&myExporter{}) }
+```
+
+EVMI launches your plugin as a **subprocess** and calls it over gRPC
+([hashicorp/go-plugin](https://github.com/hashicorp/go-plugin)). Practically,
+that means your plugin is an ordinary Go program: build it with a plain
+`go build`, use whatever dependency versions you like, and a panic in your code
+takes down only your process — not the indexer.
+
+Your module needs one dependency for the SDK:
+
+```bash
+go get github.com/evmi-cloud/go-evm-indexer
 ```
 
 ### Declaring your config parameters (recommended)
@@ -90,12 +102,17 @@ type LogEvent struct {
 
 ---
 
-## 2. Two rules you must follow
+## 2. Three rules you must follow
 
-1. **`package main` + a `main` function.** `-buildmode=plugin` requires it. The
-   `main` func is never executed — leave it empty.
+1. **`package main` whose `main` calls `exporter.Serve`.** `Serve` blocks until
+   EVMI disconnects, then returns; do your setup in `Init`, not in `main`.
 
-2. **Be idempotent.** Delivery is **at-least-once**: after a crash EVMI replays
+2. **Never print to stdout.** Stdout is the handshake and gRPC channel between
+   EVMI and your plugin — writing to it corrupts the connection. Log to
+   **stderr** instead (the standard library `log` package already does); EVMI
+   captures it and forwards it to its own log, tagged with your plugin's name.
+
+3. **Be idempotent.** Delivery is **at-least-once**: after a crash EVMI replays
    the current block. If you see the same `LogEvent.Id` twice you must not
    double-count. Upsert on `Id` (or on `(blockNumber, logIndex)`), don't blind
    `INSERT`, and don't `+=` without a dedupe key.
@@ -105,11 +122,10 @@ type LogEvent struct {
 ## 3. Minimal example
 
 ```go
-// package main is required for -buildmode=plugin.
 package main
 
 import (
-    "fmt"
+    "log"
 
     exporter "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
 )
@@ -123,23 +139,21 @@ func (e *counter) Name() string { return "counter" }
 
 func (e *counter) Init(ctx exporter.Context) error {
     e.name = ctx.ExporterName
-    fmt.Printf("[%s] starting on chain %d\n", e.name, ctx.ChainId)
+    log.Printf("[%s] starting on chain %d", e.name, ctx.ChainId) // stderr, not stdout
     return nil
 }
 
-func (e *counter) NewLogEvent(log exporter.LogEvent) error {
+func (e *counter) NewLogEvent(l exporter.LogEvent) error {
     e.total++
     return nil
 }
 
 func (e *counter) Close() error {
-    fmt.Printf("[%s] saw %d logs\n", e.name, e.total)
+    log.Printf("[%s] saw %d logs", e.name, e.total)
     return nil
 }
 
-func New() exporter.Exporter { return &counter{} }
-
-func main() {}
+func main() { exporter.Serve(&counter{}) }
 ```
 
 A runnable version lives at
@@ -256,9 +270,7 @@ func (e *erc20Balances) Close() error {
     return nil
 }
 
-func New() exporter.Exporter { return &erc20Balances{} }
-
-func main() {}
+func main() { exporter.Serve(&erc20Balances{}) }
 ```
 
 The `processed_logs` guard + a single DB transaction per log is what makes the
@@ -272,25 +284,21 @@ at-least-once replay safe: re-seeing a log id is a no-op.
 
 ## 5. Build it
 
-Your plugin lives in its own module (or a subdirectory of one). Build a shared
-object:
+Your plugin is its own Go module with `main` at the **repo root** (that is the
+path EVMI builds). It is an ordinary program:
 
 ```bash
-go build -buildmode=plugin -o erc20-balances.so ./path/to/plugin
+go build -o erc20-balances .
 ```
 
-> **Critical: version matching.** A `.so` only loads if it was built with the
-> **same Go toolchain version** and the **same versions of every shared
-> dependency** (at minimum `pkg/exporter`, and anything both sides import, like
-> `go-ethereum`) as the running EVMI server. If they differ, `plugin.Open` fails.
-> In your plugin's `go.mod`, pin:
->
-> ```
-> require github.com/evmi-cloud/go-evm-indexer v0.0.0  // match the server's version
-> ```
->
-> and build with the same `go` version. `CGO_ENABLED=1` is required
-> (`-buildmode=plugin` needs it), and plugins only work on **Linux and macOS**.
+Any Go toolchain, any dependency versions — the plugin is a normal program.
+
+The one compatibility rule: EVMI rejects a plugin built against an **incompatible
+SDK protocol version** at startup, with a handshake error naming the mismatch. If
+that happens, update the SDK dependency and rebuild.
+
+In practice you rarely build by hand at all — push the plugin to a git repository
+and let EVMI clone and build it (next section).
 
 ---
 
@@ -309,9 +317,11 @@ A `Plugin` record holds the code source:
 | `GitUrl`  | git repo EVMI clones and builds — **the only source**         |
 | `GitRef`  | optional branch or tag (empty = the repo's default branch)    |
 
-Then **Install** it: EVMI clones `GitUrl` at `GitRef` and builds the **repo root**
-(the plugin's `main` package must live there — there is no package path to set),
-storing the resulting `.so`. Git is the only supported source.
+Then **Install** it: EVMI clones `GitUrl` at `GitRef` and runs `go build` on the
+**repo root** (the plugin's `main` package must live there — there is no package
+path to set), storing the resulting executable. Git is the only supported source,
+and the build happens on the instance, so it needs network access to fetch your
+module's dependencies.
 
 Plugins can also be **declared in the server config** to be imported and installed
 on startup — add a `plugins` array (each entry `{name, description, gitUrl,
@@ -345,9 +355,9 @@ Example `PluginConfig` for the ERC-20 exporter above:
 }
 ```
 
-> There is not yet a gRPC/API endpoint to create exporters — rows are managed
-> directly in the metadata database for now (see the roadmap in
-> [docs/exporters.md](docs/exporters.md)).
+> Exporters are managed over the Connect API (`CreateEvmiExporter`,
+> `UpdateEvmiExporter`, `StartExporter`, `StopExporter`, …) and from the web UI's
+> **Exporters** tab.
 
 ---
 
@@ -361,19 +371,25 @@ Example `PluginConfig` for the ERC-20 exporter above:
 - If `NewLogEvent` returns an error, the exporter stops and **that same log** is
   redelivered on the next run (everything before it is already committed). Return
   an error to signal "retry this"; return `nil` to accept and move on.
-- Your plugin runs **inside the EVMI process**. A `panic` or a long block in your
-  code affects the whole server — recover from panics you can anticipate, keep
-  `NewLogEvent` fast, and do heavy/blocking work behind batching if needed.
+- Your plugin runs **in its own process**, started when the exporter starts and
+  killed when it stops. A panic kills only your plugin: the exporter is restarted
+  by the supervisor and replays from the last committed cursor. Nothing else on
+  the server is affected.
+- Calls are **strictly sequential** — one `NewLogEvent` at a time — so your
+  plugin does not need to be goroutine-safe.
+- Each delivered log costs one local gRPC round trip, so keep `NewLogEvent`
+  cheap: buffer or batch expensive work inside the plugin and flush it in
+  `Close`.
 
 ---
 
 ## Checklist
 
-- [ ] `package main` with an empty `func main() {}`
+- [ ] `package main` whose `main` calls `exporter.Serve(&myExporter{})`
 - [ ] implements `Name`, `Init`, `NewLogEvent`, `Close`
-- [ ] exports `func New() exporter.Exporter`
+- [ ] logs to stderr only — nothing written to stdout
 - [ ] idempotent on `LogEvent.Id` (safe to replay)
 - [ ] handles `Removed` logs deliberately
-- [ ] built with the server's Go version + pinned dependency versions, `CGO_ENABLED=1`
+- [ ] builds with a plain `go build` from the repo root
 - [ ] installed as a `Plugin` (status `INSTALLED`), then referenced by an
       `EvmiExporter` (with `PluginConfig`)

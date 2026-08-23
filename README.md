@@ -135,11 +135,12 @@ When enabled, Prometheus metrics are exposed on the configured `metrics.port` an
 Exporters run user-written Go plugins over indexed data: the server calls a
 plugin's `NewLogEvent` for every stored log, in block order, and tracks each
 exporter's sync progress so it resumes after a restart — e.g. a plugin that
-maintains ERC-20 balances in your own database. Plugins implement the
-`github.com/evmi-cloud/go-evm-indexer/pkg/exporter` interface and are compiled
-with `-buildmode=plugin`. See [docs/exporters.md](docs/exporters.md) for the
-authoring guide and the important native-plugin constraints (toolchain/version
-matching, CGO, no process isolation).
+maintains ERC-20 balances in your own database. A plugin is an ordinary Go
+program that implements the `github.com/evmi-cloud/go-evm-indexer/pkg/exporter`
+interface; EVMI runs it as a **subprocess** over
+[hashicorp/go-plugin](https://github.com/hashicorp/go-plugin), so it builds with
+any Go toolchain and cannot crash the indexer. See
+[docs/exporters.md](docs/exporters.md) for the authoring guide.
 
 ### Web UI
 

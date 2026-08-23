@@ -7,6 +7,8 @@ require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.6
 	github.com/ethereum/go-ethereum v1.16.1
 	github.com/google/uuid v1.6.0
+	github.com/hashicorp/go-hclog v0.14.1
+	github.com/hashicorp/go-plugin v1.6.3
 	github.com/lib/pq v1.10.9
 	github.com/lmittmann/w3 v0.20.0
 	github.com/mustafaturan/bus/v3 v3.0.3
@@ -19,7 +21,8 @@ require (
 	github.com/urfave/cli/v2 v2.27.5
 	go.mongodb.org/mongo-driver v1.17.9
 	golang.org/x/net v0.38.0
-	google.golang.org/protobuf v1.35.2
+	google.golang.org/grpc v1.72.2
+	google.golang.org/protobuf v1.36.5
 	gorm.io/datatypes v1.2.6
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
@@ -34,12 +37,15 @@ require (
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/elastic/elastic-transport-go/v8 v8.9.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
+	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
+	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.7.5 // indirect
@@ -49,6 +55,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
+	github.com/oklog/run v1.0.0 // indirect
 	github.com/parquet-go/bitpack v1.0.0 // indirect
 	github.com/parquet-go/jsonlite v1.0.0 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
@@ -62,6 +69,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
@@ -100,7 +108,7 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	golang.org/x/crypto v0.39.0
-	golang.org/x/oauth2 v0.24.0
+	golang.org/x/oauth2 v0.26.0
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.26.0 // indirect

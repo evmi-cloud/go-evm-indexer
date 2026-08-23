@@ -57,7 +57,7 @@ export const plugins: Resource<Plugin> = {
     gitRef: p.gitRef,
   }),
   actions: [
-    // Build the shared object; the row's status reflects the outcome on refresh.
+    // Build the plugin executable; the row's status reflects the outcome on refresh.
     { label: "Install", run: async (p) => void (await client.installPlugin({ id: p.id ?? 0 })) },
   ],
 };

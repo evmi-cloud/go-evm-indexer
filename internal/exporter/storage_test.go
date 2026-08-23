@@ -3,6 +3,7 @@ package exporter
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
@@ -49,17 +50,26 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
-	src := filepath.Join(t.TempDir(), "src.so")
-	if err := os.WriteFile(src, []byte("SO"), 0o644); err != nil {
+	src := filepath.Join(t.TempDir(), "src")
+	if err := os.WriteFile(src, []byte("BIN"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	// Destination dir does not exist yet — copyFile must create it.
-	dst := filepath.Join(t.TempDir(), "nested", "plugins", "p.so")
+	dst := filepath.Join(t.TempDir(), "nested", "plugins", "p")
 	if err := copyFile(src, dst); err != nil {
 		t.Fatalf("copyFile: %v", err)
 	}
 	b, err := os.ReadFile(dst)
-	if err != nil || string(b) != "SO" {
+	if err != nil || string(b) != "BIN" {
 		t.Fatalf("copied content = %q, err %v", b, err)
+	}
+	// The copy is launched as a subprocess, so it must land executable even
+	// though the source was not.
+	info, err := os.Stat(dst)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("copied mode = %v, want the executable bit set", info.Mode().Perm())
 	}
 }

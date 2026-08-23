@@ -1,0 +1,13 @@
+# Standalone buf module for the exporter plugin protocol. It is deliberately
+# separate from the root buf.yaml (which covers the public Connect API under
+# internal/grpc/proto) so regenerating one never touches the other.
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  except:
+    # The generated Go package lives next to the .proto (pkg/exporter/proto), so
+    # the directory does not mirror the proto package path.
+    - PACKAGE_DIRECTORY_MATCH

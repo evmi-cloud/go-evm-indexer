@@ -53,7 +53,7 @@ func (e *EvmIndexerServer) UpdatePlugin(ctx context.Context, req *connect.Reques
 	plugin.GitRef = req.Msg.Plugin.GitRef
 	if sourceChanged {
 		plugin.Status = string(evmi_database.NotInstalledPluginStatus)
-		plugin.SoPath = ""
+		plugin.BinaryPath = ""
 		plugin.Error = ""
 		plugin.ConfigSchema = nil
 	}
@@ -100,7 +100,7 @@ func (e *EvmIndexerServer) DeletePlugin(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(&evm_indexerv1.DeletePluginResponse{}), nil
 }
 
-// InstallPlugin builds the plugin's shared object and records the result.
+// InstallPlugin builds the plugin executable and records the result.
 func (e *EvmIndexerServer) InstallPlugin(ctx context.Context, req *connect.Request[evm_indexerv1.InstallPluginRequest]) (*connect.Response[evm_indexerv1.InstallPluginResponse], error) {
 	err := exporter.InstallPlugin(e.db, uint(req.Msg.Id), e.logger)
 
@@ -145,7 +145,7 @@ func toGrpcPlugin(p evmi_database.Plugin) *evm_indexerv1.Plugin {
 		Description:      p.Description,
 		GitUrl:           p.GitUrl,
 		GitRef:           p.GitRef,
-		SoPath:           p.SoPath,
+		BinaryPath:       p.BinaryPath,
 		Status:           p.Status,
 		Error:            p.Error,
 		ConfigSchemaJson: string(p.ConfigSchema),

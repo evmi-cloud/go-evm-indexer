@@ -1,17 +1,19 @@
 // Example EVMI exporter plugin.
 //
-// Build it into a loadable plugin with the SAME Go toolchain and module
-// versions the EVMI server was built with:
+// An exporter plugin is an ordinary Go program: EVMI launches it as a subprocess
+// and talks to it over gRPC (hashicorp/go-plugin). Build it like anything else:
 //
-//	go build -buildmode=plugin -o logcount.so ./examples/exporters/logcount
+//	go build -o logcount ./examples/exporters/logcount
 //
-// Then point an EvmiExporter's PluginLocalPath at logcount.so (or its source
-// directory, which the server will build automatically).
+// In practice you don't build it by hand: create a Plugin pointing at the git
+// repository holding the plugin's `main` package at its root, and EVMI clones and
+// builds it on install. Then point an EvmiExporter at that plugin.
 package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	exporter "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
 )
@@ -23,10 +25,10 @@ type pluginConfig struct {
 }
 
 type logCounter struct {
-	name     string
-	cfg      pluginConfig
-	total    uint64
-	byEvent  map[string]uint64
+	name    string
+	cfg     pluginConfig
+	total   uint64
+	byEvent map[string]uint64
 }
 
 func (e *logCounter) Name() string { return "logcount" }
@@ -57,31 +59,35 @@ func (e *logCounter) Init(ctx exporter.Context) error {
 	if e.cfg.LogEvery == 0 {
 		e.cfg.LogEvery = 100
 	}
-	fmt.Printf("[%s] init pipeline=%d chain=%d\n", e.name, ctx.PipelineId, ctx.ChainId)
+	log.Printf("[%s] init pipeline=%d chain=%d", e.name, ctx.PipelineId, ctx.ChainId)
 	return nil
 }
 
-func (e *logCounter) NewLogEvent(log exporter.LogEvent) error {
+func (e *logCounter) NewLogEvent(l exporter.LogEvent) error {
 	e.total++
-	name := log.EventName
+	name := l.EventName
 	if name == "" {
 		name = "<undecoded>"
 	}
 	e.byEvent[name]++
 
 	if e.total%e.cfg.LogEvery == 0 {
-		fmt.Printf("[%s] block=%d total=%d event=%s\n", e.name, log.BlockNumber, e.total, name)
+		log.Printf("[%s] block=%d total=%d event=%s", e.name, l.BlockNumber, e.total, name)
 	}
 	return nil
 }
 
 func (e *logCounter) Close() error {
-	fmt.Printf("[%s] closing, %d logs seen: %v\n", e.name, e.total, e.byEvent)
+	log.Printf("[%s] closing, %d logs seen: %v", e.name, e.total, e.byEvent)
 	return nil
 }
 
-// New is the symbol the EVMI server looks up to instantiate the plugin.
-func New() exporter.Exporter { return &logCounter{} }
-
-// main is required for -buildmode=plugin (package main) but is never executed.
-func main() {}
+// main hands the implementation to the SDK, which serves it to EVMI and blocks
+// until the server disconnects.
+//
+// Note the logging: everything goes through the standard logger (stderr), which
+// EVMI captures and forwards to its own log. NEVER print to stdout from a plugin
+// — stdout is the go-plugin handshake and gRPC channel.
+func main() {
+	exporter.Serve(&logCounter{})
+}

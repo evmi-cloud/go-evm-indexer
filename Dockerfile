@@ -30,11 +30,11 @@ RUN go build -ldflags="-s -w" -o /evm-indexer ./cmd/evm-indexer
 # Runs on golang:1.24-bookworm (NOT distroless) because the exporter-plugin
 # subsystem shells out at runtime to:
 #   - `git` — clone repos / `git ls-remote` (ListPluginGitRefs, InstallPlugin);
-#   - the `go` toolchain + `gcc` — `go build -buildmode=plugin` to compile plugins.
-# The runtime Go version MUST match the build stage (1.24) or plugin.Open rejects
-# the .so, so we reuse the same golang image tag. Plugins install from git only,
-# so git + the go toolchain are required at runtime — do not swap this for a
-# distroless image unless you don't use exporter plugins at all.
+#   - the `go` toolchain — `go build` to compile a plugin from its git source.
+# Plugins are hashicorp/go-plugin subprocesses, i.e. ordinary executables, so the
+# runtime Go version does not have to match the build stage. Plugins install from
+# git only, so git + the go toolchain are required at runtime — do not swap this
+# for a distroless image unless you do not use exporter plugins.
 FROM golang:1.24-bookworm
 COPY --from=builder /evm-indexer /evm-indexer
 # The built web UI is served from EVMI_WEBUI_DIR (see internal/grpc/webui.go).

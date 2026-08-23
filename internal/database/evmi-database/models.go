@@ -107,7 +107,8 @@ const (
 )
 
 // Plugin is an installable exporter plugin. Its source is resolved and compiled
-// into a Go plugin (.so) at SoPath when installed; exporters then reference it.
+// into a standalone executable at BinaryPath when installed; exporters then
+// reference it and EVMI runs it as a hashicorp/go-plugin subprocess.
 type Plugin struct {
 	gorm.Model
 
@@ -122,11 +123,11 @@ type Plugin struct {
 	// branch).
 	GitRef string
 
-	// SoPath is the compiled/resolved shared object; Status is one of
+	// BinaryPath is the installed plugin executable; Status is one of
 	// PluginStatus and Error holds the last install failure.
-	SoPath string
-	Status string
-	Error  string
+	BinaryPath string
+	Status     string
+	Error      string
 
 	// ConfigSchema is the plugin's declared config parameter schema (a JSON array
 	// of exporter.ConfigField), extracted from the plugin at install time. Empty

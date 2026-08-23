@@ -537,7 +537,8 @@ message Plugin {
   string description = 3;
   string git_url = 4;
   reserved 5, 6; // was relative_path, local_path — build target is deterministic (repo root), git only
-  string so_path = 7;
+  // Path of the installed plugin executable, set on install. Read-only.
+  string binary_path = 7;
   string status = 8;
   string error = 9;
   string git_ref = 14; // optional branch or tag to clone (empty = default branch)

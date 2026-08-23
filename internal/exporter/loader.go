@@ -9,14 +9,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"plugin"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
-	pluginsdk "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
 	"github.com/rs/zerolog"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -73,9 +72,9 @@ func ListGitRefs(url string) (branches []string, tags []string, err error) {
 
 // Plugin storage paths (configurable via the server config, see Configure):
 //   - buildBaseDir  holds an ephemeral per-plugin work dir where the git repo is
-//     cloned and the .so is compiled: <buildBaseDir>/<pluginName>.
-//   - installBaseDir is where the finished .so is copied so it survives the tmp
-//     build dir being cleaned: <installBaseDir>/<pluginName>.so.
+//     cloned and the plugin binary is compiled: <buildBaseDir>/<pluginName>.
+//   - installBaseDir is where the finished binary is copied so it survives the
+//     tmp build dir being cleaned: <installBaseDir>/<pluginName>.
 var (
 	buildBaseDir   = filepath.Join(os.TempDir(), "evmi")
 	installBaseDir = "/evmi/plugins"
@@ -112,7 +111,8 @@ func pluginSlug(p evmi_database.Plugin) string {
 }
 
 // copyFile copies src to dst (creating dst's directory), used to move a freshly
-// built .so out of the ephemeral build dir into the persistent install dir.
+// built plugin binary out of the ephemeral build dir into the persistent install
+// dir. dst is created executable — it is launched as a subprocess.
 func copyFile(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
@@ -122,7 +122,9 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	// O_TRUNC (not just O_CREATE): reinstalling overwrites a shorter binary in
+	// place, and 0o755 makes it executable for the plugin subprocess launch.
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
 	if err != nil {
 		return err
 	}
@@ -130,7 +132,11 @@ func copyFile(src, dst string) error {
 		out.Close()
 		return err
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		return err
+	}
+	// An overwritten file keeps its old mode, so set it explicitly.
+	return os.Chmod(dst, 0o755)
 }
 
 // ImportConfigPlugins imports the plugins declared in the server config as Plugin
@@ -179,9 +185,9 @@ func installConfigPlugin(db *evmi_database.EvmiDatabase, id uint, name string, l
 	}
 }
 
-// VerifyPlugins is run at startup to make sure every installed plugin's shared
-// object is still on disk (the build dir is ephemeral, and the install dir may be
-// too unless persisted). For a plugin whose .so is missing:
+// VerifyPlugins is run at startup to make sure every installed plugin's binary is
+// still on disk (the build dir is ephemeral, and the install dir may be too
+// unless persisted). For a plugin whose binary is missing:
 //   - if it has a git source, it is rebuilt (reinstalled);
 //   - otherwise (a malformed row with no GitUrl) it is marked FAILED.
 //
@@ -202,24 +208,24 @@ func VerifyPlugins(db *evmi_database.EvmiDatabase, logger zerolog.Logger) {
 			continue
 		}
 
-		if p.SoPath != "" && fileExists(p.SoPath) {
+		if p.BinaryPath != "" && fileExists(p.BinaryPath) {
 			continue // still present
 		}
 
 		fields := map[string]interface{}{"plugin": p.Name, "id": p.ID}
 		if p.GitUrl != "" {
-			logger.Warn().Fields(fields).Msg("plugin shared object missing; reinstalling from git source")
+			logger.Warn().Fields(fields).Msg("plugin binary missing; reinstalling from git source")
 			if err := InstallPlugin(db, p.ID, logger); err != nil {
 				logger.Error().Fields(fields).Msg("plugin reinstall failed: " + err.Error())
 			}
 			continue
 		}
 
-		logger.Warn().Fields(fields).Msg("plugin shared object missing and no git source; marking failed")
+		logger.Warn().Fields(fields).Msg("plugin binary missing and no git source; marking failed")
 		db.Conn.Model(&evmi_database.Plugin{}).Where("id = ?", p.ID).Updates(map[string]interface{}{
-			"status":  string(evmi_database.FailedPluginStatus),
-			"so_path": "",
-			"error":   "shared object missing on startup and no git source to rebuild",
+			"status":      string(evmi_database.FailedPluginStatus),
+			"binary_path": "",
+			"error":       "plugin binary missing on startup and no git source to rebuild",
 		})
 	}
 }
@@ -229,9 +235,9 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// InstallPlugin resolves and compiles a plugin's source into a shared object,
-// recording the outcome (Status, SoPath, Error) on the Plugin row. It is the
-// single place plugin building happens; exporters only load already-installed
+// InstallPlugin resolves and compiles a plugin's source into an executable,
+// recording the outcome (Status, BinaryPath, Error) on the Plugin row. It is the
+// single place plugin building happens; exporters only launch already-installed
 // plugins.
 func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog.Logger) error {
 	var p evmi_database.Plugin
@@ -239,11 +245,11 @@ func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog
 		return err
 	}
 
-	// Idempotent: if the plugin is already installed and its .so is present on
+	// Idempotent: if the plugin is already installed and its binary is present on
 	// disk, there is nothing to do. Changing the source (UpdatePlugin) resets
-	// Status and SoPath, so this never blocks a legitimate rebuild.
-	if p.Status == string(evmi_database.InstalledPluginStatus) && p.SoPath != "" && fileExists(p.SoPath) {
-		logger.Info().Str("plugin", p.Name).Str("so", p.SoPath).Msg("plugin already installed; skipping build")
+	// Status and BinaryPath, so this never blocks a legitimate rebuild.
+	if p.Status == string(evmi_database.InstalledPluginStatus) && p.BinaryPath != "" && fileExists(p.BinaryPath) {
+		logger.Info().Str("plugin", p.Name).Str("binary", p.BinaryPath).Msg("plugin already installed; skipping build")
 		return nil
 	}
 
@@ -252,7 +258,7 @@ func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog
 		"error":  "",
 	})
 
-	soPath, err := buildPluginSharedObject(p, logger)
+	binaryPath, err := buildPluginBinary(p, logger)
 	if err != nil {
 		db.Conn.Model(&p).Updates(map[string]interface{}{
 			"status": string(evmi_database.FailedPluginStatus),
@@ -263,37 +269,44 @@ func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog
 
 	db.Conn.Model(&p).Updates(map[string]interface{}{
 		"status":        string(evmi_database.InstalledPluginStatus),
-		"so_path":       soPath,
-		"config_schema": extractConfigSchema(soPath, logger),
+		"binary_path":   binaryPath,
+		"config_schema": extractConfigSchema(binaryPath, p.Name, logger),
 		"error":         "",
 	})
 	return nil
 }
 
-// extractConfigSchema loads the built plugin and, if it implements Configurable,
-// returns its declared config schema as JSON. Returns nil (no schema) otherwise.
-func extractConfigSchema(soPath string, logger zerolog.Logger) datatypes.JSON {
-	instance, err := openPlugin(soPath)
+// extractConfigSchema runs the freshly built plugin once and, if it implements
+// Configurable, returns its declared config schema as JSON. Returns nil (no
+// schema) otherwise. The probe process is always killed before returning.
+func extractConfigSchema(binaryPath string, name string, logger zerolog.Logger) datatypes.JSON {
+	process, err := startPlugin(binaryPath, name, logger)
 	if err != nil {
-		logger.Warn().Str("so", soPath).Msg("could not open plugin to read config schema: " + err.Error())
+		logger.Warn().Str("binary", binaryPath).Msg("could not start plugin to read config schema: " + err.Error())
 		return nil
 	}
-	configurable, ok := instance.(pluginsdk.Configurable)
-	if !ok {
+	defer process.Kill()
+
+	fields, declared, err := process.ConfigSchema()
+	if err != nil {
+		logger.Warn().Str("binary", binaryPath).Msg("could not read plugin config schema: " + err.Error())
 		return nil
 	}
-	raw, err := json.Marshal(configurable.ConfigSchema())
+	if !declared {
+		return nil
+	}
+	raw, err := json.Marshal(fields)
 	if err != nil {
 		return nil
 	}
 	return datatypes.JSON(raw)
 }
 
-// buildPluginSharedObject clones the plugin's git repository at GitRef, builds the
-// repo root into a plugin, and copies the resulting .so to
-// <installBaseDir>/<pluginName>.so (returned). Git is the only supported source,
-// and the plugin's `main` package must live at the repo root.
-func buildPluginSharedObject(p evmi_database.Plugin, logger zerolog.Logger) (string, error) {
+// buildPluginBinary clones the plugin's git repository at GitRef, builds the repo
+// root into an executable, and copies it to <installBaseDir>/<pluginName>
+// (returned). Git is the only supported source, and the plugin's main package
+// must live at the repo root.
+func buildPluginBinary(p evmi_database.Plugin, logger zerolog.Logger) (string, error) {
 	if strings.TrimSpace(p.GitUrl) == "" {
 		return "", errors.New("plugin has no source: a git repository (GitUrl) is required")
 	}
@@ -307,24 +320,32 @@ func buildPluginSharedObject(p evmi_database.Plugin, logger zerolog.Logger) (str
 		return "", err
 	}
 
-	builtSo := filepath.Join(buildDir, "built.so")
-	if err := buildPlugin(moduleRoot, builtSo, logger); err != nil {
+	built := filepath.Join(buildDir, "built"+exeSuffix())
+	if err := buildPlugin(moduleRoot, built, logger); err != nil {
 		return "", err
 	}
 
-	// Copy the built .so into the persistent install dir so it survives the tmp
-	// build dir being cleaned: /evmi/plugins/<pluginName>.so.
-	installedSo := filepath.Join(installBaseDir, slug+".so")
-	if err := copyFile(builtSo, installedSo); err != nil {
-		return "", fmt.Errorf("copy plugin .so to %s: %w", installedSo, err)
+	// Copy the built binary into the persistent install dir so it survives the tmp
+	// build dir being cleaned: /evmi/plugins/<pluginName>.
+	installed := filepath.Join(installBaseDir, slug+exeSuffix())
+	if err := copyFile(built, installed); err != nil {
+		return "", fmt.Errorf("copy plugin binary to %s: %w", installed, err)
 	}
-	logger.Info().Str("plugin", p.Name).Str("so", installedSo).Msg("plugin installed")
-	return installedSo, nil
+	logger.Info().Str("plugin", p.Name).Str("binary", installed).Msg("plugin installed")
+	return installed, nil
 }
 
-// loadInstalledPlugin opens the compiled shared object of an installed plugin and
-// instantiates its exporter.
-func loadInstalledPlugin(db *evmi_database.EvmiDatabase, pluginID uint) (pluginsdk.Exporter, error) {
+// exeSuffix is the executable extension for the host OS.
+func exeSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
+// launchInstalledPlugin starts the subprocess of an installed plugin. The caller
+// owns the returned process and MUST Kill it.
+func launchInstalledPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog.Logger) (*pluginProcess, error) {
 	if pluginID == 0 {
 		return nil, errors.New("exporter has no plugin assigned")
 	}
@@ -333,16 +354,16 @@ func loadInstalledPlugin(db *evmi_database.EvmiDatabase, pluginID uint) (plugins
 	if err := db.Conn.First(&p, pluginID).Error; err != nil {
 		return nil, err
 	}
-	if p.Status != string(evmi_database.InstalledPluginStatus) || p.SoPath == "" {
-		return nil, fmt.Errorf("plugin %q (id %d) is not installed", p.Name, pluginID)
+	if p.Status != string(evmi_database.InstalledPluginStatus) || p.BinaryPath == "" {
+		return nil, fmt.Errorf("plugin %q (id %d): %w", p.Name, pluginID, errPluginNotInstalled)
 	}
-	return openPlugin(p.SoPath)
+	return startPlugin(p.BinaryPath, p.Name, logger)
 }
 
 // cloneRepo shallow-clones url into dest, at the given ref (branch or tag; empty
 // = the repo's default branch). Any existing clone at dest is removed first so a
 // changed url/ref always takes effect (install is an explicit action, and
-// VerifyPlugins only reaches here when the .so is already missing).
+// VerifyPlugins only reaches here when the binary is already missing).
 func cloneRepo(url string, ref string, dest string, logger zerolog.Logger) (string, error) {
 	if err := os.RemoveAll(dest); err != nil {
 		return "", err
@@ -367,45 +388,22 @@ func cloneRepo(url string, ref string, dest string, logger zerolog.Logger) (stri
 }
 
 // buildPlugin compiles the module at moduleRoot (the plugin repo root, which is
-// the deterministic build target — the plugin's `main` package must live there)
-// into a Go plugin at outPath. The toolchain and module dependency versions MUST
-// match the ones the EVMI server was built with, or plugin.Open rejects the .so.
+// the deterministic build target — the plugin's main package must live there)
+// into an ordinary executable at outPath.
+//
+// A plain `go build`: the plugin runs as a separate process and speaks gRPC, so
+// its Go toolchain and dependency versions are its own business.
 func buildPlugin(moduleRoot string, outPath string, logger zerolog.Logger) error {
-	// Ensure the output directory exists (the .so is written here).
+	// Ensure the output directory exists (the binary is written here).
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
 
 	logger.Info().Str("moduleRoot", moduleRoot).Str("out", outPath).Msg("building plugin")
-	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", outPath, ".")
+	cmd := exec.Command("go", "build", "-o", outPath, ".")
 	cmd.Dir = moduleRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("plugin build failed: %v: %s", err, string(out))
 	}
 	return nil
-}
-
-// openPlugin opens a compiled plugin and instantiates its exporter via the
-// exported New symbol.
-func openPlugin(soPath string) (pluginsdk.Exporter, error) {
-	p, err := plugin.Open(soPath)
-	if err != nil {
-		return nil, fmt.Errorf("plugin.Open(%s): %w", soPath, err)
-	}
-
-	sym, err := p.Lookup("New")
-	if err != nil {
-		return nil, fmt.Errorf("plugin %s does not export New(): %w", soPath, err)
-	}
-
-	factory, ok := sym.(func() pluginsdk.Exporter)
-	if !ok {
-		return nil, fmt.Errorf("plugin %s: New has wrong signature, expected func() exporter.Exporter", soPath)
-	}
-
-	instance := factory()
-	if instance == nil {
-		return nil, fmt.Errorf("plugin %s: New() returned nil", soPath)
-	}
-	return instance, nil
 }

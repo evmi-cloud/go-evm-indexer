@@ -18,8 +18,8 @@ type Config struct {
 	// absent, matched by name) and installed.
 	Plugins []ConfigPlugin `json:"plugins"`
 
-	// PluginStorage overrides where exporter plugins are cloned/built and where the
-	// finished .so files are installed. Empty fields keep the defaults
+	// PluginStorage overrides where exporter plugins are cloned/built and where
+	// the finished executables are installed. Empty fields keep the defaults
 	// (buildDir=<tmp>/evmi, installDir=/evmi/plugins).
 	PluginStorage PluginStorageConfig `json:"pluginStorage"`
 
@@ -34,7 +34,8 @@ type PluginStorageConfig struct {
 	// BuildDir is the base of the ephemeral per-plugin clone/build work dir
 	// (<BuildDir>/<pluginName>). Default: <tmp>/evmi.
 	BuildDir string `json:"buildDir"`
-	// InstallDir is where finished .so files are copied (<InstallDir>/<pluginName>.so).
+	// InstallDir is where finished plugin executables are copied
+	// (<InstallDir>/<pluginName>).
 	// Default: /evmi/plugins.
 	InstallDir string `json:"installDir"`
 }

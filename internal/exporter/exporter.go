@@ -3,6 +3,7 @@ package exporter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"time"
 
@@ -31,6 +32,9 @@ type ExporterService struct {
 
 	store  *log_stores.IndexerStore
 	plugin pluginsdk.Exporter
+	// pluginProcess is the go-plugin subprocess backing plugin. It is nil in
+	// tests, which inject a plugin directly.
+	pluginProcess *pluginProcess
 
 	exporter  evmi_database.EvmiExporter
 	pipeline  evmi_database.EvmLogPipeline
@@ -104,13 +108,17 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 	}
 	p.store = store
 
-	p.logger.Info().Fields(logParams).Msg("loading plugin")
-	plug, err := loadInstalledPlugin(p.db, p.exporter.PluginID)
+	p.logger.Info().Fields(logParams).Msg("starting plugin process")
+	process, err := launchInstalledPlugin(p.db, p.exporter.PluginID, p.logger)
 	if err != nil {
 		p.fail(err)
 		return err
 	}
-	p.plugin = plug
+	// The plugin subprocess lives exactly as long as this Serve call, so
+	// stopping an exporter releases its plugin entirely.
+	defer process.Kill()
+	p.pluginProcess = process
+	p.plugin = process.Exporter()
 
 	if err := p.plugin.Init(pluginsdk.Context{
 		ExporterName: p.exporter.Name,
@@ -176,6 +184,16 @@ func (p *ExporterService) run(ctx context.Context, logParams map[string]interfac
 			p.setStatus(string(evmi_database.StoppedExporterStatus))
 			p.emitUpdate()
 			return nil
+		}
+
+		// A plugin that crashed while idle has no in-flight call to report it, so
+		// check the process here and let the supervisor restart the exporter
+		// (which starts a fresh plugin process) rather than idling against a dead
+		// one.
+		if p.pluginProcess.Exited() {
+			err := errors.New("plugin process exited unexpectedly")
+			p.fail(err)
+			return err
 		}
 
 		sourceIds, head, err := p.sourcesAndHead()
