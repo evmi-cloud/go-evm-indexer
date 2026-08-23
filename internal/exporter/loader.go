@@ -249,6 +249,18 @@ func InstallPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger zerolog
 	// disk, there is nothing to do. Changing the source (UpdatePlugin) resets
 	// Status and BinaryPath, so this never blocks a legitimate rebuild.
 	if p.Status == string(evmi_database.InstalledPluginStatus) && p.BinaryPath != "" && fileExists(p.BinaryPath) {
+		// Backfill a config schema the row does not have yet: a plugin installed
+		// before schema extraction existed (or before it started declaring
+		// Configurable) keeps an empty column forever otherwise, since the skip
+		// below never reaches extractConfigSchema -- and the exporter form then
+		// stays a raw JSON box instead of a typed one. Cheap: it only probes when
+		// the schema is actually missing.
+		if len(p.ConfigSchema) == 0 {
+			if schema := extractConfigSchema(p.BinaryPath, p.Name, logger); schema != nil {
+				db.Conn.Model(&p).Update("config_schema", schema)
+				logger.Info().Str("plugin", p.Name).Msg("backfilled plugin config schema")
+			}
+		}
 		logger.Info().Str("plugin", p.Name).Str("binary", p.BinaryPath).Msg("plugin already installed; skipping build")
 		return nil
 	}
