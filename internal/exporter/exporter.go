@@ -120,6 +120,17 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 	p.pluginProcess = process
 	p.plugin = process.Exporter()
 
+	// Expose the host API before Init: a plugin is expected to register the ABIs
+	// and look up the chain it needs from inside Init.
+	process.SetHost(&exporterHost{
+		db:           p.db,
+		bus:          p.bus,
+		pipelineID:   p.pipeline.ID,
+		chain:        p.chain,
+		exporterName: p.exporter.Name,
+		logger:       p.logger,
+	})
+
 	if err := p.plugin.Init(pluginsdk.Context{
 		ExporterName: p.exporter.Name,
 		PipelineId:   uint64(p.pipeline.ID),

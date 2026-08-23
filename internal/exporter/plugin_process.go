@@ -23,6 +23,11 @@ type pluginProcess struct {
 // Exporter is the plugin as the export loop sees it.
 func (p *pluginProcess) Exporter() pluginsdk.Exporter { return p.plugin }
 
+// SetHost installs the EVMI functions this plugin may call back into. It must be
+// called before Init, which is where the host service is stood up and its broker
+// id handed to the plugin.
+func (p *pluginProcess) SetHost(h pluginsdk.Host) { p.plugin.SetHost(h) }
+
 // ConfigSchema asks the plugin for its declared config parameters. The bool
 // reports whether the plugin implements exporter.Configurable at all.
 func (p *pluginProcess) ConfigSchema() ([]pluginsdk.ConfigField, bool, error) {

@@ -62,6 +62,10 @@ message InitRequest {
   uint64 chain_id = 3;
   // config is the raw PluginConfig JSON configured for this exporter.
   bytes config = 4;
+  // host_broker_id is the go-plugin broker id the plugin dials back on to reach
+  // ExporterHostService. Zero means the host exposed no callback service (an
+  // older server), in which case the plugin gets a nil Host and must cope.
+  uint32 host_broker_id = 5;
 }
 
 message InitResponse {}
@@ -98,3 +102,100 @@ message NewLogEventResponse {}
 message CloseRequest {}
 
 message CloseResponse {}
+
+// ---------------------------------------------------------------------------
+// Host service — EVMI functions exposed back to the plugin.
+// ---------------------------------------------------------------------------
+
+// ExporterHostService is served by the EVMI server on a go-plugin broker
+// connection and called by the plugin process (the reverse direction of
+// ExporterPluginService). It is scoped to the calling exporter: every call is
+// answered in the context of that exporter's pipeline, and requests naming
+// entities outside it are rejected.
+service ExporterHostService {
+  // GetBlockchain returns the chain the exporter's pipeline indexes, including
+  // the JSON-RPC endpoint the indexer itself polls, so a plugin can open its own
+  // client against the same node to fetch data the logs don't carry.
+  rpc GetBlockchain(GetBlockchainRequest) returns (GetBlockchainResponse);
+  // CreateLogSource registers a new log source as a child of an existing source
+  // in the exporter's pipeline. It is idempotent per (parent, address).
+  rpc CreateLogSource(CreateLogSourceRequest) returns (CreateLogSourceResponse);
+  // UpsertAbi creates an ABI if no ABI with that contract name exists, and
+  // returns its id either way.
+  rpc UpsertAbi(UpsertAbiRequest) returns (UpsertAbiResponse);
+  // GetAbi looks one ABI up by contract name or id.
+  rpc GetAbi(GetAbiRequest) returns (GetAbiResponse);
+  // ListAbis returns every registered ABI.
+  rpc ListAbis(ListAbisRequest) returns (ListAbisResponse);
+}
+
+message GetBlockchainRequest {}
+
+message GetBlockchainResponse {
+  uint64 id = 1;
+  uint64 chain_id = 2;
+  string name = 3;
+  // rpc_url is the endpoint the indexer polls for this chain.
+  string rpc_url = 4;
+  uint64 block_range = 5;
+  uint64 block_slice = 6;
+  uint64 pull_interval = 7;
+  uint64 rpc_max_batch_size = 8;
+}
+
+message CreateLogSourceRequest {
+  // parent_source_id is the source the new contract descends from — normally
+  // LogEvent.source_id, the source whose log announced the deployment. It must
+  // belong to the calling exporter's pipeline.
+  uint64 parent_source_id = 1;
+  // address of the contract to index.
+  string address = 2;
+  // type is "CONTRACT" or "FACTORY" (LogSourceType). Empty defaults to CONTRACT.
+  string type = 3;
+  // abi_id is the EvmJsonAbi to decode the new source's logs with.
+  uint64 abi_id = 4;
+  // start_block is the first block to index; the cursor is set just before it.
+  uint64 start_block = 5;
+}
+
+message CreateLogSourceResponse {
+  uint64 source_id = 1;
+  // created is false when a source for (parent_source_id, address) already
+  // existed, in which case source_id is the existing one.
+  bool created = 2;
+}
+
+message UpsertAbiRequest {
+  string contract_name = 1;
+  // content is the contract's JSON ABI.
+  string content = 2;
+}
+
+message UpsertAbiResponse {
+  uint64 abi_id = 1;
+  // created is false when an ABI with that contract name already existed.
+  bool created = 2;
+}
+
+message GetAbiRequest {
+  // Exactly one of the two identifies the ABI; abi_id wins when both are set.
+  string contract_name = 1;
+  uint64 abi_id = 2;
+}
+
+message GetAbiResponse {
+  bool found = 1;
+  Abi abi = 2;
+}
+
+message Abi {
+  uint64 id = 1;
+  string contract_name = 2;
+  string content = 3;
+}
+
+message ListAbisRequest {}
+
+message ListAbisResponse {
+  repeated Abi abis = 1;
+}

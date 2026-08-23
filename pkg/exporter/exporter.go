@@ -57,6 +57,12 @@ type Context struct {
 	// Config is the raw PluginConfig JSON configured for this exporter. The
 	// plugin decodes it into its own struct.
 	Config []byte
+	// Host exposes EVMI functions back to the plugin — the chain RPC endpoint,
+	// log-source creation, ABI registration. Keep it if you need it later; calls
+	// are safe from NewLogEvent too.
+	//
+	// It is nil when the server predates the host API, so check before using it.
+	Host Host
 }
 
 // Exporter is the contract a plugin implements.

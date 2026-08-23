@@ -131,6 +131,67 @@ API), so regenerating one never touches the other.
 it on an incompatible protocol change and plugins built against an older SDK are
 rejected at startup with a clear handshake error instead of misbehaving.
 
+### Host API (plugin → EVMI)
+
+The protocol runs both ways. Alongside `ExporterPluginService` (EVMI calling the
+plugin), `exporter.proto` defines **`ExporterHostService`** — EVMI functions the
+plugin calls back into.
+
+The transport is hashicorp/go-plugin's **`GRPCBroker`**, which multiplexes extra
+connections over the existing plugin link. On `Init` the host calls
+`broker.NextId()`, serves `ExporterHostService` on that id
+(`GRPCClient.serveHost`), and passes the id in `InitRequest.host_broker_id`; the
+plugin dials it back (`grpcServer.dialHost`) and hands the author a `Host` on
+`exporter.Context`. Under `AutoMTLS` the broker connection inherits the same
+per-launch certificate as the main one, so the callback channel is authenticated
+too.
+
+`host_broker_id == 0` means "no host API" — an older server, or a host that
+installed none. The plugin then receives a nil `Context.Host` rather than an
+error, which is why adding this needed **no `ProtocolVersion` bump**: an old
+plugin ignores the new field, and a new plugin against an old host sees nil and
+can degrade or refuse on its own terms.
+
+The implementation is `internal/exporter/host.go` (`exporterHost`), built per
+running exporter in `ExporterService.Serve` and installed with
+`pluginProcess.SetHost` **before `Init`** — plugins are expected to register ABIs
+and read the chain from inside `Init`. Its lifetime is the exporter's: `Close`
+stops the broker server after the plugin's own `Close` returns, so a plugin may
+still call back while flushing.
+
+What it exposes, and why each is scoped the way it is:
+
+| Call | Backed by | Notes |
+|---|---|---|
+| `Blockchain()` | the pipeline's `EvmBlockchain` | includes `RpcUrl`, the endpoint the indexer itself polls |
+| `CreateLogSource()` | `EvmLogSource` insert + `source.enable` | mirrors `registerFactoryChild` exactly |
+| `UpsertAbi()` / `GetAbi()` / `GetAbiByID()` / `ListAbis()` | `EvmJsonAbi` | upsert never overwrites; ABI JSON is validated on insert |
+
+**Scoping.** `exporterHost` carries the exporter's `pipelineID`, and
+`CreateLogSource` rejects a parent belonging to any other pipeline. That single
+check is what keeps a plugin inside its own topology — there is no other
+authorization layer, because the plugin is already trusted code the operator
+installed.
+
+**`CreateLogSource` deliberately mirrors the factory system.** A plugin-created
+child is indistinguishable from a rule-created one: same pipeline/store/chain as
+its parent, created enabled, started best-effort over the `source.enable` topic,
+nested under the parent in the UI, and read-only there (`ParentSourceID != 0`).
+It exists for deployments a rule cannot catch — chiefly when the creation event
+does not carry the new contract's address, so `CreationAddressLogArg` has nothing
+to read and the plugin must resolve it another way.
+
+It is idempotent per `(parent, address)` for the same reason the factory path is,
+but the stakes are higher here: export delivery is **at-least-once**, so a plugin
+*will* re-see deployment logs after a restart. Addresses are lowercased on both
+store and compare, so a checksummed address and its lowercase form cannot produce
+two sources for one contract.
+
+**Cost.** A host call is a local gRPC round trip on top of the one already spent
+delivering the log. Calls made per-log therefore double the per-log cost; prefer
+resolving what you can in `Init` (ABI ids, chain info) and calling out only on
+the rare events that need it.
+
 ### Plugins are a separate entity
 
 The plugin **code** is a first-class `Plugin` row, installed independently of any

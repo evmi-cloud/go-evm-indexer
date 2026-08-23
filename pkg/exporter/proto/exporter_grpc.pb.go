@@ -303,3 +303,287 @@ var ExporterPluginService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "exporter.proto",
 }
+
+const (
+	ExporterHostService_GetBlockchain_FullMethodName   = "/evmi.exporter.v1.ExporterHostService/GetBlockchain"
+	ExporterHostService_CreateLogSource_FullMethodName = "/evmi.exporter.v1.ExporterHostService/CreateLogSource"
+	ExporterHostService_UpsertAbi_FullMethodName       = "/evmi.exporter.v1.ExporterHostService/UpsertAbi"
+	ExporterHostService_GetAbi_FullMethodName          = "/evmi.exporter.v1.ExporterHostService/GetAbi"
+	ExporterHostService_ListAbis_FullMethodName        = "/evmi.exporter.v1.ExporterHostService/ListAbis"
+)
+
+// ExporterHostServiceClient is the client API for ExporterHostService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// ExporterHostService is served by the EVMI server on a go-plugin broker
+// connection and called by the plugin process (the reverse direction of
+// ExporterPluginService). It is scoped to the calling exporter: every call is
+// answered in the context of that exporter's pipeline, and requests naming
+// entities outside it are rejected.
+type ExporterHostServiceClient interface {
+	// GetBlockchain returns the chain the exporter's pipeline indexes, including
+	// the JSON-RPC endpoint the indexer itself polls, so a plugin can open its own
+	// client against the same node to fetch data the logs don't carry.
+	GetBlockchain(ctx context.Context, in *GetBlockchainRequest, opts ...grpc.CallOption) (*GetBlockchainResponse, error)
+	// CreateLogSource registers a new log source as a child of an existing source
+	// in the exporter's pipeline. It is idempotent per (parent, address).
+	CreateLogSource(ctx context.Context, in *CreateLogSourceRequest, opts ...grpc.CallOption) (*CreateLogSourceResponse, error)
+	// UpsertAbi creates an ABI if no ABI with that contract name exists, and
+	// returns its id either way.
+	UpsertAbi(ctx context.Context, in *UpsertAbiRequest, opts ...grpc.CallOption) (*UpsertAbiResponse, error)
+	// GetAbi looks one ABI up by contract name or id.
+	GetAbi(ctx context.Context, in *GetAbiRequest, opts ...grpc.CallOption) (*GetAbiResponse, error)
+	// ListAbis returns every registered ABI.
+	ListAbis(ctx context.Context, in *ListAbisRequest, opts ...grpc.CallOption) (*ListAbisResponse, error)
+}
+
+type exporterHostServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewExporterHostServiceClient(cc grpc.ClientConnInterface) ExporterHostServiceClient {
+	return &exporterHostServiceClient{cc}
+}
+
+func (c *exporterHostServiceClient) GetBlockchain(ctx context.Context, in *GetBlockchainRequest, opts ...grpc.CallOption) (*GetBlockchainResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBlockchainResponse)
+	err := c.cc.Invoke(ctx, ExporterHostService_GetBlockchain_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *exporterHostServiceClient) CreateLogSource(ctx context.Context, in *CreateLogSourceRequest, opts ...grpc.CallOption) (*CreateLogSourceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateLogSourceResponse)
+	err := c.cc.Invoke(ctx, ExporterHostService_CreateLogSource_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *exporterHostServiceClient) UpsertAbi(ctx context.Context, in *UpsertAbiRequest, opts ...grpc.CallOption) (*UpsertAbiResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertAbiResponse)
+	err := c.cc.Invoke(ctx, ExporterHostService_UpsertAbi_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *exporterHostServiceClient) GetAbi(ctx context.Context, in *GetAbiRequest, opts ...grpc.CallOption) (*GetAbiResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAbiResponse)
+	err := c.cc.Invoke(ctx, ExporterHostService_GetAbi_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *exporterHostServiceClient) ListAbis(ctx context.Context, in *ListAbisRequest, opts ...grpc.CallOption) (*ListAbisResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAbisResponse)
+	err := c.cc.Invoke(ctx, ExporterHostService_ListAbis_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ExporterHostServiceServer is the server API for ExporterHostService service.
+// All implementations must embed UnimplementedExporterHostServiceServer
+// for forward compatibility.
+//
+// ExporterHostService is served by the EVMI server on a go-plugin broker
+// connection and called by the plugin process (the reverse direction of
+// ExporterPluginService). It is scoped to the calling exporter: every call is
+// answered in the context of that exporter's pipeline, and requests naming
+// entities outside it are rejected.
+type ExporterHostServiceServer interface {
+	// GetBlockchain returns the chain the exporter's pipeline indexes, including
+	// the JSON-RPC endpoint the indexer itself polls, so a plugin can open its own
+	// client against the same node to fetch data the logs don't carry.
+	GetBlockchain(context.Context, *GetBlockchainRequest) (*GetBlockchainResponse, error)
+	// CreateLogSource registers a new log source as a child of an existing source
+	// in the exporter's pipeline. It is idempotent per (parent, address).
+	CreateLogSource(context.Context, *CreateLogSourceRequest) (*CreateLogSourceResponse, error)
+	// UpsertAbi creates an ABI if no ABI with that contract name exists, and
+	// returns its id either way.
+	UpsertAbi(context.Context, *UpsertAbiRequest) (*UpsertAbiResponse, error)
+	// GetAbi looks one ABI up by contract name or id.
+	GetAbi(context.Context, *GetAbiRequest) (*GetAbiResponse, error)
+	// ListAbis returns every registered ABI.
+	ListAbis(context.Context, *ListAbisRequest) (*ListAbisResponse, error)
+	mustEmbedUnimplementedExporterHostServiceServer()
+}
+
+// UnimplementedExporterHostServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedExporterHostServiceServer struct{}
+
+func (UnimplementedExporterHostServiceServer) GetBlockchain(context.Context, *GetBlockchainRequest) (*GetBlockchainResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockchain not implemented")
+}
+func (UnimplementedExporterHostServiceServer) CreateLogSource(context.Context, *CreateLogSourceRequest) (*CreateLogSourceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateLogSource not implemented")
+}
+func (UnimplementedExporterHostServiceServer) UpsertAbi(context.Context, *UpsertAbiRequest) (*UpsertAbiResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertAbi not implemented")
+}
+func (UnimplementedExporterHostServiceServer) GetAbi(context.Context, *GetAbiRequest) (*GetAbiResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAbi not implemented")
+}
+func (UnimplementedExporterHostServiceServer) ListAbis(context.Context, *ListAbisRequest) (*ListAbisResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAbis not implemented")
+}
+func (UnimplementedExporterHostServiceServer) mustEmbedUnimplementedExporterHostServiceServer() {}
+func (UnimplementedExporterHostServiceServer) testEmbeddedByValue()                             {}
+
+// UnsafeExporterHostServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ExporterHostServiceServer will
+// result in compilation errors.
+type UnsafeExporterHostServiceServer interface {
+	mustEmbedUnimplementedExporterHostServiceServer()
+}
+
+func RegisterExporterHostServiceServer(s grpc.ServiceRegistrar, srv ExporterHostServiceServer) {
+	// If the following call pancis, it indicates UnimplementedExporterHostServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ExporterHostService_ServiceDesc, srv)
+}
+
+func _ExporterHostService_GetBlockchain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBlockchainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExporterHostServiceServer).GetBlockchain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExporterHostService_GetBlockchain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExporterHostServiceServer).GetBlockchain(ctx, req.(*GetBlockchainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExporterHostService_CreateLogSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateLogSourceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExporterHostServiceServer).CreateLogSource(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExporterHostService_CreateLogSource_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExporterHostServiceServer).CreateLogSource(ctx, req.(*CreateLogSourceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExporterHostService_UpsertAbi_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertAbiRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExporterHostServiceServer).UpsertAbi(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExporterHostService_UpsertAbi_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExporterHostServiceServer).UpsertAbi(ctx, req.(*UpsertAbiRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExporterHostService_GetAbi_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAbiRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExporterHostServiceServer).GetAbi(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExporterHostService_GetAbi_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExporterHostServiceServer).GetAbi(ctx, req.(*GetAbiRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExporterHostService_ListAbis_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAbisRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExporterHostServiceServer).ListAbis(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExporterHostService_ListAbis_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExporterHostServiceServer).ListAbis(ctx, req.(*ListAbisRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ExporterHostService_ServiceDesc is the grpc.ServiceDesc for ExporterHostService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ExporterHostService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "evmi.exporter.v1.ExporterHostService",
+	HandlerType: (*ExporterHostServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetBlockchain",
+			Handler:    _ExporterHostService_GetBlockchain_Handler,
+		},
+		{
+			MethodName: "CreateLogSource",
+			Handler:    _ExporterHostService_CreateLogSource_Handler,
+		},
+		{
+			MethodName: "UpsertAbi",
+			Handler:    _ExporterHostService_UpsertAbi_Handler,
+		},
+		{
+			MethodName: "GetAbi",
+			Handler:    _ExporterHostService_GetAbi_Handler,
+		},
+		{
+			MethodName: "ListAbis",
+			Handler:    _ExporterHostService_ListAbis_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "exporter.proto",
+}

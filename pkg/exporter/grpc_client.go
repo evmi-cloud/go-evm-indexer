@@ -3,19 +3,42 @@ package exporter
 import (
 	"context"
 	"errors"
+	"sync"
 
 	exporterproto "github.com/evmi-cloud/go-evm-indexer/pkg/exporter/proto"
+	goplugin "github.com/hashicorp/go-plugin"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
 // GRPCClient is the host-side handle on a running plugin process: it implements
 // Exporter by forwarding each call over gRPC. EVMI never constructs it directly
 // — it comes out of dispensing the plugin (see internal/exporter/loader.go).
+//
+// It also runs the reverse direction: when a Host is installed with SetHost, Init
+// stands up an ExporterHostService on a go-plugin broker connection and tells the
+// plugin which broker id to dial, so the plugin can call back into EVMI.
 type GRPCClient struct {
 	client exporterproto.ExporterPluginServiceClient
+	broker *goplugin.GRPCBroker
+
+	// mu guards the host API and the server serving it, which Init writes from
+	// the broker's accept goroutine and Close reads.
+	mu         sync.Mutex
+	host       Host
+	hostServer *grpc.Server
 }
 
 var _ Exporter = (*GRPCClient)(nil)
+
+// SetHost installs the EVMI functions this plugin may call back into. EVMI calls
+// it after dispensing the plugin and before Init. Leaving it unset is valid and
+// simply means the plugin sees a nil Context.Host.
+func (c *GRPCClient) SetHost(h Host) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.host = h
+}
 
 // Name returns the plugin's identifier, or "" if the process is unreachable
 // (Exporter.Name has no error return; a broken process surfaces on the next
@@ -34,8 +57,38 @@ func (c *GRPCClient) Init(ctx Context) error {
 		PipelineId:   ctx.PipelineId,
 		ChainId:      ctx.ChainId,
 		Config:       ctx.Config,
+		HostBrokerId: c.serveHost(),
 	})
 	return pluginError(err)
+}
+
+// serveHost stands up the host service on a broker connection and returns the id
+// the plugin dials to reach it. It returns 0 when no host API was installed,
+// which the plugin reads as "this server exposes no callbacks".
+//
+// AcceptAndServe blocks until the plugin dials, so it runs in its own goroutine;
+// the callback fires inside the plugin's Init. A plugin that never dials leaves
+// that goroutine parked until the process is killed, which closes the broker and
+// unblocks it.
+func (c *GRPCClient) serveHost() uint32 {
+	c.mu.Lock()
+	host := c.host
+	c.mu.Unlock()
+
+	if host == nil || c.broker == nil {
+		return 0
+	}
+
+	brokerID := c.broker.NextId()
+	go c.broker.AcceptAndServe(brokerID, func(opts []grpc.ServerOption) *grpc.Server {
+		s := grpc.NewServer(opts...)
+		exporterproto.RegisterExporterHostServiceServer(s, &hostServer{impl: host})
+		c.mu.Lock()
+		c.hostServer = s
+		c.mu.Unlock()
+		return s
+	})
+	return brokerID
 }
 
 func (c *GRPCClient) NewLogEvent(log LogEvent) error {
@@ -47,6 +100,18 @@ func (c *GRPCClient) NewLogEvent(log LogEvent) error {
 
 func (c *GRPCClient) Close() error {
 	_, err := c.client.Close(context.Background(), &exporterproto.CloseRequest{})
+
+	// Stop the host service only after the plugin's own Close has returned: a
+	// plugin is allowed to call back while flushing, and tearing the service down
+	// first would fail those calls.
+	c.mu.Lock()
+	srv := c.hostServer
+	c.hostServer = nil
+	c.mu.Unlock()
+	if srv != nil {
+		srv.Stop()
+	}
+
 	return pluginError(err)
 }
 

@@ -383,6 +383,117 @@ Example `PluginConfig` for the ERC-20 exporter above:
 
 ---
 
+## 8. Calling back into EVMI (the host API)
+
+Everything above is EVMI calling *you*. The reverse also works: `Context.Host`
+gives you a small set of indexer functions your plugin can call, for the cases
+where a log alone is not enough.
+
+```go
+type Host interface {
+    Blockchain() (Blockchain, error)                        // chain info + JSON-RPC endpoint
+    CreateLogSource(src NewLogSource) (SourceRef, error)    // index a new contract
+    UpsertAbi(contractName, content string) (AbiRef, error) // register an ABI
+    GetAbi(contractName string) (Abi, bool, error)
+    GetAbiByID(id uint64) (Abi, bool, error)
+    ListAbis() ([]Abi, error)
+}
+```
+
+Keep it from `Init` and use it whenever you like — calls are safe from
+`NewLogEvent` too. It is **nil** when the server predates the host API, so a
+plugin that depends on it should say so up front:
+
+```go
+func (e *myExporter) Init(ctx exporter.Context) error {
+    if ctx.Host == nil {
+        return errors.New("this plugin needs an EVMI server exposing the host API")
+    }
+    e.host = ctx.Host
+    ...
+}
+```
+
+Everything you do through `Host` is scoped to your exporter's **pipeline**. You
+cannot read or modify another pipeline's topology.
+
+### Reaching the chain
+
+`Blockchain()` returns the chain your pipeline indexes, including `RpcUrl` — the
+same endpoint the indexer polls. Use it to open your own client when you need
+data the logs don't carry (a getter call, a block header, a receipt):
+
+```go
+chain, err := e.host.Blockchain()
+if err != nil {
+    return err
+}
+client, err := ethclient.Dial(chain.RpcUrl)
+```
+
+It is the **same node the indexer is polling**, so keep call volume modest — a
+chatty plugin slows down indexing on the same endpoint.
+
+### Registering ABIs
+
+Call `UpsertAbi` from `Init` to make sure the ABIs your sources need exist, and
+keep the returned id:
+
+```go
+ref, err := e.host.UpsertAbi("UniswapV2Pair", pairAbiJSON)
+if err != nil {
+    return err
+}
+e.pairAbiID = ref.Id   // ref.Created reports whether it was newly inserted
+```
+
+It is idempotent, so it is safe on every restart, and it **never overwrites** an
+existing ABI registered under that name — silently rewriting one would change how
+every source already decoding with it behaves. Malformed ABI JSON is rejected
+here rather than failing later at decode time. `GetAbi` / `GetAbiByID` /
+`ListAbis` read what is already registered.
+
+### Creating log sources
+
+`CreateLogSource` registers a contract to index as a **child of an existing
+source** — normally the source whose log announced the deployment:
+
+```go
+ref, err := e.host.CreateLogSource(exporter.NewLogSource{
+    Parent:     uint64(l.SourceId),   // the source that emitted this log
+    Address:    resolvedAddress,
+    Type:       exporter.SourceContract,
+    AbiId:      e.pairAbiID,
+    StartBlock: l.BlockNumber,
+})
+```
+
+The new source is created enabled and starts immediately, sharing the parent's
+pipeline, store and chain, and nesting under the parent in the web UI — exactly
+like a factory-spawned child.
+
+**When to reach for this instead of a FACTORY rule.** A FACTORY rule reads the
+new contract's address straight out of a decoded event argument. When the
+creation event doesn't carry the address, a rule has nothing to work with — and
+that is where a plugin earns its place: resolve the address however you have to
+(a getter call over `RpcUrl`, the transaction receipt, an off-chain registry),
+then register the source. If the address *is* in the event, prefer a FACTORY
+rule; it needs no plugin at all.
+
+`CreateLogSource` is **idempotent per `(Parent, Address)`**: re-registering a
+contract already known under that parent returns the existing source with
+`Created == false`. That matters, because delivery is at-least-once — a plugin
+re-seeing a deployment log after a restart must not create duplicates. Addresses
+compare case-insensitively, so checksummed and lowercase forms are the same
+contract.
+
+Returning the error from `NewLogEvent` when creation fails stops the exporter
+without advancing its cursor, so the deployment is retried rather than dropped.
+
+A full working example lives in `examples/exporters/hostapi`.
+
+---
+
 ## Checklist
 
 - [ ] `package main` whose `main` calls `exporter.Serve(&myExporter{})`

@@ -39,14 +39,18 @@ var _ goplugin.GRPCPlugin = (*ExporterPlugin)(nil)
 
 // GRPCServer registers the plugin-side implementation (plugin process).
 func (p *ExporterPlugin) GRPCServer(broker *goplugin.GRPCBroker, s *grpc.Server) error {
-	exporterproto.RegisterExporterPluginServiceServer(s, &grpcServer{impl: p.Impl})
+	// The broker is kept so Init can dial back to the host service EVMI serves
+	// for this plugin (see grpc_server.go).
+	exporterproto.RegisterExporterPluginServiceServer(s, &grpcServer{impl: p.Impl, broker: broker})
 	return nil
 }
 
 // GRPCClient returns the host-side view of a running plugin (EVMI process). The
 // concrete type is *GRPCClient, which implements Exporter.
 func (p *ExporterPlugin) GRPCClient(ctx context.Context, broker *goplugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return &GRPCClient{client: exporterproto.NewExporterPluginServiceClient(c)}, nil
+	// The broker is kept so Init can stand up the host service this plugin calls
+	// back into (see grpc_client.go).
+	return &GRPCClient{client: exporterproto.NewExporterPluginServiceClient(c), broker: broker}, nil
 }
 
 // PluginMap is the plugin set served by a plugin binary / dispensed by the host.

@@ -207,6 +207,28 @@ protoc-gen-go v1.35.1 + protoc-gen-go-grpc v1.5.1) so it never collides with the
 codegen; `pkg/exporter/grpc_client.go` / `grpc_server.go` adapt it to the Go interface on each
 side, and `Handshake.ProtocolVersion` (`pkg/exporter/plugin.go`) gates compatibility.
 
+**The protocol runs both ways.** Alongside `ExporterPluginService` (EVMI calling the
+plugin), `exporter.proto` defines `ExporterHostService` -- EVMI functions the plugin
+calls back into, carried over hashicorp/go-plugin's `GRPCBroker` (which multiplexes
+extra connections over the existing plugin link, inheriting AutoMTLS). `Init` serves it
+on a broker id (`GRPCClient.serveHost`) and passes the id in `InitRequest.host_broker_id`;
+the plugin dials back (`grpcServer.dialHost`) and the author receives it as
+`exporter.Context.Host`. A zero broker id means "no host API" and yields a nil `Host`,
+which is why this needed **no `ProtocolVersion` bump**. The implementation is
+`internal/exporter/host.go` (`exporterHost`), built per running exporter and installed via
+`pluginProcess.SetHost` **before `Init`** (plugins register ABIs / read the chain from
+inside `Init`); `Close` stops the broker server only after the plugin's own `Close`
+returns. It exposes `Blockchain()` (chain row + the `RpcUrl` the indexer polls, so a plugin
+can open its own client), ABI create/read (`UpsertAbi` never overwrites an existing name and
+validates the JSON ABI), and `CreateLogSource`, which **mirrors `registerFactoryChild`
+exactly** -- same pipeline/store/chain as the parent, created enabled, started over
+`source.enable`, nested in the UI -- for deployments a FACTORY rule cannot catch (the
+creation event does not carry the new address, so the plugin resolves it another way).
+It is idempotent per `(parent, address)` with lowercased addresses, which is **required**
+because export delivery is at-least-once. Scoping is the `pipelineID` on `exporterHost`:
+`CreateLogSource` rejects a parent in any other pipeline, and that check is the only thing
+keeping a plugin inside its own topology. Example: `examples/exporters/hostapi`.
+
 **Plugin code is a separate `Plugin` entity**, not an exporter field: `exporter.InstallPlugin`
 (via the `InstallPlugin` RPC) clones the source and `go build`s it, recording
 `BinaryPath`/`Status` on the `Plugin` row; an exporter references it by `PluginID` and
