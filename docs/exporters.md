@@ -69,6 +69,13 @@ inter-process gRPC call per delivered log.
   itself.
 - The exporter's own `StartBlock` still gates every source, new ones included: a
   cursor is never seeded below `StartBlock - 1`.
+- **Seeing the cursors.** `ListEvmiExporterSourceCursors(exporter_id)` returns one
+  row per source of the exporter's pipeline — its cursor, the source's indexed
+  head, and the lag between them — and `StreamEvmiExporterSourceCursors` streams
+  the same rows live (one event per source per exported batch, plus one the moment
+  a source is first tracked). The web UI renders both under the **Details** button
+  on the Exporters tab. A source with no cursor row yet is listed at its own
+  `StartBlock`, which is where the exporter would seed it.
 - **Upgrading.** `LoadDatabase` backfills cursor rows for exporters that already
   made progress under the old scheme, copying their aggregate position onto every
   source of their pipeline, so upgrading does not replay a pipeline into a plugin.

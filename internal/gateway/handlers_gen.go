@@ -494,6 +494,15 @@ func (g *Gateway) CreateEvmiExporter(ctx context.Context, req *connect.Request[v
 	return forward(ctx, req, c.CreateEvmiExporter)
 }
 
+// ListEvmiExporterSourceCursors — owning instance
+func (g *Gateway) ListEvmiExporterSourceCursors(ctx context.Context, req *connect.Request[v1.ListEvmiExporterSourceCursorsRequest]) (*connect.Response[v1.ListEvmiExporterSourceCursorsResponse], error) {
+	c, err := g.clientForExporter(uint(req.Msg.GetExporterId()))
+	if err != nil {
+		return nil, err
+	}
+	return forward(ctx, req, c.ListEvmiExporterSourceCursors)
+}
+
 // GetEvmiExporter — owning instance
 func (g *Gateway) GetEvmiExporter(ctx context.Context, req *connect.Request[v1.GetEvmiExporterRequest]) (*connect.Response[v1.GetEvmiExporterResponse], error) {
 	c, err := g.clientForExporter(uint(req.Msg.GetId()))

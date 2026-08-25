@@ -642,6 +642,48 @@ message StreamEvmiExporterUpdatesRequest {
   uint32 pipeline_id = 1;
 }
 
+// EvmiExporterSourceCursor is how far one exporter has exported one source of its
+// pipeline. Export progress is tracked per source, so this — not
+// EvmiExporter.sync_block, which is only the minimum across these — is the real
+// picture of an exporter's progress. The source_* fields carry the log source's
+// own state so a client can render the whole table without a second lookup.
+message EvmiExporterSourceCursor {
+  uint32 exporter_id = 1;
+  uint32 source_id = 2;
+
+  // sync_block is the last fully-exported block of this source; sync_log_index
+  // is the last log_index delivered within sync_block+1, or -1 when none is.
+  uint64 sync_block = 3;
+  int64 sync_log_index = 4;
+
+  // source_sync_block is how far the *indexer* has stored this source — the
+  // block the exporter is catching up to. lag_blocks is the difference,
+  // clamped at 0.
+  uint64 source_sync_block = 5;
+  uint64 lag_blocks = 6;
+
+  string source_type = 7;
+  string source_address = 8;
+  string source_topic0 = 9;
+  bool source_enabled = 10;
+  string source_status = 11;
+  // parent_source_id is the FACTORY (or plugin-created) parent, 0 for a
+  // top-level source.
+  uint32 parent_source_id = 12;
+}
+
+message ListEvmiExporterSourceCursorsRequest {
+  uint32 exporter_id = 1;
+}
+message ListEvmiExporterSourceCursorsResponse {
+  repeated EvmiExporterSourceCursor cursors = 1;
+}
+
+message StreamEvmiExporterSourceCursorsRequest {
+  // Required: the exporter whose per-source cursors to stream.
+  uint32 exporter_id = 1;
+}
+
 message ExportConfigurationRequest {}
 message ExportConfigurationResponse {
   // config_json is a pretty-printed JSON object with `plugins` and `resources`
@@ -733,6 +775,11 @@ service EvmIndexerService {
   rpc StopExporter(StopExporterRequest) returns (StopExporterResponse);
   // Server stream of live exporter updates (sync progress, status changes).
   rpc StreamEvmiExporterUpdates(StreamEvmiExporterUpdatesRequest) returns (stream EvmiExporter);
+  // Per-source export cursors of one exporter: the real progress picture, since
+  // an exporter tracks each source of its pipeline independently.
+  rpc ListEvmiExporterSourceCursors(ListEvmiExporterSourceCursorsRequest) returns (ListEvmiExporterSourceCursorsResponse);
+  // Server stream of those cursors as the exporter advances them.
+  rpc StreamEvmiExporterSourceCursors(StreamEvmiExporterSourceCursorsRequest) returns (stream EvmiExporterSourceCursor);
 
   // Plugin
   rpc CreatePlugin(CreatePluginRequest) returns (CreatePluginResponse);

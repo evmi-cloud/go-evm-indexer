@@ -196,6 +196,12 @@ const (
 	// EvmIndexerServiceStreamEvmiExporterUpdatesProcedure is the fully-qualified name of the
 	// EvmIndexerService's StreamEvmiExporterUpdates RPC.
 	EvmIndexerServiceStreamEvmiExporterUpdatesProcedure = "/evm_indexer.v1.EvmIndexerService/StreamEvmiExporterUpdates"
+	// EvmIndexerServiceListEvmiExporterSourceCursorsProcedure is the fully-qualified name of the
+	// EvmIndexerService's ListEvmiExporterSourceCursors RPC.
+	EvmIndexerServiceListEvmiExporterSourceCursorsProcedure = "/evm_indexer.v1.EvmIndexerService/ListEvmiExporterSourceCursors"
+	// EvmIndexerServiceStreamEvmiExporterSourceCursorsProcedure is the fully-qualified name of the
+	// EvmIndexerService's StreamEvmiExporterSourceCursors RPC.
+	EvmIndexerServiceStreamEvmiExporterSourceCursorsProcedure = "/evm_indexer.v1.EvmIndexerService/StreamEvmiExporterSourceCursors"
 	// EvmIndexerServiceCreatePluginProcedure is the fully-qualified name of the EvmIndexerService's
 	// CreatePlugin RPC.
 	EvmIndexerServiceCreatePluginProcedure = "/evm_indexer.v1.EvmIndexerService/CreatePlugin"
@@ -220,74 +226,6 @@ const (
 	// EvmIndexerServiceExportConfigurationProcedure is the fully-qualified name of the
 	// EvmIndexerService's ExportConfiguration RPC.
 	EvmIndexerServiceExportConfigurationProcedure = "/evm_indexer.v1.EvmIndexerService/ExportConfiguration"
-)
-
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	evmIndexerServiceServiceDescriptor                         = v1.File_evm_indexer_v1_evm_indexer_proto.Services().ByName("EvmIndexerService")
-	evmIndexerServiceGetEvmiInstanceMethodDescriptor           = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmiInstance")
-	evmIndexerServiceListEvmiInstancesMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmiInstances")
-	evmIndexerServiceCreateEvmBlockchainMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmBlockchain")
-	evmIndexerServiceGetEvmBlockchainMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmBlockchain")
-	evmIndexerServiceUpdateEvmBlockchainMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmBlockchain")
-	evmIndexerServiceListEvmBlockchainsMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmBlockchains")
-	evmIndexerServiceDeleteEvmBlockchainMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmBlockchain")
-	evmIndexerServiceCreateEvmJsonAbiMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmJsonAbi")
-	evmIndexerServiceGetEvmJsonAbiMethodDescriptor             = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmJsonAbi")
-	evmIndexerServiceUpdateEvmJsonAbiMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmJsonAbi")
-	evmIndexerServiceListEvmJsonAbisMethodDescriptor           = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmJsonAbis")
-	evmIndexerServiceDeleteEvmJsonAbiMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmJsonAbi")
-	evmIndexerServiceCreateEvmLogStoreMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogStore")
-	evmIndexerServiceGetEvmLogStoreMethodDescriptor            = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogStore")
-	evmIndexerServiceUpdateEvmLogStoreMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogStore")
-	evmIndexerServiceListEvmLogStoresMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogStores")
-	evmIndexerServiceDeleteEvmLogStoreMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogStore")
-	evmIndexerServiceCreateEvmLogPipelineMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogPipeline")
-	evmIndexerServiceGetEvmLogPipelineMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogPipeline")
-	evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogPipeline")
-	evmIndexerServiceListEvmLogPipelinesMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogPipelines")
-	evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor      = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogPipeline")
-	evmIndexerServiceStartSourceIndexerMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("StartSourceIndexer")
-	evmIndexerServiceStopSourceIndexerMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("StopSourceIndexer")
-	evmIndexerServiceCreateEvmLogSourceMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmLogSource")
-	evmIndexerServiceGetEvmLogSourceMethodDescriptor           = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmLogSource")
-	evmIndexerServiceUpdateEvmLogSourceMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmLogSource")
-	evmIndexerServiceListEvmLogSourcesMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogSources")
-	evmIndexerServiceDeleteEvmLogSourceMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmLogSource")
-	evmIndexerServiceStreamEvmLogSourceUpdatesMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("StreamEvmLogSourceUpdates")
-	evmIndexerServiceListEvmLogsMethodDescriptor               = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmLogs")
-	evmIndexerServiceListLatestEvmLogsMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListLatestEvmLogs")
-	evmIndexerServiceListEvmTransactionsMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmTransactions")
-	evmIndexerServiceLoginMethodDescriptor                     = evmIndexerServiceServiceDescriptor.Methods().ByName("Login")
-	evmIndexerServiceListOAuthLoginUrlsMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("ListOAuthLoginUrls")
-	evmIndexerServiceMeMethodDescriptor                        = evmIndexerServiceServiceDescriptor.Methods().ByName("Me")
-	evmIndexerServiceCreateAccessTokenMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateAccessToken")
-	evmIndexerServiceListAccessTokensMethodDescriptor          = evmIndexerServiceServiceDescriptor.Methods().ByName("ListAccessTokens")
-	evmIndexerServiceRevokeAccessTokenMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("RevokeAccessToken")
-	evmIndexerServiceListOAuthProvidersMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("ListOAuthProviders")
-	evmIndexerServiceCreateOAuthProviderMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateOAuthProvider")
-	evmIndexerServiceUpdateOAuthProviderMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateOAuthProvider")
-	evmIndexerServiceDeleteOAuthProviderMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteOAuthProvider")
-	evmIndexerServiceListUsersMethodDescriptor                 = evmIndexerServiceServiceDescriptor.Methods().ByName("ListUsers")
-	evmIndexerServiceCreateUserMethodDescriptor                = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateUser")
-	evmIndexerServiceUpdateUserMethodDescriptor                = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateUser")
-	evmIndexerServiceDeleteUserMethodDescriptor                = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteUser")
-	evmIndexerServiceCreateEvmiExporterMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("CreateEvmiExporter")
-	evmIndexerServiceGetEvmiExporterMethodDescriptor           = evmIndexerServiceServiceDescriptor.Methods().ByName("GetEvmiExporter")
-	evmIndexerServiceUpdateEvmiExporterMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdateEvmiExporter")
-	evmIndexerServiceListEvmiExportersMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListEvmiExporters")
-	evmIndexerServiceDeleteEvmiExporterMethodDescriptor        = evmIndexerServiceServiceDescriptor.Methods().ByName("DeleteEvmiExporter")
-	evmIndexerServiceStartExporterMethodDescriptor             = evmIndexerServiceServiceDescriptor.Methods().ByName("StartExporter")
-	evmIndexerServiceStopExporterMethodDescriptor              = evmIndexerServiceServiceDescriptor.Methods().ByName("StopExporter")
-	evmIndexerServiceStreamEvmiExporterUpdatesMethodDescriptor = evmIndexerServiceServiceDescriptor.Methods().ByName("StreamEvmiExporterUpdates")
-	evmIndexerServiceCreatePluginMethodDescriptor              = evmIndexerServiceServiceDescriptor.Methods().ByName("CreatePlugin")
-	evmIndexerServiceGetPluginMethodDescriptor                 = evmIndexerServiceServiceDescriptor.Methods().ByName("GetPlugin")
-	evmIndexerServiceUpdatePluginMethodDescriptor              = evmIndexerServiceServiceDescriptor.Methods().ByName("UpdatePlugin")
-	evmIndexerServiceListPluginsMethodDescriptor               = evmIndexerServiceServiceDescriptor.Methods().ByName("ListPlugins")
-	evmIndexerServiceDeletePluginMethodDescriptor              = evmIndexerServiceServiceDescriptor.Methods().ByName("DeletePlugin")
-	evmIndexerServiceInstallPluginMethodDescriptor             = evmIndexerServiceServiceDescriptor.Methods().ByName("InstallPlugin")
-	evmIndexerServiceListPluginGitRefsMethodDescriptor         = evmIndexerServiceServiceDescriptor.Methods().ByName("ListPluginGitRefs")
-	evmIndexerServiceExportConfigurationMethodDescriptor       = evmIndexerServiceServiceDescriptor.Methods().ByName("ExportConfiguration")
 )
 
 // EvmIndexerServiceClient is a client for the evm_indexer.v1.EvmIndexerService service.
@@ -361,6 +299,11 @@ type EvmIndexerServiceClient interface {
 	StopExporter(context.Context, *connect.Request[v1.StopExporterRequest]) (*connect.Response[v1.StopExporterResponse], error)
 	// Server stream of live exporter updates (sync progress, status changes).
 	StreamEvmiExporterUpdates(context.Context, *connect.Request[v1.StreamEvmiExporterUpdatesRequest]) (*connect.ServerStreamForClient[v1.EvmiExporter], error)
+	// Per-source export cursors of one exporter: the real progress picture, since
+	// an exporter tracks each source of its pipeline independently.
+	ListEvmiExporterSourceCursors(context.Context, *connect.Request[v1.ListEvmiExporterSourceCursorsRequest]) (*connect.Response[v1.ListEvmiExporterSourceCursorsResponse], error)
+	// Server stream of those cursors as the exporter advances them.
+	StreamEvmiExporterSourceCursors(context.Context, *connect.Request[v1.StreamEvmiExporterSourceCursorsRequest]) (*connect.ServerStreamForClient[v1.EvmiExporterSourceCursor], error)
 	// Plugin
 	CreatePlugin(context.Context, *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error)
 	GetPlugin(context.Context, *connect.Request[v1.GetPluginRequest]) (*connect.Response[v1.GetPluginResponse], error)
@@ -382,383 +325,396 @@ type EvmIndexerServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) EvmIndexerServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	evmIndexerServiceMethods := v1.File_evm_indexer_v1_evm_indexer_proto.Services().ByName("EvmIndexerService").Methods()
 	return &evmIndexerServiceClient{
 		getEvmiInstance: connect.NewClient[v1.GetEvmiInstanceRequest, v1.GetEvmiInstanceResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmiInstanceProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmiInstanceMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmiInstance")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmiInstances: connect.NewClient[v1.ListEvmiInstancesRequest, v1.ListEvmiInstancesResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmiInstancesProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmiInstancesMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmiInstances")),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmBlockchain: connect.NewClient[v1.CreateEvmBlockchainRequest, v1.CreateEvmBlockchainResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateEvmBlockchainProcedure,
-			connect.WithSchema(evmIndexerServiceCreateEvmBlockchainMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmBlockchain")),
 			connect.WithClientOptions(opts...),
 		),
 		getEvmBlockchain: connect.NewClient[v1.GetEvmBlockchainRequest, v1.GetEvmBlockchainResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmBlockchainProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmBlockchainMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmBlockchain")),
 			connect.WithClientOptions(opts...),
 		),
 		updateEvmBlockchain: connect.NewClient[v1.UpdateEvmBlockchainRequest, v1.UpdateEvmBlockchainResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateEvmBlockchainProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateEvmBlockchainMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmBlockchain")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmBlockchains: connect.NewClient[v1.ListEvmBlockchainsRequest, v1.ListEvmBlockchainsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmBlockchainsProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmBlockchainsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmBlockchains")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEvmBlockchain: connect.NewClient[v1.DeleteEvmBlockchainRequest, v1.DeleteEvmBlockchainResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteEvmBlockchainProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteEvmBlockchainMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmBlockchain")),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmJsonAbi: connect.NewClient[v1.CreateEvmJsonAbiRequest, v1.CreateEvmJsonAbiResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateEvmJsonAbiProcedure,
-			connect.WithSchema(evmIndexerServiceCreateEvmJsonAbiMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmJsonAbi")),
 			connect.WithClientOptions(opts...),
 		),
 		getEvmJsonAbi: connect.NewClient[v1.GetEvmJsonAbiRequest, v1.GetEvmJsonAbiResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmJsonAbiProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmJsonAbiMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmJsonAbi")),
 			connect.WithClientOptions(opts...),
 		),
 		updateEvmJsonAbi: connect.NewClient[v1.UpdateEvmJsonAbiRequest, v1.UpdateEvmJsonAbiResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateEvmJsonAbiProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateEvmJsonAbiMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmJsonAbi")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmJsonAbis: connect.NewClient[v1.ListEvmJsonAbisRequest, v1.ListEvmJsonAbisResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmJsonAbisProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmJsonAbisMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmJsonAbis")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEvmJsonAbi: connect.NewClient[v1.DeleteEvmJsonAbiRequest, v1.DeleteEvmJsonAbiResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteEvmJsonAbiProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteEvmJsonAbiMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmJsonAbi")),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmLogStore: connect.NewClient[v1.CreateEvmLogStoreRequest, v1.CreateEvmLogStoreResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateEvmLogStoreProcedure,
-			connect.WithSchema(evmIndexerServiceCreateEvmLogStoreMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmLogStore")),
 			connect.WithClientOptions(opts...),
 		),
 		getEvmLogStore: connect.NewClient[v1.GetEvmLogStoreRequest, v1.GetEvmLogStoreResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmLogStoreProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmLogStoreMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmLogStore")),
 			connect.WithClientOptions(opts...),
 		),
 		updateEvmLogStore: connect.NewClient[v1.UpdateEvmLogStoreRequest, v1.UpdateEvmLogStoreResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateEvmLogStoreProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateEvmLogStoreMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmLogStore")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmLogStores: connect.NewClient[v1.ListEvmLogStoresRequest, v1.ListEvmLogStoresResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmLogStoresProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmLogStoresMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogStores")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEvmLogStore: connect.NewClient[v1.DeleteEvmLogStoreRequest, v1.DeleteEvmLogStoreResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteEvmLogStoreProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteEvmLogStoreMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmLogStore")),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmLogPipeline: connect.NewClient[v1.CreateEvmLogPipelineRequest, v1.CreateEvmLogPipelineResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateEvmLogPipelineProcedure,
-			connect.WithSchema(evmIndexerServiceCreateEvmLogPipelineMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmLogPipeline")),
 			connect.WithClientOptions(opts...),
 		),
 		getEvmLogPipeline: connect.NewClient[v1.GetEvmLogPipelineRequest, v1.GetEvmLogPipelineResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmLogPipelineProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmLogPipelineMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmLogPipeline")),
 			connect.WithClientOptions(opts...),
 		),
 		updateEvmLogPipeline: connect.NewClient[v1.UpdateEvmLogPipelineRequest, v1.UpdateEvmLogPipelineResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateEvmLogPipelineProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmLogPipeline")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmLogPipelines: connect.NewClient[v1.ListEvmLogPipelinesRequest, v1.ListEvmLogPipelinesResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmLogPipelinesProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmLogPipelinesMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogPipelines")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEvmLogPipeline: connect.NewClient[v1.DeleteEvmLogPipelineRequest, v1.DeleteEvmLogPipelineResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteEvmLogPipelineProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmLogPipeline")),
 			connect.WithClientOptions(opts...),
 		),
 		startSourceIndexer: connect.NewClient[v1.StartSourceIndexerRequest, v1.StartSourceIndexerResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceStartSourceIndexerProcedure,
-			connect.WithSchema(evmIndexerServiceStartSourceIndexerMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StartSourceIndexer")),
 			connect.WithClientOptions(opts...),
 		),
 		stopSourceIndexer: connect.NewClient[v1.StopSourceIndexerRequest, v1.StopSourceIndexerResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceStopSourceIndexerProcedure,
-			connect.WithSchema(evmIndexerServiceStopSourceIndexerMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StopSourceIndexer")),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmLogSource: connect.NewClient[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateEvmLogSourceProcedure,
-			connect.WithSchema(evmIndexerServiceCreateEvmLogSourceMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmLogSource")),
 			connect.WithClientOptions(opts...),
 		),
 		getEvmLogSource: connect.NewClient[v1.GetEvmLogSourceRequest, v1.GetEvmLogSourceResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmLogSourceProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmLogSourceMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmLogSource")),
 			connect.WithClientOptions(opts...),
 		),
 		updateEvmLogSource: connect.NewClient[v1.UpdateEvmLogSourceRequest, v1.UpdateEvmLogSourceResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateEvmLogSourceProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateEvmLogSourceMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmLogSource")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmLogSources: connect.NewClient[v1.ListEvmLogSourcesRequest, v1.ListEvmLogSourcesResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmLogSourcesProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmLogSourcesMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogSources")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEvmLogSource: connect.NewClient[v1.DeleteEvmLogSourceRequest, v1.DeleteEvmLogSourceResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteEvmLogSourceProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteEvmLogSourceMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmLogSource")),
 			connect.WithClientOptions(opts...),
 		),
 		streamEvmLogSourceUpdates: connect.NewClient[v1.StreamEvmLogSourceUpdatesRequest, v1.EvmLogSource](
 			httpClient,
 			baseURL+EvmIndexerServiceStreamEvmLogSourceUpdatesProcedure,
-			connect.WithSchema(evmIndexerServiceStreamEvmLogSourceUpdatesMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StreamEvmLogSourceUpdates")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmLogs: connect.NewClient[v1.ListEvmLogsRequest, v1.ListEvmLogsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmLogsProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmLogsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogs")),
 			connect.WithClientOptions(opts...),
 		),
 		listLatestEvmLogs: connect.NewClient[v1.ListLatestEvmLogsRequest, v1.ListLatestEvmLogsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListLatestEvmLogsProcedure,
-			connect.WithSchema(evmIndexerServiceListLatestEvmLogsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListLatestEvmLogs")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmTransactions: connect.NewClient[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmTransactionsProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmTransactionsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmTransactions")),
 			connect.WithClientOptions(opts...),
 		),
 		login: connect.NewClient[v1.LoginRequest, v1.LoginResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceLoginProcedure,
-			connect.WithSchema(evmIndexerServiceLoginMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("Login")),
 			connect.WithClientOptions(opts...),
 		),
 		listOAuthLoginUrls: connect.NewClient[v1.ListOAuthLoginUrlsRequest, v1.ListOAuthLoginUrlsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListOAuthLoginUrlsProcedure,
-			connect.WithSchema(evmIndexerServiceListOAuthLoginUrlsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListOAuthLoginUrls")),
 			connect.WithClientOptions(opts...),
 		),
 		me: connect.NewClient[v1.MeRequest, v1.MeResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceMeProcedure,
-			connect.WithSchema(evmIndexerServiceMeMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("Me")),
 			connect.WithClientOptions(opts...),
 		),
 		createAccessToken: connect.NewClient[v1.CreateAccessTokenRequest, v1.CreateAccessTokenResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateAccessTokenProcedure,
-			connect.WithSchema(evmIndexerServiceCreateAccessTokenMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateAccessToken")),
 			connect.WithClientOptions(opts...),
 		),
 		listAccessTokens: connect.NewClient[v1.ListAccessTokensRequest, v1.ListAccessTokensResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListAccessTokensProcedure,
-			connect.WithSchema(evmIndexerServiceListAccessTokensMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListAccessTokens")),
 			connect.WithClientOptions(opts...),
 		),
 		revokeAccessToken: connect.NewClient[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceRevokeAccessTokenProcedure,
-			connect.WithSchema(evmIndexerServiceRevokeAccessTokenMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("RevokeAccessToken")),
 			connect.WithClientOptions(opts...),
 		),
 		listOAuthProviders: connect.NewClient[v1.ListOAuthProvidersRequest, v1.ListOAuthProvidersResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListOAuthProvidersProcedure,
-			connect.WithSchema(evmIndexerServiceListOAuthProvidersMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListOAuthProviders")),
 			connect.WithClientOptions(opts...),
 		),
 		createOAuthProvider: connect.NewClient[v1.CreateOAuthProviderRequest, v1.CreateOAuthProviderResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateOAuthProviderProcedure,
-			connect.WithSchema(evmIndexerServiceCreateOAuthProviderMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateOAuthProvider")),
 			connect.WithClientOptions(opts...),
 		),
 		updateOAuthProvider: connect.NewClient[v1.UpdateOAuthProviderRequest, v1.UpdateOAuthProviderResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateOAuthProviderProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateOAuthProviderMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateOAuthProvider")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteOAuthProvider: connect.NewClient[v1.DeleteOAuthProviderRequest, v1.DeleteOAuthProviderResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteOAuthProviderProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteOAuthProviderMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteOAuthProvider")),
 			connect.WithClientOptions(opts...),
 		),
 		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListUsersProcedure,
-			connect.WithSchema(evmIndexerServiceListUsersMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListUsers")),
 			connect.WithClientOptions(opts...),
 		),
 		createUser: connect.NewClient[v1.CreateUserRequest, v1.CreateUserResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateUserProcedure,
-			connect.WithSchema(evmIndexerServiceCreateUserMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateUser")),
 			connect.WithClientOptions(opts...),
 		),
 		updateUser: connect.NewClient[v1.UpdateUserRequest, v1.UpdateUserResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateUserProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateUserMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateUser")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteUser: connect.NewClient[v1.DeleteUserRequest, v1.DeleteUserResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteUserProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteUserMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteUser")),
 			connect.WithClientOptions(opts...),
 		),
 		createEvmiExporter: connect.NewClient[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreateEvmiExporterProcedure,
-			connect.WithSchema(evmIndexerServiceCreateEvmiExporterMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmiExporter")),
 			connect.WithClientOptions(opts...),
 		),
 		getEvmiExporter: connect.NewClient[v1.GetEvmiExporterRequest, v1.GetEvmiExporterResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetEvmiExporterProcedure,
-			connect.WithSchema(evmIndexerServiceGetEvmiExporterMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmiExporter")),
 			connect.WithClientOptions(opts...),
 		),
 		updateEvmiExporter: connect.NewClient[v1.UpdateEvmiExporterRequest, v1.UpdateEvmiExporterResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdateEvmiExporterProcedure,
-			connect.WithSchema(evmIndexerServiceUpdateEvmiExporterMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmiExporter")),
 			connect.WithClientOptions(opts...),
 		),
 		listEvmiExporters: connect.NewClient[v1.ListEvmiExportersRequest, v1.ListEvmiExportersResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListEvmiExportersProcedure,
-			connect.WithSchema(evmIndexerServiceListEvmiExportersMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmiExporters")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEvmiExporter: connect.NewClient[v1.DeleteEvmiExporterRequest, v1.DeleteEvmiExporterResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeleteEvmiExporterProcedure,
-			connect.WithSchema(evmIndexerServiceDeleteEvmiExporterMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmiExporter")),
 			connect.WithClientOptions(opts...),
 		),
 		startExporter: connect.NewClient[v1.StartExporterRequest, v1.StartExporterResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceStartExporterProcedure,
-			connect.WithSchema(evmIndexerServiceStartExporterMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StartExporter")),
 			connect.WithClientOptions(opts...),
 		),
 		stopExporter: connect.NewClient[v1.StopExporterRequest, v1.StopExporterResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceStopExporterProcedure,
-			connect.WithSchema(evmIndexerServiceStopExporterMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StopExporter")),
 			connect.WithClientOptions(opts...),
 		),
 		streamEvmiExporterUpdates: connect.NewClient[v1.StreamEvmiExporterUpdatesRequest, v1.EvmiExporter](
 			httpClient,
 			baseURL+EvmIndexerServiceStreamEvmiExporterUpdatesProcedure,
-			connect.WithSchema(evmIndexerServiceStreamEvmiExporterUpdatesMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StreamEvmiExporterUpdates")),
+			connect.WithClientOptions(opts...),
+		),
+		listEvmiExporterSourceCursors: connect.NewClient[v1.ListEvmiExporterSourceCursorsRequest, v1.ListEvmiExporterSourceCursorsResponse](
+			httpClient,
+			baseURL+EvmIndexerServiceListEvmiExporterSourceCursorsProcedure,
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmiExporterSourceCursors")),
+			connect.WithClientOptions(opts...),
+		),
+		streamEvmiExporterSourceCursors: connect.NewClient[v1.StreamEvmiExporterSourceCursorsRequest, v1.EvmiExporterSourceCursor](
+			httpClient,
+			baseURL+EvmIndexerServiceStreamEvmiExporterSourceCursorsProcedure,
+			connect.WithSchema(evmIndexerServiceMethods.ByName("StreamEvmiExporterSourceCursors")),
 			connect.WithClientOptions(opts...),
 		),
 		createPlugin: connect.NewClient[v1.CreatePluginRequest, v1.CreatePluginResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceCreatePluginProcedure,
-			connect.WithSchema(evmIndexerServiceCreatePluginMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("CreatePlugin")),
 			connect.WithClientOptions(opts...),
 		),
 		getPlugin: connect.NewClient[v1.GetPluginRequest, v1.GetPluginResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceGetPluginProcedure,
-			connect.WithSchema(evmIndexerServiceGetPluginMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("GetPlugin")),
 			connect.WithClientOptions(opts...),
 		),
 		updatePlugin: connect.NewClient[v1.UpdatePluginRequest, v1.UpdatePluginResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceUpdatePluginProcedure,
-			connect.WithSchema(evmIndexerServiceUpdatePluginMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("UpdatePlugin")),
 			connect.WithClientOptions(opts...),
 		),
 		listPlugins: connect.NewClient[v1.ListPluginsRequest, v1.ListPluginsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListPluginsProcedure,
-			connect.WithSchema(evmIndexerServiceListPluginsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListPlugins")),
 			connect.WithClientOptions(opts...),
 		),
 		deletePlugin: connect.NewClient[v1.DeletePluginRequest, v1.DeletePluginResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceDeletePluginProcedure,
-			connect.WithSchema(evmIndexerServiceDeletePluginMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("DeletePlugin")),
 			connect.WithClientOptions(opts...),
 		),
 		installPlugin: connect.NewClient[v1.InstallPluginRequest, v1.InstallPluginResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceInstallPluginProcedure,
-			connect.WithSchema(evmIndexerServiceInstallPluginMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("InstallPlugin")),
 			connect.WithClientOptions(opts...),
 		),
 		listPluginGitRefs: connect.NewClient[v1.ListPluginGitRefsRequest, v1.ListPluginGitRefsResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceListPluginGitRefsProcedure,
-			connect.WithSchema(evmIndexerServiceListPluginGitRefsMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ListPluginGitRefs")),
 			connect.WithClientOptions(opts...),
 		),
 		exportConfiguration: connect.NewClient[v1.ExportConfigurationRequest, v1.ExportConfigurationResponse](
 			httpClient,
 			baseURL+EvmIndexerServiceExportConfigurationProcedure,
-			connect.WithSchema(evmIndexerServiceExportConfigurationMethodDescriptor),
+			connect.WithSchema(evmIndexerServiceMethods.ByName("ExportConfiguration")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -766,69 +722,71 @@ func NewEvmIndexerServiceClient(httpClient connect.HTTPClient, baseURL string, o
 
 // evmIndexerServiceClient implements EvmIndexerServiceClient.
 type evmIndexerServiceClient struct {
-	getEvmiInstance           *connect.Client[v1.GetEvmiInstanceRequest, v1.GetEvmiInstanceResponse]
-	listEvmiInstances         *connect.Client[v1.ListEvmiInstancesRequest, v1.ListEvmiInstancesResponse]
-	createEvmBlockchain       *connect.Client[v1.CreateEvmBlockchainRequest, v1.CreateEvmBlockchainResponse]
-	getEvmBlockchain          *connect.Client[v1.GetEvmBlockchainRequest, v1.GetEvmBlockchainResponse]
-	updateEvmBlockchain       *connect.Client[v1.UpdateEvmBlockchainRequest, v1.UpdateEvmBlockchainResponse]
-	listEvmBlockchains        *connect.Client[v1.ListEvmBlockchainsRequest, v1.ListEvmBlockchainsResponse]
-	deleteEvmBlockchain       *connect.Client[v1.DeleteEvmBlockchainRequest, v1.DeleteEvmBlockchainResponse]
-	createEvmJsonAbi          *connect.Client[v1.CreateEvmJsonAbiRequest, v1.CreateEvmJsonAbiResponse]
-	getEvmJsonAbi             *connect.Client[v1.GetEvmJsonAbiRequest, v1.GetEvmJsonAbiResponse]
-	updateEvmJsonAbi          *connect.Client[v1.UpdateEvmJsonAbiRequest, v1.UpdateEvmJsonAbiResponse]
-	listEvmJsonAbis           *connect.Client[v1.ListEvmJsonAbisRequest, v1.ListEvmJsonAbisResponse]
-	deleteEvmJsonAbi          *connect.Client[v1.DeleteEvmJsonAbiRequest, v1.DeleteEvmJsonAbiResponse]
-	createEvmLogStore         *connect.Client[v1.CreateEvmLogStoreRequest, v1.CreateEvmLogStoreResponse]
-	getEvmLogStore            *connect.Client[v1.GetEvmLogStoreRequest, v1.GetEvmLogStoreResponse]
-	updateEvmLogStore         *connect.Client[v1.UpdateEvmLogStoreRequest, v1.UpdateEvmLogStoreResponse]
-	listEvmLogStores          *connect.Client[v1.ListEvmLogStoresRequest, v1.ListEvmLogStoresResponse]
-	deleteEvmLogStore         *connect.Client[v1.DeleteEvmLogStoreRequest, v1.DeleteEvmLogStoreResponse]
-	createEvmLogPipeline      *connect.Client[v1.CreateEvmLogPipelineRequest, v1.CreateEvmLogPipelineResponse]
-	getEvmLogPipeline         *connect.Client[v1.GetEvmLogPipelineRequest, v1.GetEvmLogPipelineResponse]
-	updateEvmLogPipeline      *connect.Client[v1.UpdateEvmLogPipelineRequest, v1.UpdateEvmLogPipelineResponse]
-	listEvmLogPipelines       *connect.Client[v1.ListEvmLogPipelinesRequest, v1.ListEvmLogPipelinesResponse]
-	deleteEvmLogPipeline      *connect.Client[v1.DeleteEvmLogPipelineRequest, v1.DeleteEvmLogPipelineResponse]
-	startSourceIndexer        *connect.Client[v1.StartSourceIndexerRequest, v1.StartSourceIndexerResponse]
-	stopSourceIndexer         *connect.Client[v1.StopSourceIndexerRequest, v1.StopSourceIndexerResponse]
-	createEvmLogSource        *connect.Client[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse]
-	getEvmLogSource           *connect.Client[v1.GetEvmLogSourceRequest, v1.GetEvmLogSourceResponse]
-	updateEvmLogSource        *connect.Client[v1.UpdateEvmLogSourceRequest, v1.UpdateEvmLogSourceResponse]
-	listEvmLogSources         *connect.Client[v1.ListEvmLogSourcesRequest, v1.ListEvmLogSourcesResponse]
-	deleteEvmLogSource        *connect.Client[v1.DeleteEvmLogSourceRequest, v1.DeleteEvmLogSourceResponse]
-	streamEvmLogSourceUpdates *connect.Client[v1.StreamEvmLogSourceUpdatesRequest, v1.EvmLogSource]
-	listEvmLogs               *connect.Client[v1.ListEvmLogsRequest, v1.ListEvmLogsResponse]
-	listLatestEvmLogs         *connect.Client[v1.ListLatestEvmLogsRequest, v1.ListLatestEvmLogsResponse]
-	listEvmTransactions       *connect.Client[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse]
-	login                     *connect.Client[v1.LoginRequest, v1.LoginResponse]
-	listOAuthLoginUrls        *connect.Client[v1.ListOAuthLoginUrlsRequest, v1.ListOAuthLoginUrlsResponse]
-	me                        *connect.Client[v1.MeRequest, v1.MeResponse]
-	createAccessToken         *connect.Client[v1.CreateAccessTokenRequest, v1.CreateAccessTokenResponse]
-	listAccessTokens          *connect.Client[v1.ListAccessTokensRequest, v1.ListAccessTokensResponse]
-	revokeAccessToken         *connect.Client[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse]
-	listOAuthProviders        *connect.Client[v1.ListOAuthProvidersRequest, v1.ListOAuthProvidersResponse]
-	createOAuthProvider       *connect.Client[v1.CreateOAuthProviderRequest, v1.CreateOAuthProviderResponse]
-	updateOAuthProvider       *connect.Client[v1.UpdateOAuthProviderRequest, v1.UpdateOAuthProviderResponse]
-	deleteOAuthProvider       *connect.Client[v1.DeleteOAuthProviderRequest, v1.DeleteOAuthProviderResponse]
-	listUsers                 *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
-	createUser                *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
-	updateUser                *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
-	deleteUser                *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
-	createEvmiExporter        *connect.Client[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse]
-	getEvmiExporter           *connect.Client[v1.GetEvmiExporterRequest, v1.GetEvmiExporterResponse]
-	updateEvmiExporter        *connect.Client[v1.UpdateEvmiExporterRequest, v1.UpdateEvmiExporterResponse]
-	listEvmiExporters         *connect.Client[v1.ListEvmiExportersRequest, v1.ListEvmiExportersResponse]
-	deleteEvmiExporter        *connect.Client[v1.DeleteEvmiExporterRequest, v1.DeleteEvmiExporterResponse]
-	startExporter             *connect.Client[v1.StartExporterRequest, v1.StartExporterResponse]
-	stopExporter              *connect.Client[v1.StopExporterRequest, v1.StopExporterResponse]
-	streamEvmiExporterUpdates *connect.Client[v1.StreamEvmiExporterUpdatesRequest, v1.EvmiExporter]
-	createPlugin              *connect.Client[v1.CreatePluginRequest, v1.CreatePluginResponse]
-	getPlugin                 *connect.Client[v1.GetPluginRequest, v1.GetPluginResponse]
-	updatePlugin              *connect.Client[v1.UpdatePluginRequest, v1.UpdatePluginResponse]
-	listPlugins               *connect.Client[v1.ListPluginsRequest, v1.ListPluginsResponse]
-	deletePlugin              *connect.Client[v1.DeletePluginRequest, v1.DeletePluginResponse]
-	installPlugin             *connect.Client[v1.InstallPluginRequest, v1.InstallPluginResponse]
-	listPluginGitRefs         *connect.Client[v1.ListPluginGitRefsRequest, v1.ListPluginGitRefsResponse]
-	exportConfiguration       *connect.Client[v1.ExportConfigurationRequest, v1.ExportConfigurationResponse]
+	getEvmiInstance                 *connect.Client[v1.GetEvmiInstanceRequest, v1.GetEvmiInstanceResponse]
+	listEvmiInstances               *connect.Client[v1.ListEvmiInstancesRequest, v1.ListEvmiInstancesResponse]
+	createEvmBlockchain             *connect.Client[v1.CreateEvmBlockchainRequest, v1.CreateEvmBlockchainResponse]
+	getEvmBlockchain                *connect.Client[v1.GetEvmBlockchainRequest, v1.GetEvmBlockchainResponse]
+	updateEvmBlockchain             *connect.Client[v1.UpdateEvmBlockchainRequest, v1.UpdateEvmBlockchainResponse]
+	listEvmBlockchains              *connect.Client[v1.ListEvmBlockchainsRequest, v1.ListEvmBlockchainsResponse]
+	deleteEvmBlockchain             *connect.Client[v1.DeleteEvmBlockchainRequest, v1.DeleteEvmBlockchainResponse]
+	createEvmJsonAbi                *connect.Client[v1.CreateEvmJsonAbiRequest, v1.CreateEvmJsonAbiResponse]
+	getEvmJsonAbi                   *connect.Client[v1.GetEvmJsonAbiRequest, v1.GetEvmJsonAbiResponse]
+	updateEvmJsonAbi                *connect.Client[v1.UpdateEvmJsonAbiRequest, v1.UpdateEvmJsonAbiResponse]
+	listEvmJsonAbis                 *connect.Client[v1.ListEvmJsonAbisRequest, v1.ListEvmJsonAbisResponse]
+	deleteEvmJsonAbi                *connect.Client[v1.DeleteEvmJsonAbiRequest, v1.DeleteEvmJsonAbiResponse]
+	createEvmLogStore               *connect.Client[v1.CreateEvmLogStoreRequest, v1.CreateEvmLogStoreResponse]
+	getEvmLogStore                  *connect.Client[v1.GetEvmLogStoreRequest, v1.GetEvmLogStoreResponse]
+	updateEvmLogStore               *connect.Client[v1.UpdateEvmLogStoreRequest, v1.UpdateEvmLogStoreResponse]
+	listEvmLogStores                *connect.Client[v1.ListEvmLogStoresRequest, v1.ListEvmLogStoresResponse]
+	deleteEvmLogStore               *connect.Client[v1.DeleteEvmLogStoreRequest, v1.DeleteEvmLogStoreResponse]
+	createEvmLogPipeline            *connect.Client[v1.CreateEvmLogPipelineRequest, v1.CreateEvmLogPipelineResponse]
+	getEvmLogPipeline               *connect.Client[v1.GetEvmLogPipelineRequest, v1.GetEvmLogPipelineResponse]
+	updateEvmLogPipeline            *connect.Client[v1.UpdateEvmLogPipelineRequest, v1.UpdateEvmLogPipelineResponse]
+	listEvmLogPipelines             *connect.Client[v1.ListEvmLogPipelinesRequest, v1.ListEvmLogPipelinesResponse]
+	deleteEvmLogPipeline            *connect.Client[v1.DeleteEvmLogPipelineRequest, v1.DeleteEvmLogPipelineResponse]
+	startSourceIndexer              *connect.Client[v1.StartSourceIndexerRequest, v1.StartSourceIndexerResponse]
+	stopSourceIndexer               *connect.Client[v1.StopSourceIndexerRequest, v1.StopSourceIndexerResponse]
+	createEvmLogSource              *connect.Client[v1.CreateEvmLogSourceRequest, v1.CreateEvmLogSourceResponse]
+	getEvmLogSource                 *connect.Client[v1.GetEvmLogSourceRequest, v1.GetEvmLogSourceResponse]
+	updateEvmLogSource              *connect.Client[v1.UpdateEvmLogSourceRequest, v1.UpdateEvmLogSourceResponse]
+	listEvmLogSources               *connect.Client[v1.ListEvmLogSourcesRequest, v1.ListEvmLogSourcesResponse]
+	deleteEvmLogSource              *connect.Client[v1.DeleteEvmLogSourceRequest, v1.DeleteEvmLogSourceResponse]
+	streamEvmLogSourceUpdates       *connect.Client[v1.StreamEvmLogSourceUpdatesRequest, v1.EvmLogSource]
+	listEvmLogs                     *connect.Client[v1.ListEvmLogsRequest, v1.ListEvmLogsResponse]
+	listLatestEvmLogs               *connect.Client[v1.ListLatestEvmLogsRequest, v1.ListLatestEvmLogsResponse]
+	listEvmTransactions             *connect.Client[v1.ListEvmTransactionsRequest, v1.ListEvmTransactionsResponse]
+	login                           *connect.Client[v1.LoginRequest, v1.LoginResponse]
+	listOAuthLoginUrls              *connect.Client[v1.ListOAuthLoginUrlsRequest, v1.ListOAuthLoginUrlsResponse]
+	me                              *connect.Client[v1.MeRequest, v1.MeResponse]
+	createAccessToken               *connect.Client[v1.CreateAccessTokenRequest, v1.CreateAccessTokenResponse]
+	listAccessTokens                *connect.Client[v1.ListAccessTokensRequest, v1.ListAccessTokensResponse]
+	revokeAccessToken               *connect.Client[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse]
+	listOAuthProviders              *connect.Client[v1.ListOAuthProvidersRequest, v1.ListOAuthProvidersResponse]
+	createOAuthProvider             *connect.Client[v1.CreateOAuthProviderRequest, v1.CreateOAuthProviderResponse]
+	updateOAuthProvider             *connect.Client[v1.UpdateOAuthProviderRequest, v1.UpdateOAuthProviderResponse]
+	deleteOAuthProvider             *connect.Client[v1.DeleteOAuthProviderRequest, v1.DeleteOAuthProviderResponse]
+	listUsers                       *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	createUser                      *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	updateUser                      *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
+	deleteUser                      *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
+	createEvmiExporter              *connect.Client[v1.CreateEvmiExporterRequest, v1.CreateEvmiExporterResponse]
+	getEvmiExporter                 *connect.Client[v1.GetEvmiExporterRequest, v1.GetEvmiExporterResponse]
+	updateEvmiExporter              *connect.Client[v1.UpdateEvmiExporterRequest, v1.UpdateEvmiExporterResponse]
+	listEvmiExporters               *connect.Client[v1.ListEvmiExportersRequest, v1.ListEvmiExportersResponse]
+	deleteEvmiExporter              *connect.Client[v1.DeleteEvmiExporterRequest, v1.DeleteEvmiExporterResponse]
+	startExporter                   *connect.Client[v1.StartExporterRequest, v1.StartExporterResponse]
+	stopExporter                    *connect.Client[v1.StopExporterRequest, v1.StopExporterResponse]
+	streamEvmiExporterUpdates       *connect.Client[v1.StreamEvmiExporterUpdatesRequest, v1.EvmiExporter]
+	listEvmiExporterSourceCursors   *connect.Client[v1.ListEvmiExporterSourceCursorsRequest, v1.ListEvmiExporterSourceCursorsResponse]
+	streamEvmiExporterSourceCursors *connect.Client[v1.StreamEvmiExporterSourceCursorsRequest, v1.EvmiExporterSourceCursor]
+	createPlugin                    *connect.Client[v1.CreatePluginRequest, v1.CreatePluginResponse]
+	getPlugin                       *connect.Client[v1.GetPluginRequest, v1.GetPluginResponse]
+	updatePlugin                    *connect.Client[v1.UpdatePluginRequest, v1.UpdatePluginResponse]
+	listPlugins                     *connect.Client[v1.ListPluginsRequest, v1.ListPluginsResponse]
+	deletePlugin                    *connect.Client[v1.DeletePluginRequest, v1.DeletePluginResponse]
+	installPlugin                   *connect.Client[v1.InstallPluginRequest, v1.InstallPluginResponse]
+	listPluginGitRefs               *connect.Client[v1.ListPluginGitRefsRequest, v1.ListPluginGitRefsResponse]
+	exportConfiguration             *connect.Client[v1.ExportConfigurationRequest, v1.ExportConfigurationResponse]
 }
 
 // GetEvmiInstance calls evm_indexer.v1.EvmIndexerService.GetEvmiInstance.
@@ -1106,6 +1064,18 @@ func (c *evmIndexerServiceClient) StreamEvmiExporterUpdates(ctx context.Context,
 	return c.streamEvmiExporterUpdates.CallServerStream(ctx, req)
 }
 
+// ListEvmiExporterSourceCursors calls
+// evm_indexer.v1.EvmIndexerService.ListEvmiExporterSourceCursors.
+func (c *evmIndexerServiceClient) ListEvmiExporterSourceCursors(ctx context.Context, req *connect.Request[v1.ListEvmiExporterSourceCursorsRequest]) (*connect.Response[v1.ListEvmiExporterSourceCursorsResponse], error) {
+	return c.listEvmiExporterSourceCursors.CallUnary(ctx, req)
+}
+
+// StreamEvmiExporterSourceCursors calls
+// evm_indexer.v1.EvmIndexerService.StreamEvmiExporterSourceCursors.
+func (c *evmIndexerServiceClient) StreamEvmiExporterSourceCursors(ctx context.Context, req *connect.Request[v1.StreamEvmiExporterSourceCursorsRequest]) (*connect.ServerStreamForClient[v1.EvmiExporterSourceCursor], error) {
+	return c.streamEvmiExporterSourceCursors.CallServerStream(ctx, req)
+}
+
 // CreatePlugin calls evm_indexer.v1.EvmIndexerService.CreatePlugin.
 func (c *evmIndexerServiceClient) CreatePlugin(ctx context.Context, req *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error) {
 	return c.createPlugin.CallUnary(ctx, req)
@@ -1217,6 +1187,11 @@ type EvmIndexerServiceHandler interface {
 	StopExporter(context.Context, *connect.Request[v1.StopExporterRequest]) (*connect.Response[v1.StopExporterResponse], error)
 	// Server stream of live exporter updates (sync progress, status changes).
 	StreamEvmiExporterUpdates(context.Context, *connect.Request[v1.StreamEvmiExporterUpdatesRequest], *connect.ServerStream[v1.EvmiExporter]) error
+	// Per-source export cursors of one exporter: the real progress picture, since
+	// an exporter tracks each source of its pipeline independently.
+	ListEvmiExporterSourceCursors(context.Context, *connect.Request[v1.ListEvmiExporterSourceCursorsRequest]) (*connect.Response[v1.ListEvmiExporterSourceCursorsResponse], error)
+	// Server stream of those cursors as the exporter advances them.
+	StreamEvmiExporterSourceCursors(context.Context, *connect.Request[v1.StreamEvmiExporterSourceCursorsRequest], *connect.ServerStream[v1.EvmiExporterSourceCursor]) error
 	// Plugin
 	CreatePlugin(context.Context, *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error)
 	GetPlugin(context.Context, *connect.Request[v1.GetPluginRequest]) (*connect.Response[v1.GetPluginResponse], error)
@@ -1235,382 +1210,395 @@ type EvmIndexerServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	evmIndexerServiceMethods := v1.File_evm_indexer_v1_evm_indexer_proto.Services().ByName("EvmIndexerService").Methods()
 	evmIndexerServiceGetEvmiInstanceHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmiInstanceProcedure,
 		svc.GetEvmiInstance,
-		connect.WithSchema(evmIndexerServiceGetEvmiInstanceMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmiInstance")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmiInstancesHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmiInstancesProcedure,
 		svc.ListEvmiInstances,
-		connect.WithSchema(evmIndexerServiceListEvmiInstancesMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmiInstances")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmBlockchainHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateEvmBlockchainProcedure,
 		svc.CreateEvmBlockchain,
-		connect.WithSchema(evmIndexerServiceCreateEvmBlockchainMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmBlockchain")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetEvmBlockchainHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmBlockchainProcedure,
 		svc.GetEvmBlockchain,
-		connect.WithSchema(evmIndexerServiceGetEvmBlockchainMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmBlockchain")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateEvmBlockchainHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateEvmBlockchainProcedure,
 		svc.UpdateEvmBlockchain,
-		connect.WithSchema(evmIndexerServiceUpdateEvmBlockchainMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmBlockchain")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmBlockchainsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmBlockchainsProcedure,
 		svc.ListEvmBlockchains,
-		connect.WithSchema(evmIndexerServiceListEvmBlockchainsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmBlockchains")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteEvmBlockchainHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteEvmBlockchainProcedure,
 		svc.DeleteEvmBlockchain,
-		connect.WithSchema(evmIndexerServiceDeleteEvmBlockchainMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmBlockchain")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmJsonAbiHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateEvmJsonAbiProcedure,
 		svc.CreateEvmJsonAbi,
-		connect.WithSchema(evmIndexerServiceCreateEvmJsonAbiMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmJsonAbi")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetEvmJsonAbiHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmJsonAbiProcedure,
 		svc.GetEvmJsonAbi,
-		connect.WithSchema(evmIndexerServiceGetEvmJsonAbiMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmJsonAbi")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateEvmJsonAbiHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateEvmJsonAbiProcedure,
 		svc.UpdateEvmJsonAbi,
-		connect.WithSchema(evmIndexerServiceUpdateEvmJsonAbiMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmJsonAbi")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmJsonAbisHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmJsonAbisProcedure,
 		svc.ListEvmJsonAbis,
-		connect.WithSchema(evmIndexerServiceListEvmJsonAbisMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmJsonAbis")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteEvmJsonAbiHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteEvmJsonAbiProcedure,
 		svc.DeleteEvmJsonAbi,
-		connect.WithSchema(evmIndexerServiceDeleteEvmJsonAbiMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmJsonAbi")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmLogStoreHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateEvmLogStoreProcedure,
 		svc.CreateEvmLogStore,
-		connect.WithSchema(evmIndexerServiceCreateEvmLogStoreMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmLogStore")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetEvmLogStoreHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmLogStoreProcedure,
 		svc.GetEvmLogStore,
-		connect.WithSchema(evmIndexerServiceGetEvmLogStoreMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmLogStore")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateEvmLogStoreHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateEvmLogStoreProcedure,
 		svc.UpdateEvmLogStore,
-		connect.WithSchema(evmIndexerServiceUpdateEvmLogStoreMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmLogStore")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmLogStoresHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmLogStoresProcedure,
 		svc.ListEvmLogStores,
-		connect.WithSchema(evmIndexerServiceListEvmLogStoresMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogStores")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteEvmLogStoreHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteEvmLogStoreProcedure,
 		svc.DeleteEvmLogStore,
-		connect.WithSchema(evmIndexerServiceDeleteEvmLogStoreMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmLogStore")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmLogPipelineHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateEvmLogPipelineProcedure,
 		svc.CreateEvmLogPipeline,
-		connect.WithSchema(evmIndexerServiceCreateEvmLogPipelineMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmLogPipeline")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetEvmLogPipelineHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmLogPipelineProcedure,
 		svc.GetEvmLogPipeline,
-		connect.WithSchema(evmIndexerServiceGetEvmLogPipelineMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmLogPipeline")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateEvmLogPipelineHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateEvmLogPipelineProcedure,
 		svc.UpdateEvmLogPipeline,
-		connect.WithSchema(evmIndexerServiceUpdateEvmLogPipelineMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmLogPipeline")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmLogPipelinesHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmLogPipelinesProcedure,
 		svc.ListEvmLogPipelines,
-		connect.WithSchema(evmIndexerServiceListEvmLogPipelinesMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogPipelines")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteEvmLogPipelineHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteEvmLogPipelineProcedure,
 		svc.DeleteEvmLogPipeline,
-		connect.WithSchema(evmIndexerServiceDeleteEvmLogPipelineMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmLogPipeline")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStartSourceIndexerHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceStartSourceIndexerProcedure,
 		svc.StartSourceIndexer,
-		connect.WithSchema(evmIndexerServiceStartSourceIndexerMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StartSourceIndexer")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStopSourceIndexerHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceStopSourceIndexerProcedure,
 		svc.StopSourceIndexer,
-		connect.WithSchema(evmIndexerServiceStopSourceIndexerMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StopSourceIndexer")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmLogSourceHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateEvmLogSourceProcedure,
 		svc.CreateEvmLogSource,
-		connect.WithSchema(evmIndexerServiceCreateEvmLogSourceMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmLogSource")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetEvmLogSourceHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmLogSourceProcedure,
 		svc.GetEvmLogSource,
-		connect.WithSchema(evmIndexerServiceGetEvmLogSourceMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmLogSource")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateEvmLogSourceHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateEvmLogSourceProcedure,
 		svc.UpdateEvmLogSource,
-		connect.WithSchema(evmIndexerServiceUpdateEvmLogSourceMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmLogSource")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmLogSourcesHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmLogSourcesProcedure,
 		svc.ListEvmLogSources,
-		connect.WithSchema(evmIndexerServiceListEvmLogSourcesMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogSources")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteEvmLogSourceHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteEvmLogSourceProcedure,
 		svc.DeleteEvmLogSource,
-		connect.WithSchema(evmIndexerServiceDeleteEvmLogSourceMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmLogSource")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStreamEvmLogSourceUpdatesHandler := connect.NewServerStreamHandler(
 		EvmIndexerServiceStreamEvmLogSourceUpdatesProcedure,
 		svc.StreamEvmLogSourceUpdates,
-		connect.WithSchema(evmIndexerServiceStreamEvmLogSourceUpdatesMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StreamEvmLogSourceUpdates")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmLogsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmLogsProcedure,
 		svc.ListEvmLogs,
-		connect.WithSchema(evmIndexerServiceListEvmLogsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmLogs")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListLatestEvmLogsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListLatestEvmLogsProcedure,
 		svc.ListLatestEvmLogs,
-		connect.WithSchema(evmIndexerServiceListLatestEvmLogsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListLatestEvmLogs")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmTransactionsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmTransactionsProcedure,
 		svc.ListEvmTransactions,
-		connect.WithSchema(evmIndexerServiceListEvmTransactionsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmTransactions")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceLoginHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceLoginProcedure,
 		svc.Login,
-		connect.WithSchema(evmIndexerServiceLoginMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("Login")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListOAuthLoginUrlsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListOAuthLoginUrlsProcedure,
 		svc.ListOAuthLoginUrls,
-		connect.WithSchema(evmIndexerServiceListOAuthLoginUrlsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListOAuthLoginUrls")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceMeHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceMeProcedure,
 		svc.Me,
-		connect.WithSchema(evmIndexerServiceMeMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("Me")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateAccessTokenHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateAccessTokenProcedure,
 		svc.CreateAccessToken,
-		connect.WithSchema(evmIndexerServiceCreateAccessTokenMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateAccessToken")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListAccessTokensHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListAccessTokensProcedure,
 		svc.ListAccessTokens,
-		connect.WithSchema(evmIndexerServiceListAccessTokensMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListAccessTokens")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceRevokeAccessTokenHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceRevokeAccessTokenProcedure,
 		svc.RevokeAccessToken,
-		connect.WithSchema(evmIndexerServiceRevokeAccessTokenMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("RevokeAccessToken")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListOAuthProvidersHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListOAuthProvidersProcedure,
 		svc.ListOAuthProviders,
-		connect.WithSchema(evmIndexerServiceListOAuthProvidersMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListOAuthProviders")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateOAuthProviderHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateOAuthProviderProcedure,
 		svc.CreateOAuthProvider,
-		connect.WithSchema(evmIndexerServiceCreateOAuthProviderMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateOAuthProvider")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateOAuthProviderHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateOAuthProviderProcedure,
 		svc.UpdateOAuthProvider,
-		connect.WithSchema(evmIndexerServiceUpdateOAuthProviderMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateOAuthProvider")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteOAuthProviderHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteOAuthProviderProcedure,
 		svc.DeleteOAuthProvider,
-		connect.WithSchema(evmIndexerServiceDeleteOAuthProviderMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteOAuthProvider")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListUsersHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListUsersProcedure,
 		svc.ListUsers,
-		connect.WithSchema(evmIndexerServiceListUsersMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListUsers")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateUserHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateUserProcedure,
 		svc.CreateUser,
-		connect.WithSchema(evmIndexerServiceCreateUserMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateUser")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateUserHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateUserProcedure,
 		svc.UpdateUser,
-		connect.WithSchema(evmIndexerServiceUpdateUserMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateUser")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteUserHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteUserProcedure,
 		svc.DeleteUser,
-		connect.WithSchema(evmIndexerServiceDeleteUserMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteUser")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreateEvmiExporterHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreateEvmiExporterProcedure,
 		svc.CreateEvmiExporter,
-		connect.WithSchema(evmIndexerServiceCreateEvmiExporterMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreateEvmiExporter")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetEvmiExporterHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetEvmiExporterProcedure,
 		svc.GetEvmiExporter,
-		connect.WithSchema(evmIndexerServiceGetEvmiExporterMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetEvmiExporter")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdateEvmiExporterHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdateEvmiExporterProcedure,
 		svc.UpdateEvmiExporter,
-		connect.WithSchema(evmIndexerServiceUpdateEvmiExporterMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdateEvmiExporter")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListEvmiExportersHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListEvmiExportersProcedure,
 		svc.ListEvmiExporters,
-		connect.WithSchema(evmIndexerServiceListEvmiExportersMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmiExporters")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeleteEvmiExporterHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeleteEvmiExporterProcedure,
 		svc.DeleteEvmiExporter,
-		connect.WithSchema(evmIndexerServiceDeleteEvmiExporterMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeleteEvmiExporter")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStartExporterHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceStartExporterProcedure,
 		svc.StartExporter,
-		connect.WithSchema(evmIndexerServiceStartExporterMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StartExporter")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStopExporterHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceStopExporterProcedure,
 		svc.StopExporter,
-		connect.WithSchema(evmIndexerServiceStopExporterMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StopExporter")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceStreamEvmiExporterUpdatesHandler := connect.NewServerStreamHandler(
 		EvmIndexerServiceStreamEvmiExporterUpdatesProcedure,
 		svc.StreamEvmiExporterUpdates,
-		connect.WithSchema(evmIndexerServiceStreamEvmiExporterUpdatesMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StreamEvmiExporterUpdates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceListEvmiExporterSourceCursorsHandler := connect.NewUnaryHandler(
+		EvmIndexerServiceListEvmiExporterSourceCursorsProcedure,
+		svc.ListEvmiExporterSourceCursors,
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListEvmiExporterSourceCursors")),
+		connect.WithHandlerOptions(opts...),
+	)
+	evmIndexerServiceStreamEvmiExporterSourceCursorsHandler := connect.NewServerStreamHandler(
+		EvmIndexerServiceStreamEvmiExporterSourceCursorsProcedure,
+		svc.StreamEvmiExporterSourceCursors,
+		connect.WithSchema(evmIndexerServiceMethods.ByName("StreamEvmiExporterSourceCursors")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceCreatePluginHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceCreatePluginProcedure,
 		svc.CreatePlugin,
-		connect.WithSchema(evmIndexerServiceCreatePluginMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("CreatePlugin")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceGetPluginHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceGetPluginProcedure,
 		svc.GetPlugin,
-		connect.WithSchema(evmIndexerServiceGetPluginMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("GetPlugin")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceUpdatePluginHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceUpdatePluginProcedure,
 		svc.UpdatePlugin,
-		connect.WithSchema(evmIndexerServiceUpdatePluginMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("UpdatePlugin")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListPluginsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListPluginsProcedure,
 		svc.ListPlugins,
-		connect.WithSchema(evmIndexerServiceListPluginsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListPlugins")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceDeletePluginHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceDeletePluginProcedure,
 		svc.DeletePlugin,
-		connect.WithSchema(evmIndexerServiceDeletePluginMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("DeletePlugin")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceInstallPluginHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceInstallPluginProcedure,
 		svc.InstallPlugin,
-		connect.WithSchema(evmIndexerServiceInstallPluginMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("InstallPlugin")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceListPluginGitRefsHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceListPluginGitRefsProcedure,
 		svc.ListPluginGitRefs,
-		connect.WithSchema(evmIndexerServiceListPluginGitRefsMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ListPluginGitRefs")),
 		connect.WithHandlerOptions(opts...),
 	)
 	evmIndexerServiceExportConfigurationHandler := connect.NewUnaryHandler(
 		EvmIndexerServiceExportConfigurationProcedure,
 		svc.ExportConfiguration,
-		connect.WithSchema(evmIndexerServiceExportConfigurationMethodDescriptor),
+		connect.WithSchema(evmIndexerServiceMethods.ByName("ExportConfiguration")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/evm_indexer.v1.EvmIndexerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1725,6 +1713,10 @@ func NewEvmIndexerServiceHandler(svc EvmIndexerServiceHandler, opts ...connect.H
 			evmIndexerServiceStopExporterHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceStreamEvmiExporterUpdatesProcedure:
 			evmIndexerServiceStreamEvmiExporterUpdatesHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceListEvmiExporterSourceCursorsProcedure:
+			evmIndexerServiceListEvmiExporterSourceCursorsHandler.ServeHTTP(w, r)
+		case EvmIndexerServiceStreamEvmiExporterSourceCursorsProcedure:
+			evmIndexerServiceStreamEvmiExporterSourceCursorsHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceCreatePluginProcedure:
 			evmIndexerServiceCreatePluginHandler.ServeHTTP(w, r)
 		case EvmIndexerServiceGetPluginProcedure:
@@ -1968,6 +1960,14 @@ func (UnimplementedEvmIndexerServiceHandler) StopExporter(context.Context, *conn
 
 func (UnimplementedEvmIndexerServiceHandler) StreamEvmiExporterUpdates(context.Context, *connect.Request[v1.StreamEvmiExporterUpdatesRequest], *connect.ServerStream[v1.EvmiExporter]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StreamEvmiExporterUpdates is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) ListEvmiExporterSourceCursors(context.Context, *connect.Request[v1.ListEvmiExporterSourceCursorsRequest]) (*connect.Response[v1.ListEvmiExporterSourceCursorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.ListEvmiExporterSourceCursors is not implemented"))
+}
+
+func (UnimplementedEvmIndexerServiceHandler) StreamEvmiExporterSourceCursors(context.Context, *connect.Request[v1.StreamEvmiExporterSourceCursorsRequest], *connect.ServerStream[v1.EvmiExporterSourceCursor]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("evm_indexer.v1.EvmIndexerService.StreamEvmiExporterSourceCursors is not implemented"))
 }
 
 func (UnimplementedEvmIndexerServiceHandler) CreatePlugin(context.Context, *connect.Request[v1.CreatePluginRequest]) (*connect.Response[v1.CreatePluginResponse], error) {

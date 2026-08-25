@@ -78,9 +78,31 @@ type sourceCursor struct {
 	block    uint64
 	logIndex int64
 
-	// head is the source's own SyncBlock: the highest block the indexer has stored
-	// for it, and therefore the highest block safe to export.
-	head uint64
+	// source is the log source row, refreshed on every loadCursors pass. Its
+	// SyncBlock is this cursor's head (the highest block safe to export); the rest
+	// describes the source for the exporter.cursor bus updates.
+	source evmi_database.EvmLogSource
+}
+
+// head is the highest block it is safe to export for this source: how far the
+// indexer has actually stored it.
+func (c *sourceCursor) head() uint64 { return c.source.SyncBlock }
+
+// toUpdate renders the cursor as an exporter.cursor bus payload.
+func (c *sourceCursor) toUpdate(exporterID uint) types.ExporterCursorUpdate {
+	return types.ExporterCursorUpdate{
+		ExporterID:      exporterID,
+		SourceID:        c.source.ID,
+		SyncBlock:       c.block,
+		SyncLogIndex:    c.logIndex,
+		SourceSyncBlock: c.source.SyncBlock,
+		SourceType:      c.source.Type,
+		SourceAddress:   c.source.Address.String,
+		SourceTopic0:    c.source.Topic0.String,
+		SourceEnabled:   c.source.Enabled,
+		SourceStatus:    c.source.Status,
+		ParentSourceID:  c.source.ParentSourceID,
+	}
 }
 
 func NewExporterService(
@@ -271,6 +293,9 @@ func (p *ExporterService) run(ctx context.Context, logParams map[string]interfac
 		}
 
 		p.emitUpdate()
+		// One update per source per batch — the detail view's live feed. Per
+		// delivered log would be far too chatty for a stream.
+		p.emitCursorUpdates(cursors)
 		p.metrics.SetExporterProgress(p.exporterLabels(), pipelineHead(cursors), block)
 		p.logger.Info().Fields(map[string]interface{}{
 			"exporter": p.exporter.Name, "sources": len(cursors), "syncBlock": block,
@@ -296,6 +321,7 @@ func (p *ExporterService) loadCursors() ([]*sourceCursor, error) {
 
 	active := make(map[uint64]*sourceCursor, len(sources))
 	out := make([]*sourceCursor, 0, len(sources))
+	var added []*sourceCursor
 	for _, s := range sources {
 		cursor, ok := p.cursors[uint64(s.ID)]
 		if !ok {
@@ -303,15 +329,34 @@ func (p *ExporterService) loadCursors() ([]*sourceCursor, error) {
 			if cursor, err = p.cursorFor(s); err != nil {
 				return nil, err
 			}
+			added = append(added, cursor)
 		}
-		cursor.head = s.SyncBlock
+		cursor.source = s
 		active[cursor.sourceID] = cursor
 		out = append(out, cursor)
 	}
 	p.cursors = active
 
+	// Announce sources joining the exporter right away rather than waiting for
+	// their first exported batch: a source attached by a plugin or a factory
+	// should appear in the UI as soon as it is being tracked, even while it has
+	// nothing to export yet.
+	p.emitCursorUpdates(added)
+
 	sort.Slice(out, func(i, j int) bool { return out[i].sourceID < out[j].sourceID })
 	return out, nil
+}
+
+// emitCursorUpdates broadcasts each cursor's position on the bus for the
+// StreamEvmiExporterSourceCursors gRPC stream. Guarded so tests that construct an
+// ExporterService without a bus don't panic.
+func (p *ExporterService) emitCursorUpdates(cursors []*sourceCursor) {
+	if p.bus == nil {
+		return
+	}
+	for _, c := range cursors {
+		p.bus.Emit(context.Background(), internal_bus.ExporterCursorTopic, c.toUpdate(p.exporter.ID))
+	}
 }
 
 // cursorFor loads the persisted cursor of one source, creating it on first sight.
@@ -395,12 +440,12 @@ func (p *ExporterService) exportStep(cursors []*sourceCursor, batch uint64) (boo
 	targets := make(map[uint64]uint64, len(cursors))
 
 	for _, c := range cursors {
-		if c.head <= c.block {
+		if c.head() <= c.block {
 			continue
 		}
 		toBlock := c.block + batch
-		if toBlock > c.head {
-			toBlock = c.head
+		if toBlock > c.head() {
+			toBlock = c.head()
 		}
 		afterBlock, afterLogIndex := cursorBound(c.block, c.logIndex)
 		key := fetchKey{afterBlock, afterLogIndex, toBlock}
@@ -492,8 +537,8 @@ func aggregateCursor(cursors []*sourceCursor) (uint64, int64) {
 func pipelineHead(cursors []*sourceCursor) uint64 {
 	var head uint64
 	for _, c := range cursors {
-		if c.head > head {
-			head = c.head
+		if c.head() > head {
+			head = c.head()
 		}
 	}
 	return head

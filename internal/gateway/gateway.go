@@ -322,3 +322,24 @@ func (g *Gateway) StreamEvmiExporterUpdates(
 	}
 	return fanoutStream(ctx, addrs, open, stream.Send)
 }
+
+// StreamEvmiExporterSourceCursors routes to the instance owning the exporter.
+// Unlike the other two streams there is no fan-out case: the request always names
+// exactly one exporter, which lives on exactly one instance.
+func (g *Gateway) StreamEvmiExporterSourceCursors(
+	ctx context.Context,
+	req *connect.Request[v1.StreamEvmiExporterSourceCursorsRequest],
+	stream *connect.ServerStream[v1.EvmiExporterSourceCursor],
+) error {
+	addr, err := g.resolver.AddrForExporter(uint(req.Msg.GetExporterId()))
+	if err != nil {
+		return routeErr(err)
+	}
+	out := connect.NewRequest(req.Msg)
+	copyAuth(req.Header(), out.Header())
+	s, err := g.pool.ForAddr(addr).StreamEvmiExporterSourceCursors(ctx, out)
+	if err != nil {
+		return err
+	}
+	return pumpStream(s, stream.Send)
+}

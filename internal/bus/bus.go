@@ -12,6 +12,7 @@ const (
 	EnableSourceTopic    string = "source.enable"
 	DisableSourceTopic   string = "source.disable"
 	ExporterUpdateTopic  string = "exporter.update"
+	ExporterCursorTopic  string = "exporter.cursor"
 	EnableExporterTopic  string = "exporter.enable"
 	DisableExporterTopic string = "exporter.disable"
 	ShutdownSignalTopic  string = "signal.shutwown"
@@ -41,6 +42,7 @@ func InitializeBus() *bus.Bus {
 	b.RegisterTopics(EnableSourceTopic)
 	b.RegisterTopics(DisableSourceTopic)
 	b.RegisterTopics(ExporterUpdateTopic)
+	b.RegisterTopics(ExporterCursorTopic)
 	b.RegisterTopics(EnableExporterTopic)
 	b.RegisterTopics(DisableExporterTopic)
 	b.RegisterTopics(ShutdownSignalTopic)

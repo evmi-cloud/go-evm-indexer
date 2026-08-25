@@ -2,6 +2,7 @@ import { client } from "@/lib/client";
 import type { EvmiExporter } from "@/gen/evm_indexer/v1/evm_indexer_pb";
 import { PAGE, big, bool, num, str, type Resource } from "./types";
 import { pipelineOptions, pluginOptions } from "./options";
+import ExporterDetail from "@/components/ExporterDetail";
 
 export const exporters: Resource<EvmiExporter> = {
   key: "exporters",
@@ -19,7 +20,7 @@ export const exporters: Resource<EvmiExporter> = {
     { label: "ID", get: (e) => String(e.id ?? "") },
     { label: "Name", get: (e) => e.name },
     { label: "Pipeline", get: (e) => String(e.evmLogPipelineId) },
-    { label: "Sync block", get: (e) => String(e.syncBlock) },
+    { label: "Sync block", get: (e) => String(e.syncBlock), title: () => "Minimum across the exporter's per-source cursors — see Details" },
     {
       label: "Status",
       get: (e) => (e.enabled ? e.status || "enabled" : "disabled"),
@@ -49,6 +50,8 @@ export const exporters: Resource<EvmiExporter> = {
     { label: "Start", run: async (e) => void (await client.startExporter({ id: e.id ?? 0 })) },
     { label: "Stop", run: async (e) => void (await client.stopExporter({ id: e.id ?? 0 })) },
   ],
+  // Per-source export cursors, live — the column above is only their minimum.
+  detail: ExporterDetail,
   // Live sync progress / status via the server stream, with auto-reconnect.
   stream: (onUpdate, signal) => {
     void (async () => {

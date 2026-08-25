@@ -9,6 +9,9 @@ import type { EvmLog, EvmLogSource } from "@/gen/evm_indexer/v1/evm_indexer_pb";
 // logs, including the block timestamp indexed from the block header.
 export default function LogsPage() {
   const [sources, setSources] = useState<EvmLogSource[]>([]);
+  // ABI contract name by id, so the source picker can name what a source decodes
+  // instead of showing only its address.
+  const [abiNames, setAbiNames] = useState<Record<number, string>>({});
   const [sourceId, setSourceId] = useState<number>(0);
   const [limit, setLimit] = useState<number>(100);
   const [logs, setLogs] = useState<EvmLog[]>([]);
@@ -24,8 +27,30 @@ export default function LogsPage() {
         if (list.length && !sourceId) setSourceId(list[0].id ?? 0);
       })
       .catch((e) => setError(e instanceof ConnectError ? e.message : "failed to load sources"));
+
+    // Best-effort: without the names the picker still works, just less readable.
+    client
+      .listEvmJsonAbis({ pagination: { offset: 0, limit: 200 } })
+      .then((r) => {
+        const names: Record<number, string> = {};
+        for (const abi of r.abis ?? []) {
+          if (abi.id) names[abi.id] = abi.contractName;
+        }
+        setAbiNames(names);
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "#3 · CONTRACT · UniswapV2Pair · 0x1234…abcdef" — the ABI name is dropped when
+  // the source has none (a FULL source, or one indexing raw logs).
+  const sourceLabel = useCallback(
+    (s: EvmLogSource) => {
+      const abi = abiNames[s.evmJsonAbiId];
+      return [`#${s.id}`, s.type, abi, s.address || s.topic0 || "full"].filter(Boolean).join(" · ");
+    },
+    [abiNames],
+  );
 
   const load = useCallback(async () => {
     if (!sourceId) return;
@@ -57,7 +82,7 @@ export default function LogsPage() {
             {sources.length === 0 && <option value={0}>No sources</option>}
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
-                #{s.id} · {s.type} · {s.address || s.topic0 || "full"}
+                {sourceLabel(s)}
               </option>
             ))}
           </select>

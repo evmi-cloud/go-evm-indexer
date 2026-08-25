@@ -211,6 +211,17 @@ cursors), rewritten once per batch for the API/UI/metrics only. `LoadDatabase` r
 source of its pipeline so upgrading doesn't replay a pipeline into a plugin. Cursor rows are
 deleted by the source-delete cascade and by `DeleteEvmiExporter`.
 
+The cursors are exposed over the API by `internal/grpc/exporter-cursor-handlers.go`:
+`ListEvmiExporterSourceCursors(exporter_id)` (lists the pipeline's *sources*, not the cursor rows,
+so a source not yet tracked still shows — reported at its own `StartBlock`) and the
+`StreamEvmiExporterSourceCursors` server stream, fed by the new `exporter.cursor` bus topic
+(payload `types.ExporterCursorUpdate`, emitted by `emitCursorUpdates` once per source per exported
+batch **and** the moment `loadCursors` first tracks a source, so a factory/plugin-created source
+appears in the UI immediately). The gateway routes both to the owning instance
+(`clientForExporter` / `AddrForExporter`) — the stream has no fan-out case since it always names one
+exporter. The web UI renders them in `webui/components/ExporterDetail.tsx`, wired as the exporters
+resource's `detail` component (the generic `Resource.detail` slot → a "Details" button + modal).
+
 **Plugins are hashicorp/go-plugin subprocesses.** A plugin is an ordinary executable EVMI
 launches and calls over gRPC, so it builds with a plain `go build`, needs no CGO or
 toolchain/dependency-version match with the server, runs isolated (a panic kills only the

@@ -1,14 +1,18 @@
 package exporter
 
 import (
+	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 
+	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
 	evmi_database "github.com/evmi-cloud/go-evm-indexer/internal/database/evmi-database"
 	log_stores "github.com/evmi-cloud/go-evm-indexer/internal/database/log-stores"
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	pluginsdk "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
+	"github.com/mustafaturan/bus/v3"
 	"github.com/rs/zerolog"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -72,7 +76,10 @@ func TestAggregateCursor(t *testing.T) {
 }
 
 func TestPipelineHead(t *testing.T) {
-	got := pipelineHead([]*sourceCursor{{head: 10}, {head: 99}, {head: 42}})
+	at := func(syncBlock uint64) *sourceCursor {
+		return &sourceCursor{source: evmi_database.EvmLogSource{SyncBlock: syncBlock}}
+	}
+	got := pipelineHead([]*sourceCursor{at(10), at(99), at(42)})
 	if got != 99 {
 		t.Errorf("pipelineHead = %d, want 99", got)
 	}
@@ -586,4 +593,112 @@ func TestDisabledSourceKeepsItsCursor(t *testing.T) {
 		t.Fatalf("exportStep: %v", err)
 	}
 	assertDelivered(t, plug, "1:10:0", "1:30:0")
+}
+
+// --- live cursor updates ---------------------------------------------------
+
+// collectCursorUpdates subscribes to the exporter.cursor topic for the test's
+// lifetime and returns a getter for what was emitted.
+func collectCursorUpdates(t *testing.T, svc *ExporterService) func() []types.ExporterCursorUpdate {
+	t.Helper()
+	b := internal_bus.InitializeBus()
+	svc.bus = b
+
+	var mu sync.Mutex
+	var got []types.ExporterCursorUpdate
+	key := "test-collector"
+	b.RegisterHandler(key, bus.Handler{
+		Matcher: internal_bus.ExporterCursorTopic,
+		Handle: func(_ context.Context, e bus.Event) {
+			update, ok := e.Data.(types.ExporterCursorUpdate)
+			if !ok {
+				return
+			}
+			mu.Lock()
+			got = append(got, update)
+			mu.Unlock()
+		},
+	})
+	t.Cleanup(func() { b.DeregisterHandler(key) })
+
+	return func() []types.ExporterCursorUpdate {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]types.ExporterCursorUpdate(nil), got...)
+	}
+}
+
+// A source joining the exporter is announced on the bus as soon as it is tracked,
+// before it has anything to export — that is what makes a factory- or
+// plugin-created source appear immediately in the exporter detail view.
+func TestNewSourceEmitsCursorUpdateImmediately(t *testing.T) {
+	plug := &recordPlugin{}
+	store := &fakeStore{}
+	svc := newTestService(t, store, plug)
+	updates := collectCursorUpdates(t, svc)
+
+	// StartBlock 49, nothing indexed yet: no logs to export at all.
+	src := addSource(t, svc, 49, 49)
+
+	if _, err := svc.loadCursors(); err != nil {
+		t.Fatalf("loadCursors: %v", err)
+	}
+
+	got := updates()
+	if len(got) != 1 {
+		t.Fatalf("emitted %d cursor updates, want 1", len(got))
+	}
+	if got[0].SourceID != uint(src) || got[0].SyncBlock != 49 || got[0].SyncLogIndex != -1 {
+		t.Errorf("update = %+v, want source %d at (49,-1)", got[0], src)
+	}
+	if got[0].ExporterID != svc.exporter.ID {
+		t.Errorf("exporter id = %d, want %d", got[0].ExporterID, svc.exporter.ID)
+	}
+
+	// A second pass must not re-announce a source that is already tracked.
+	if _, err := svc.loadCursors(); err != nil {
+		t.Fatalf("loadCursors: %v", err)
+	}
+	if got := updates(); len(got) != 1 {
+		t.Errorf("emitted %d cursor updates after a second pass, want 1", len(got))
+	}
+}
+
+// Every exported batch emits one update per source, carrying the advanced cursor
+// and the source's own indexed head.
+func TestExportedBatchEmitsCursorUpdates(t *testing.T) {
+	plug := &recordPlugin{}
+	store := &fakeStore{}
+	svc := newTestService(t, store, plug)
+	updates := collectCursorUpdates(t, svc)
+
+	a := addSource(t, svc, 0, 20)
+	b := addSource(t, svc, 0, 20)
+	store.logs = []types.EvmLog{logAt(a, 10, 0), logAt(b, 12, 1)}
+
+	cursors, err := svc.loadCursors()
+	if err != nil {
+		t.Fatalf("loadCursors: %v", err)
+	}
+	if _, err := svc.exportStep(cursors, 1000); err != nil {
+		t.Fatalf("exportStep: %v", err)
+	}
+	svc.emitCursorUpdates(cursors)
+
+	// 2 from the sources being attached + 2 from the batch.
+	got := updates()
+	if len(got) != 4 {
+		t.Fatalf("emitted %d cursor updates, want 4", len(got))
+	}
+	for _, u := range got[2:] {
+		if u.SyncBlock != 20 || u.SyncLogIndex != -1 {
+			t.Errorf("batch update = (%d,%d), want (20,-1)", u.SyncBlock, u.SyncLogIndex)
+		}
+		if u.SourceSyncBlock != 20 || u.LagBlocks() != 0 {
+			t.Errorf("update head/lag = (%d,%d), want (20,0)", u.SourceSyncBlock, u.LagBlocks())
+		}
+		if u.SourceType != "CONTRACT" || !u.SourceEnabled {
+			t.Errorf("source metadata not carried: %+v", u)
+		}
+	}
 }
