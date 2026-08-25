@@ -44,7 +44,8 @@ func newSourceServerWithStore(t *testing.T) *EvmIndexerServer {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(&evmi_database.EvmLogSource{}, &evmi_database.EvmFactoryRule{}, &evmi_database.EvmFactoryRuleCondition{},
-		&evmi_database.EvmLogPipeline{}, &evmi_database.EvmLogStore{}); err != nil {
+		&evmi_database.EvmLogPipeline{}, &evmi_database.EvmLogStore{},
+		&evmi_database.EvmiExporterSourceCursor{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return &EvmIndexerServer{db: &evmi_database.EvmiDatabase{Conn: db}, bus: internal_bus.InitializeBus(), logger: zerolog.Nop()}
@@ -190,6 +191,13 @@ func TestDeleteSourceCascadesSubtreeAndStoreData(t *testing.T) {
 	e.db.Conn.Create(&grand)
 	allIDs := []uint{factory.ID, child.ID, grand.ID}
 
+	// Each source also carries an exporter cursor, which the cascade must clear.
+	for _, id := range allIDs {
+		e.db.Conn.Create(&evmi_database.EvmiExporterSourceCursor{
+			EvmiExporterID: 1, EvmLogSourceID: id, SyncBlock: 5, SyncLogIndex: -1,
+		})
+	}
+
 	// Seed stored logs for each source through the same parquet store.
 	ps, err := log_stores.LoadStore("parquet", map[string]string{"path": dir}, zerolog.Nop())
 	if err != nil {
@@ -215,6 +223,12 @@ func TestDeleteSourceCascadesSubtreeAndStoreData(t *testing.T) {
 	e.db.Conn.Model(&evmi_database.EvmLogSource{}).Count(&count)
 	if count != 0 {
 		t.Fatalf("expected 0 sources after cascade, got %d", count)
+	}
+
+	// No export cursor is left pointing at a source that no longer exists.
+	e.db.Conn.Model(&evmi_database.EvmiExporterSourceCursor{}).Count(&count)
+	if count != 0 {
+		t.Errorf("expected 0 exporter source cursors after cascade, got %d", count)
 	}
 
 	// Stored data is gone for every source in the subtree.

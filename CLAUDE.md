@@ -189,11 +189,27 @@ surface + flows in `AUTH.md`. Note: auth RPCs live in the shared proto, so regen
 **Exporters** (`internal/exporter`, `pkg/exporter`): the plugin subsystem. Mirrors the
 indexer's manager/supervisor shape — `ExporterServiceManager` starts one `ExporterService`
 per enabled `EvmiExporter` (bound to a pipeline), reacting to `exporter.enable`/
-`exporter.disable` bus events. Each service streams the pipeline's stored logs, in
-`(block_number, log_index)` order, into a user-written plugin's `NewLogEvent`,
-committing `EvmiExporter.SyncBlock` at block boundaries (at-least-once; plugins dedupe on the
-stable `LogEvent.Id`). The safe export head is the *min* `SyncBlock` across the pipeline's
-sources.
+`exporter.disable` bus events. Each service streams the pipeline's stored logs into a
+user-written plugin's `NewLogEvent` (at-least-once; plugins dedupe on the stable
+`LogEvent.Id`).
+
+**Export progress is tracked per source, not per exporter.** Each `(exporter, source)` pair
+has an `EvmiExporterSourceCursor` row — that row is what the loop resumes from, and it is
+persisted after *every* delivered log. This exists because the source set is not fixed: a
+FACTORY rule or a plugin's `Host.CreateLogSource` can attach a source at any time, well behind
+where the exporter stands, and a single pipeline-wide cursor could only start it from the
+exporter's current position — silently dropping everything already stored for it below that
+point. `loadCursors` re-reads the enabled sources each pass and seeds a new one from its own
+`StartBlock` (floored at `exporter.StartBlock - 1`); each source is exported up to *its own*
+`SyncBlock`, so a lagging source no longer stalls the caught-up ones. Sources sharing a cursor
+are fetched in one `GetLogsAfter` call and merged, so per-source order is always ascending and
+the batch is globally ordered in steady state — but a late-joining source's backlog arrives
+while the others are further ahead, so **pipeline-wide monotonic block order is not
+guaranteed**. `EvmiExporter.SyncBlock`/`SyncLogIndex` remain as the *aggregate* (min across
+cursors), rewritten once per batch for the API/UI/metrics only. `LoadDatabase` runs
+`backfillExporterSourceCursors` once per exporter, copying the old aggregate cursor onto every
+source of its pipeline so upgrading doesn't replay a pipeline into a plugin. Cursor rows are
+deleted by the source-delete cascade and by `DeleteEvmiExporter`.
 
 **Plugins are hashicorp/go-plugin subprocesses.** A plugin is an ordinary executable EVMI
 launches and calls over gRPC, so it builds with a plain `go build`, needs no CGO or

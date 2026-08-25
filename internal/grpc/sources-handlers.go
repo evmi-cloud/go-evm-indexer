@@ -93,6 +93,13 @@ func (e *EvmIndexerServer) DeleteEvmLogSource(ctx context.Context, req *connect.
 			return nil, dbError(err)
 		}
 	}
+	// Drop the export cursors of every deleted source. Leaving them behind would
+	// strand rows that no exporter can ever advance, and an id reused by a future
+	// source would resume from the deleted one's position.
+	if err := e.db.Conn.Where("evm_log_source_id IN ?", ids).
+		Delete(&evmi_database.EvmiExporterSourceCursor{}).Error; err != nil {
+		return nil, dbError(err)
+	}
 	if err := e.db.Conn.Where("id IN ?", ids).Delete(&evmi_database.EvmLogSource{}).Error; err != nil {
 		return nil, dbError(err)
 	}

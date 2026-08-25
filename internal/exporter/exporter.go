@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sort"
 	"time"
 
 	internal_bus "github.com/evmi-cloud/go-evm-indexer/internal/bus"
@@ -15,6 +16,7 @@ import (
 	pluginsdk "github.com/evmi-cloud/go-evm-indexer/pkg/exporter"
 	"github.com/mustafaturan/bus/v3"
 	"github.com/rs/zerolog"
+	"gorm.io/gorm"
 )
 
 // defaultBlockBatch bounds how many blocks of logs are pulled from the store per
@@ -22,9 +24,23 @@ import (
 const defaultBlockBatch uint64 = 1000
 
 // ExporterService runs a single plugin-backed exporter bound to one pipeline. It
-// streams every stored log of the pipeline's sources, in ascending
-// (block_number, log_index) order, into the plugin's NewLogEvent, committing the
-// sync cursor at block boundaries so it resumes cleanly after a restart.
+// streams every stored log of the pipeline's sources into the plugin's
+// NewLogEvent, committing the sync cursor after each log so it resumes cleanly
+// after a restart.
+//
+// Progress is tracked per source (EvmiExporterSourceCursor), not as one
+// pipeline-wide cursor: sources appear at runtime — a FACTORY rule or a plugin's
+// Host.CreateLogSource can attach one at any time — and a shared cursor could only
+// start such a source from wherever the exporter already stood, dropping every log
+// already stored below that point. Each source instead carries its own cursor,
+// seeded from its own StartBlock, and is exported up to its own SyncBlock.
+//
+// Ordering: logs of a single source are always delivered in ascending
+// (block_number, log_index) order, and logs of sources that sit at the same cursor
+// are merged so the batch is globally ordered too. A source that joins late is
+// necessarily behind the others, so its backlog is delivered while they are
+// already further ahead — catching up on a late source is worth more than a
+// pipeline-wide ordering guarantee that cannot be kept anyway.
 type ExporterService struct {
 	db      *evmi_database.EvmiDatabase
 	bus     *bus.Bus
@@ -41,7 +57,30 @@ type ExporterService struct {
 	chain     evmi_database.EvmBlockchain
 	storeInfo evmi_database.EvmLogStore
 
+	// cursors holds the in-memory position of every source currently being
+	// exported, keyed by source id and mirrored into EvmiExporterSourceCursor
+	// rows. Only the export loop touches it, so it needs no lock.
+	cursors map[uint64]*sourceCursor
+
 	logger zerolog.Logger
+}
+
+// sourceCursor is one source's export position for the lifetime of a Serve call.
+type sourceCursor struct {
+	sourceID uint64
+	// rowID is the EvmiExporterSourceCursor row backing this cursor.
+	rowID uint
+
+	// block is the last fully-exported block of this source; logIndex is the last
+	// log_index delivered within block+1, or -1 when none of it has been. Together
+	// they pin the exact last log delivered for the source, so a restart resumes
+	// mid-block rather than replaying it.
+	block    uint64
+	logIndex int64
+
+	// head is the source's own SyncBlock: the highest block the indexer has stored
+	// for it, and therefore the highest block safe to export.
+	head uint64
 }
 
 func NewExporterService(
@@ -82,6 +121,10 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 	if result := p.db.Conn.First(&p.exporter, p.exporter.ID); result.Error != nil {
 		return result.Error
 	}
+
+	// Cursors are rebuilt from the DB on every (re)start, so a supervisor restart
+	// never carries a stale in-memory position forward.
+	p.cursors = make(map[uint64]*sourceCursor)
 
 	if result := p.db.Conn.First(&p.pipeline, p.exporter.EvmLogPipelineID); result.Error != nil {
 		return result.Error
@@ -168,18 +211,11 @@ func (p *ExporterService) setStatus(status string) {
 // cancelled by the supervisor) and an error if the plugin or store fails
 // (letting the supervisor restart it).
 //
-// The cursor is a (completedBlock, lastLogIndex) pair: completedBlock is the last
-// fully-processed block, lastLogIndex is the last log_index delivered within the
-// in-progress block (completedBlock+1), or -1 when none is. This pins the exact
-// last log executed, so a restart resumes mid-block rather than replaying it.
+// Every iteration re-reads the pipeline's enabled sources, so a source created
+// mid-run — by a FACTORY rule or by a plugin calling Host.CreateLogSource — joins
+// the export on the very next pass, with its own cursor, and its backlog is
+// delivered from its first stored log instead of being skipped.
 func (p *ExporterService) run(ctx context.Context, logParams map[string]interface{}) error {
-	completedBlock := p.exporter.SyncBlock
-	lastLogIndex := p.exporter.SyncLogIndex
-	if p.exporter.StartBlock > 0 && completedBlock < p.exporter.StartBlock {
-		completedBlock = p.exporter.StartBlock - 1
-		lastLogIndex = -1
-	}
-
 	batch := p.chain.BlockRange
 	if batch == 0 {
 		batch = defaultBlockBatch
@@ -201,21 +237,27 @@ func (p *ExporterService) run(ctx context.Context, logParams map[string]interfac
 		// check the process here and let the supervisor restart the exporter
 		// (which starts a fresh plugin process) rather than idling against a dead
 		// one.
-		if p.pluginProcess.Exited() {
+		if p.pluginProcess != nil && p.pluginProcess.Exited() {
 			err := errors.New("plugin process exited unexpectedly")
 			p.fail(err)
 			return err
 		}
 
-		sourceIds, head, err := p.sourcesAndHead()
+		cursors, err := p.loadCursors()
 		if err != nil {
 			p.fail(err)
 			return err
 		}
 
-		if len(sourceIds) == 0 || head <= completedBlock {
-			// Interruptible sleep so a disable/shutdown doesn't wait a full
-			// pull interval.
+		exported, err := p.exportStep(cursors, batch)
+		if err != nil {
+			return err
+		}
+
+		if !exported {
+			// Nothing to do: either the pipeline has no enabled source, or every
+			// source is already exported up to its own SyncBlock. Interruptible
+			// sleep so a disable/shutdown doesn't wait a full pull interval.
 			select {
 			case <-ctx.Done():
 			case <-time.After(pullInterval):
@@ -223,35 +265,120 @@ func (p *ExporterService) run(ctx context.Context, logParams map[string]interfac
 			continue
 		}
 
-		toBlock := completedBlock + batch
-		if toBlock > head {
-			toBlock = head
-		}
-
-		completedBlock, lastLogIndex, err = p.exportRange(sourceIds, completedBlock, lastLogIndex, toBlock)
-		if err != nil {
+		block, logIndex := aggregateCursor(cursors)
+		if err := p.persistExporterCursor(block, logIndex); err != nil {
 			return err
 		}
 
 		p.emitUpdate()
-		p.metrics.SetExporterProgress(p.exporterLabels(), head, toBlock)
+		p.metrics.SetExporterProgress(p.exporterLabels(), pipelineHead(cursors), block)
 		p.logger.Info().Fields(map[string]interface{}{
-			"exporter": p.exporter.Name, "toBlock": toBlock,
+			"exporter": p.exporter.Name, "sources": len(cursors), "syncBlock": block,
 		}).Msg("exported block range")
 	}
 }
 
-// exportRange fetches the logs strictly after (completedBlock, lastLogIndex) up to
-// toBlock and delivers them to the plugin one at a time, in (block, log_index)
-// order, persisting the cursor after each log. It returns the advanced cursor.
+// loadCursors reconciles the cursor set with the pipeline's currently enabled
+// sources: it attaches a cursor to every source that does not have one yet,
+// refreshes each source's exportable head, and forgets sources that are no longer
+// enabled (their rows stay, so re-enabling one resumes where it left off).
+//
+// The returned slice is ordered by source id so a batch is assembled
+// deterministically.
+func (p *ExporterService) loadCursors() ([]*sourceCursor, error) {
+	var sources []evmi_database.EvmLogSource
+	result := p.db.Conn.Model(&evmi_database.EvmLogSource{}).
+		Where("evm_log_pipeline_id = ? AND enabled = ?", p.pipeline.ID, true).
+		Find(&sources)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	active := make(map[uint64]*sourceCursor, len(sources))
+	out := make([]*sourceCursor, 0, len(sources))
+	for _, s := range sources {
+		cursor, ok := p.cursors[uint64(s.ID)]
+		if !ok {
+			var err error
+			if cursor, err = p.cursorFor(s); err != nil {
+				return nil, err
+			}
+		}
+		cursor.head = s.SyncBlock
+		active[cursor.sourceID] = cursor
+		out = append(out, cursor)
+	}
+	p.cursors = active
+
+	sort.Slice(out, func(i, j int) bool { return out[i].sourceID < out[j].sourceID })
+	return out, nil
+}
+
+// cursorFor loads the persisted cursor of one source, creating it on first sight.
+//
+// A source this exporter has never seen starts at its own StartBlock — the block
+// *before* the first one the indexer stores for it — so a source attached long
+// after the exporter started is exported from its very first log rather than from
+// the exporter's current position. The exporter's own StartBlock still wins when
+// it is further ahead: it is an explicit "export nothing before this block"
+// instruction and applies to every source.
+func (p *ExporterService) cursorFor(source evmi_database.EvmLogSource) (*sourceCursor, error) {
+	var row evmi_database.EvmiExporterSourceCursor
+	err := p.db.Conn.
+		Where("evmi_exporter_id = ? AND evm_log_source_id = ?", p.exporter.ID, source.ID).
+		First(&row).Error
+	if err == nil {
+		return &sourceCursor{
+			sourceID: uint64(source.ID),
+			rowID:    row.ID,
+			block:    row.SyncBlock,
+			logIndex: row.SyncLogIndex,
+		}, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	start := source.StartBlock
+	if p.exporter.StartBlock > 0 && start < p.exporter.StartBlock-1 {
+		start = p.exporter.StartBlock - 1
+	}
+
+	row = evmi_database.EvmiExporterSourceCursor{
+		EvmiExporterID: p.exporter.ID,
+		EvmLogSourceID: source.ID,
+		SyncBlock:      start,
+		SyncLogIndex:   -1,
+	}
+	if err := p.db.Conn.Create(&row).Error; err != nil {
+		return nil, err
+	}
+
+	p.logger.Info().Fields(map[string]interface{}{
+		"exporter": p.exporter.Name, "source": source.ID, "fromBlock": start + 1,
+	}).Msg("tracking new log source for export")
+
+	return &sourceCursor{
+		sourceID: uint64(source.ID),
+		rowID:    row.ID,
+		block:    row.SyncBlock,
+		logIndex: row.SyncLogIndex,
+	}, nil
+}
+
+// exportStep exports one batch: for every source that has stored blocks beyond its
+// cursor it fetches up to batch blocks, merges the results into one ordered stream
+// and delivers them to the plugin. It reports whether anything was exportable at
+// all, so the caller can idle when the whole pipeline is caught up.
 //
 // Delivery is strictly sequential: logs are handed to NewLogEvent one by one in a
-// plain loop, and a failure returns immediately with the cursor at the last
-// successfully delivered log, so the failing log is replayed on restart
-// (at-least-once). It never delivers logs concurrently or out of order.
-func (p *ExporterService) exportRange(sourceIds []uint64, completedBlock uint64, lastLogIndex int64, toBlock uint64) (uint64, int64, error) {
-	// Record how long the range took and how many events it delivered, on every
-	// return path (success or mid-range failure).
+// plain loop, and a failure returns immediately with each source's cursor at its
+// last successfully delivered log, so the failing log is replayed on restart
+// (at-least-once). It never delivers logs concurrently, nor out of order for a
+// given source.
+func (p *ExporterService) exportStep(cursors []*sourceCursor, batch uint64) (bool, error) {
+	// Record how long the batch took and how many events it delivered, on every
+	// return path (success or mid-batch failure).
 	start := time.Now()
 	var delivered uint64
 	defer func() {
@@ -259,36 +386,117 @@ func (p *ExporterService) exportRange(sourceIds []uint64, completedBlock uint64,
 		p.metrics.AddExporterEvents(p.exporterLabels(), delivered)
 	}()
 
-	afterBlock, afterIndex := cursorBound(completedBlock, lastLogIndex)
-	logs, err := p.store.GetStorage().GetLogsAfter(sourceIds, afterBlock, afterIndex, toBlock)
-	if err != nil {
-		p.fail(err)
-		return completedBlock, lastLogIndex, err
+	// Sources sitting at the same cursor and target block are fetched together, so
+	// the steady state (every source in lockstep) is still a single store query;
+	// only a source that is behind the others costs an extra one.
+	type fetchKey struct{ afterBlock, afterLogIndex, toBlock uint64 }
+	groups := make(map[fetchKey][]uint64)
+	order := make([]fetchKey, 0, 1)
+	targets := make(map[uint64]uint64, len(cursors))
+
+	for _, c := range cursors {
+		if c.head <= c.block {
+			continue
+		}
+		toBlock := c.block + batch
+		if toBlock > c.head {
+			toBlock = c.head
+		}
+		afterBlock, afterLogIndex := cursorBound(c.block, c.logIndex)
+		key := fetchKey{afterBlock, afterLogIndex, toBlock}
+		if _, seen := groups[key]; !seen {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], c.sourceID)
+		targets[c.sourceID] = toBlock
 	}
+
+	if len(targets) == 0 {
+		return false, nil
+	}
+
+	var logs []types.EvmLog
+	for _, key := range order {
+		fetched, err := p.store.GetStorage().GetLogsAfter(
+			groups[key], key.afterBlock, key.afterLogIndex, key.toBlock)
+		if err != nil {
+			p.fail(err)
+			return false, err
+		}
+		logs = append(logs, fetched...)
+	}
+
+	// Each group comes back ordered; merging them keeps the batch ordered across
+	// sources too, with the source id breaking ties so the order is stable.
+	sort.SliceStable(logs, func(i, j int) bool {
+		if logs[i].BlockNumber != logs[j].BlockNumber {
+			return logs[i].BlockNumber < logs[j].BlockNumber
+		}
+		if logs[i].LogIndex != logs[j].LogIndex {
+			return logs[i].LogIndex < logs[j].LogIndex
+		}
+		return logs[i].SourceId < logs[j].SourceId // stable tie-break across sources
+	})
 
 	for _, l := range logs {
+		cursor, ok := p.cursors[uint64(l.SourceId)]
+		if !ok {
+			// The source was disabled or deleted between the fetch and now; its
+			// cursor is gone, so there is nothing to commit the delivery against.
+			continue
+		}
 		if err := p.plugin.NewLogEvent(toLogEvent(l)); err != nil {
 			p.fail(err)
-			return completedBlock, lastLogIndex, err
+			return false, err
 		}
 		delivered++
-		// A delivered log at (B, I) means every block < B is complete and block B
-		// is in progress at index I.
-		completedBlock = blockBefore(l.BlockNumber)
-		lastLogIndex = int64(l.LogIndex)
-		if err := p.persistCursor(completedBlock, lastLogIndex); err != nil {
-			return completedBlock, lastLogIndex, err
+		// A delivered log at (B, I) means every block < B is complete for this
+		// source and block B is in progress at index I.
+		cursor.block = blockBefore(l.BlockNumber)
+		cursor.logIndex = int64(l.LogIndex)
+		if err := p.persistCursor(cursor); err != nil {
+			return false, err
 		}
 	}
 
-	// The whole range up to toBlock has now been scanned: toBlock is complete
-	// (including any empty tail) and there is no in-progress block.
-	completedBlock = toBlock
-	lastLogIndex = -1
-	if err := p.persistCursor(completedBlock, lastLogIndex); err != nil {
-		return completedBlock, lastLogIndex, err
+	// Every source's range has now been scanned up to its target: that block is
+	// complete (including any empty tail) and no block is in progress.
+	for _, c := range cursors {
+		toBlock, ok := targets[c.sourceID]
+		if !ok {
+			continue
+		}
+		c.block = toBlock
+		c.logIndex = -1
+		if err := p.persistCursor(c); err != nil {
+			return false, err
+		}
 	}
-	return completedBlock, lastLogIndex, nil
+	return true, nil
+}
+
+// aggregateCursor is the exporter-level position: the minimum over its source
+// cursors, i.e. the point up to which the *whole* pipeline has been exported.
+func aggregateCursor(cursors []*sourceCursor) (uint64, int64) {
+	block, logIndex := uint64(0), int64(-1)
+	for i, c := range cursors {
+		if i == 0 || c.block < block || (c.block == block && c.logIndex < logIndex) {
+			block, logIndex = c.block, c.logIndex
+		}
+	}
+	return block, logIndex
+}
+
+// pipelineHead is the highest block the indexer has stored for any source of the
+// pipeline — the target the exporter is catching up to.
+func pipelineHead(cursors []*sourceCursor) uint64 {
+	var head uint64
+	for _, c := range cursors {
+		if c.head > head {
+			head = c.head
+		}
+	}
+	return head
 }
 
 // blockBefore returns b-1, guarding the genesis edge (block 0 with logs is not
@@ -311,35 +519,27 @@ func cursorBound(completedBlock uint64, lastLogIndex int64) (uint64, uint64) {
 	return completedBlock + 1, uint64(lastLogIndex)
 }
 
-// sourcesAndHead returns the enabled source ids of the pipeline and the highest
-// block that is safe to export: the minimum SyncBlock across those sources, so no
-// source is left behind within an exported range.
-func (p *ExporterService) sourcesAndHead() ([]uint64, uint64, error) {
-	var sources []evmi_database.EvmLogSource
-	result := p.db.Conn.Model(&evmi_database.EvmLogSource{}).
-		Where("evm_log_pipeline_id = ? AND enabled = ?", p.pipeline.ID, true).
-		Find(&sources)
+// persistCursor writes one source's cursor to its EvmiExporterSourceCursor row.
+// It is called after every delivered log, so the row is always the truth about
+// what that source has already handed to the plugin.
+func (p *ExporterService) persistCursor(cursor *sourceCursor) error {
+	result := p.db.Conn.Model(&evmi_database.EvmiExporterSourceCursor{}).
+		Where("id = ?", cursor.rowID).
+		Updates(map[string]interface{}{
+			"sync_block":     cursor.block,
+			"sync_log_index": cursor.logIndex,
+		})
 	if result.Error != nil {
-		return nil, 0, result.Error
+		p.fail(result.Error)
+		return result.Error
 	}
-
-	if len(sources) == 0 {
-		return nil, 0, nil
-	}
-
-	sourceIds := make([]uint64, 0, len(sources))
-	var head uint64
-	for i, s := range sources {
-		sourceIds = append(sourceIds, uint64(s.ID))
-		if i == 0 || s.SyncBlock < head {
-			head = s.SyncBlock
-		}
-	}
-	return sourceIds, head, nil
+	return nil
 }
 
-// persistCursor writes the (block, logIndex) cursor to the exporter row.
-func (p *ExporterService) persistCursor(block uint64, logIndex int64) error {
+// persistExporterCursor writes the aggregate position back to the exporter row.
+// Unlike the per-source cursors it is written once per batch, not once per log:
+// nothing resumes from it, it only feeds the API/UI and the progress metrics.
+func (p *ExporterService) persistExporterCursor(block uint64, logIndex int64) error {
 	p.exporter.SyncBlock = block
 	p.exporter.SyncLogIndex = logIndex
 	result := p.db.Conn.Model(&p.exporter).Updates(map[string]interface{}{

@@ -341,7 +341,7 @@ An `EvmiExporter` binds an installed plugin to a pipeline:
 | `PluginID`                   | the installed plugin to run                                 |
 | `Enabled`                    | set `true` for EVMI to start it                             |
 | `StartBlock`                 | first block to process                                      |
-| `SyncBlock` / `SyncLogIndex` | resume cursor (server-managed; the exact last log executed) |
+| `SyncBlock` / `SyncLogIndex` | aggregate progress for display (the real cursors are per source) |
 | `PluginConfig`               | JSON handed to your `Init` as `Context.Config`              |
 
 An exporter only starts if its plugin is `INSTALLED`.
@@ -363,11 +363,16 @@ Example `PluginConfig` for the ERC-20 exporter above:
 
 ## 7. How EVMI drives your plugin
 
-- Logs arrive **in ascending `(block_number, log_index)` order** across all of
-  the pipeline's sources.
-- EVMI records your progress as a `(SyncBlock, SyncLogIndex)` cursor and persists
-  it **after every log** it hands you, so a restart resumes at the exact next
-  log — never replaying logs you already accepted.
+- Logs of any one source arrive **in ascending `(block_number, log_index)`
+  order**, and sources that are in sync are merged into a single ordered stream —
+  so in steady state the whole pipeline arrives in block order. The exception is a
+  source that joins the pipeline late (see `CreateLogSource` below): it is behind
+  the others, so its backlog arrives while they are already further ahead. **Do
+  not assume the block number never goes backwards between logs**; if your plugin
+  needs that, key it on `LogEvent.SourceId`.
+- EVMI records your progress as a `(SyncBlock, SyncLogIndex)` cursor **per source**
+  and persists it **after every log** it hands you, so a restart resumes at the
+  exact next log of each source — never replaying logs you already accepted.
 - If `NewLogEvent` returns an error, the exporter stops and **that same log** is
   redelivered on the next run (everything before it is already committed). Return
   an error to signal "retry this"; return `nil` to accept and move on.
@@ -471,6 +476,12 @@ ref, err := e.host.CreateLogSource(exporter.NewLogSource{
 The new source is created enabled and starts immediately, sharing the parent's
 pipeline, store and chain, and nesting under the parent in the web UI — exactly
 like a factory-spawned child.
+
+Because every source carries its own export cursor, the new source is picked up on
+the exporter's next loop pass and delivered to you **from its own `StartBlock`**,
+not from wherever the exporter currently stands. So you get its full history even
+though you registered it long after that block was indexed — at the cost of those
+logs arriving out of block order relative to the sources already caught up.
 
 **When to reach for this instead of a FACTORY rule.** A FACTORY rule reads the
 new contract's address straight out of a decoded event argument. When the

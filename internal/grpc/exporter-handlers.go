@@ -125,6 +125,12 @@ func (e *EvmIndexerServer) DeleteEvmiExporter(ctx context.Context, req *connect.
 	if result := e.db.Conn.Delete(&evmi_database.EvmiExporter{}, req.Msg.Id); result.Error != nil {
 		return nil, dbError(result.Error)
 	}
+	// Drop the exporter's per-source cursors too, so recreating an exporter under
+	// the same id can't inherit the deleted one's export positions.
+	if result := e.db.Conn.Where("evmi_exporter_id = ?", req.Msg.Id).
+		Delete(&evmi_database.EvmiExporterSourceCursor{}); result.Error != nil {
+		return nil, dbError(result.Error)
+	}
 	return connect.NewResponse(&evm_indexerv1.DeleteEvmiExporterResponse{}), nil
 }
 

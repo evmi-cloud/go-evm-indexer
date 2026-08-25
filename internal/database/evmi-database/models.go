@@ -287,11 +287,11 @@ type EvmiExporter struct {
 
 	// StartBlock is the first block the exporter should process.
 	StartBlock uint64
-	// SyncBlock is the last fully-completed block (every log of blocks <=
-	// SyncBlock has been delivered to the plugin). SyncLogIndex is the last
-	// log_index delivered within the in-progress block (SyncBlock+1), or -1 when
-	// none of it has been processed yet. Together they pin the exact last log the
-	// exporter executed, so a restart resumes mid-block instead of replaying it.
+	// SyncBlock / SyncLogIndex are the exporter's aggregate position: the minimum
+	// over its per-source cursors (EvmiExporterSourceCursor), i.e. the point up to
+	// which every source of the pipeline has been exported. They are recomputed
+	// and written once per exported batch and exist for the API/UI and metrics —
+	// the per-source rows are what the export loop actually resumes from.
 	SyncBlock    uint64
 	SyncLogIndex int64 `gorm:"default:-1"`
 
@@ -301,4 +301,32 @@ type EvmiExporter struct {
 	PluginConfig datatypes.JSON
 
 	ChainSyncStatus datatypes.JSON
+}
+
+// EvmiExporterSourceCursor is the export cursor of one exporter for one log
+// source. Export progress is tracked per source rather than as a single
+// pipeline-wide cursor because the set of sources is not fixed: a FACTORY rule or
+// a plugin's Host.CreateLogSource can attach a new source long after the exporter
+// started. With one shared cursor such a source could only ever be exported from
+// wherever the exporter already stood, silently dropping every log it had stored
+// below that point. Its own cursor starts at its own StartBlock instead, so it is
+// exported from its very first log.
+//
+// (SyncBlock, SyncLogIndex) has exactly the same meaning as on EvmiExporter, but
+// scoped to EvmLogSourceID: SyncBlock is the last fully-exported block of that
+// source and SyncLogIndex the last log_index delivered within SyncBlock+1, or -1
+// when none of it has been. These rows are the authoritative cursor;
+// EvmiExporter.SyncBlock is the minimum across them, kept for display.
+//
+// SyncLogIndex deliberately carries no gorm `default` tag: GORM omits zero-valued
+// fields for columns that have one, which would turn a legitimate "stopped at
+// log_index 0" into the default and replay that block.
+type EvmiExporterSourceCursor struct {
+	gorm.Model
+
+	EvmiExporterID uint `gorm:"uniqueIndex:idx_exporter_source_cursor"`
+	EvmLogSourceID uint `gorm:"uniqueIndex:idx_exporter_source_cursor"`
+
+	SyncBlock    uint64
+	SyncLogIndex int64
 }

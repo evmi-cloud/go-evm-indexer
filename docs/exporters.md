@@ -11,11 +11,11 @@ database by processing `Transfer` events as they are exported.
 ## Architecture
 
 ```
- log store (ClickHouse)              EvmiExporter row
+ log store (ClickHouse)          EvmiExporterSourceCursor rows
    logs for pipeline's  ──►  ExporterService  ──►  plugin.NewLogEvent(log)
    sources, ordered by         (per exporter)        (gRPC → subprocess)
    (block, log_index)               │
-                                     └─ commit SyncBlock at each block boundary
+                                     └─ commit the source's cursor per log
 ```
 
 - An **exporter is bound to one pipeline** (`EvmiExporter.EvmLogPipelineID`). A
@@ -23,9 +23,10 @@ database by processing `Transfer` events as they are exported.
 - `ExporterServiceManager` (`internal/exporter/service.go`) starts one
   `ExporterService` per enabled exporter under a `suture` supervisor and reacts
   to `exporter.enable` / `exporter.disable` bus events.
-- `ExporterService` (`internal/exporter/exporter.go`) runs the export loop:
-  compute a safe head, pull the next range of logs from the store, deliver each
-  log to the plugin, and commit the sync cursor.
+- `ExporterService` (`internal/exporter/exporter.go`) runs the export loop: on
+  every pass it re-reads the pipeline's enabled sources, pulls the next range of
+  logs for each from the store, merges them into one ordered stream, delivers each
+  log to the plugin, and commits that source's cursor.
 - The plugin is a **separate process**: an ordinary executable that EVMI launches
   and talks to over gRPC via
   [hashicorp/go-plugin](https://github.com/hashicorp/go-plugin)
@@ -41,30 +42,51 @@ inter-process gRPC call per delivered log.
 
 ### Sync model
 
-- The cursor is a **(block, log index) pair**, stored on `EvmiExporter` as
-  `SyncBlock` + `SyncLogIndex`. `SyncBlock` is the last fully-completed block;
-  `SyncLogIndex` is the last `log_index` delivered within the in-progress block
-  (`SyncBlock+1`), or `-1` when none of it has been processed. Together they pin
-  the exact last log executed, so a restart resumes **mid-block** instead of
-  replaying a partially-processed block. On first run the cursor starts at
-  `StartBlock`.
-- The cursor is persisted **after every delivered log** (via the store method
-  `GetLogsAfter`, which fetches strictly after the cursor). A failure leaves the
-  cursor at the last successfully delivered log; the failing log is replayed on
-  restart.
-- **Safe head** is the *minimum* `SyncBlock` across the pipeline's enabled
-  sources. The exporter never exports past the least-synced source, so a range is
-  never delivered with a source still lagging inside it. A permanently-lagging or
-  disabled-but-required source therefore stalls the exporter — this is intended
-  (completeness over liveness).
+- **The cursor is per source, not per exporter.** Each `(exporter, source)` pair
+  has an `EvmiExporterSourceCursor` row, and that row is what the export loop
+  resumes from. `EvmiExporter.SyncBlock` / `SyncLogIndex` still exist, but they
+  are now the *aggregate* — the minimum across those rows, recomputed once per
+  batch for the API, the UI and the progress metrics. Nothing resumes from them.
+- Each cursor is a **(block, log index) pair**: `SyncBlock` is the last
+  fully-exported block of that source, `SyncLogIndex` the last `log_index`
+  delivered within the in-progress block (`SyncBlock+1`), or `-1` when none of it
+  has been. Together they pin the exact last log delivered for the source, so a
+  restart resumes **mid-block** instead of replaying a partially-processed block.
+- A cursor is persisted **after every delivered log** (fetching uses the store
+  method `GetLogsAfter`, which returns logs strictly after the cursor). A failure
+  leaves each source's cursor at its last successfully delivered log; the failing
+  log is replayed on restart.
+- **Why per source.** The set of sources is not fixed: a `FACTORY` rule or a
+  plugin calling `Host.CreateLogSource` can attach one at any time, typically well
+  behind where the exporter already stands. With a single pipeline-wide cursor
+  such a source could only ever be exported from the exporter's current position,
+  so every log already stored for it below that point was silently dropped. With
+  its own cursor it is picked up on the next loop pass, seeded from its own
+  `StartBlock`, and its whole backlog is delivered.
+- **Head is per source too:** each source is exported up to *its own* `SyncBlock`.
+  A source that is behind no longer stalls the ones that are caught up (the old
+  pipeline-wide minimum did), and it never causes a partially-exported block for
+  itself.
+- The exporter's own `StartBlock` still gates every source, new ones included: a
+  cursor is never seeded below `StartBlock - 1`.
+- **Upgrading.** `LoadDatabase` backfills cursor rows for exporters that already
+  made progress under the old scheme, copying their aggregate position onto every
+  source of their pipeline, so upgrading does not replay a pipeline into a plugin.
+  It runs once per exporter — a source attached *after* the upgrade is correctly
+  treated as new.
 
 ### Delivery guarantees
 
 - **At-least-once.** After a crash or plugin error, the current block is replayed
   from the start. Plugins **must be idempotent** — key writes on
   `LogEvent.Id` (`chainId:blockNumber:logIndex`), which is stable and unique.
-- Logs are delivered in ascending `(block_number, log_index)` order across all of
-  the pipeline's sources.
+- Logs of a **single source** are always delivered in ascending
+  `(block_number, log_index)` order, and sources sitting at the same cursor are
+  merged into one ordered stream, so in steady state the whole pipeline is
+  delivered in `(block_number, log_index)` order. A source that joins late is by
+  definition behind the others, so its backlog arrives while they are already
+  further ahead: **do not rely on a pipeline-wide monotonic block order** across
+  sources.
 - Delivery is strictly sequential: one `NewLogEvent` call is in flight at a time,
   so a plugin never has to be goroutine-safe.
 - Reorgs are **not** handled in v1: a reorged log is delivered with
@@ -232,7 +254,7 @@ An `EvmiExporter` row then binds it to a pipeline:
 | `PluginID`         | the installed plugin to run                                |
 | `Enabled`          | manager starts it when true                                |
 | `StartBlock`       | first block to process                                     |
-| `SyncBlock`        | cursor (managed by the server)                             |
+| `SyncBlock`        | aggregate cursor for display (per-source rows are the truth) |
 | `PluginConfig`     | raw JSON passed to the plugin's `Init` as `Context.Config` |
 
 An exporter only launches a plugin whose `Status` is `INSTALLED`; otherwise it

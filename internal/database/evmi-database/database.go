@@ -110,8 +110,12 @@ func LoadDatabase(dbType DatabaseType, config map[string]string, logger zerolog.
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&EvmiExporter{})
+	err = db.AutoMigrate(&EvmiExporter{}, &EvmiExporterSourceCursor{})
 	if err != nil {
+		return nil, err
+	}
+
+	if err := backfillExporterSourceCursors(db); err != nil {
 		return nil, err
 	}
 
@@ -168,6 +172,58 @@ func seedDefaultAdmin(db *gorm.DB, logger zerolog.Logger) error {
 		logger.Info().Msg("created default admin user with the password from EVMI_ADMIN_PASSWORD")
 	} else {
 		logger.Warn().Msg("created default admin user (admin/admin) — set EVMI_ADMIN_PASSWORD or change the password immediately")
+	}
+	return nil
+}
+
+// backfillExporterSourceCursors migrates exporters that predate per-source export
+// cursors. An exporter that has already made progress carries its position in
+// EvmiExporter.SyncBlock/SyncLogIndex only; without this, its first run on the new
+// schema would find no per-source rows, seed each source from its own StartBlock
+// and replay the whole pipeline into the plugin.
+//
+// It copies that aggregate position onto one cursor row per source of the
+// exporter's pipeline, and runs exactly once per exporter: an exporter that
+// already has cursor rows is skipped, so a source attached *after* the migration
+// is correctly treated as new and exported from its own beginning. Exporters that
+// have never progressed need no backfill — seeding them from their sources'
+// StartBlock yields the same range, since nothing is stored below it.
+func backfillExporterSourceCursors(db *gorm.DB) error {
+	var exporters []EvmiExporter
+	if err := db.Where("sync_block > 0 OR sync_log_index >= 0").Find(&exporters).Error; err != nil {
+		return err
+	}
+
+	for _, exp := range exporters {
+		var existing int64
+		if err := db.Model(&EvmiExporterSourceCursor{}).
+			Where("evmi_exporter_id = ?", exp.ID).Count(&existing).Error; err != nil {
+			return err
+		}
+		if existing > 0 {
+			continue
+		}
+
+		var sources []EvmLogSource
+		if err := db.Where("evm_log_pipeline_id = ?", exp.EvmLogPipelineID).Find(&sources).Error; err != nil {
+			return err
+		}
+		if len(sources) == 0 {
+			continue
+		}
+
+		rows := make([]EvmiExporterSourceCursor, 0, len(sources))
+		for _, s := range sources {
+			rows = append(rows, EvmiExporterSourceCursor{
+				EvmiExporterID: exp.ID,
+				EvmLogSourceID: s.ID,
+				SyncBlock:      exp.SyncBlock,
+				SyncLogIndex:   exp.SyncLogIndex,
+			})
+		}
+		if err := db.Create(&rows).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
