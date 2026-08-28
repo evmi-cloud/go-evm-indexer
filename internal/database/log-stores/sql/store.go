@@ -207,9 +207,13 @@ func (s *SQLStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64, afterLogI
 		return []types.EvmLog{}, nil
 	}
 	var rows []sqlLog
+	// Bind the log-index bound signed: the initial cursor is -1 ("no log of
+	// this block delivered yet"), which arrives here as ^uint64(0) and cannot
+	// be encoded into a Postgres bigint. As int64 it binds as -1 and
+	// `log_index > -1` selects the whole block — the intended semantics.
 	err := s.db.
 		Where("source_id IN ? AND block_number <= ? AND (block_number > ? OR (block_number = ? AND log_index > ?))",
-			sourceIds, toBlock, afterBlock, afterBlock, afterLogIndex).
+			sourceIds, toBlock, afterBlock, afterBlock, int64(afterLogIndex)).
 		Order("block_number asc, log_index asc").
 		Find(&rows).Error
 	return mapLogs(rows), err
