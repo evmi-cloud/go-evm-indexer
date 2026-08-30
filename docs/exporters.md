@@ -233,15 +233,51 @@ A `Plugin` row (managed via the API / the web UI's **Plugins** tab):
 | `Name`         | display name (shown in the exporter's plugin picker)           |
 | `GitUrl`       | git repository to clone and build (**the only source**)        |
 | `GitRef`       | optional branch or tag (empty = the repo's default branch)     |
+| `Path`         | subdirectory holding the plugin's `main` package (empty = repo root) |
 | `BinaryPath`   | the compiled plugin executable (set on install)                |
 | `Status`       | `NOT_INSTALLED` → `INSTALLING` → `INSTALLED` / `FAILED`         |
 
 **Install** (`InstallPlugin` RPC → `exporter.InstallPlugin`) is **git-only** and
 idempotent: if the plugin is already `INSTALLED` and its binary is present it does
-nothing; otherwise it clones `GitUrl` at `GitRef` and builds the **repo root**
-(the deterministic target — the plugin's `main` package must live there; no
-package path to configure), then records the result. Editing a plugin's source
-resets it to `NOT_INSTALLED`.
+nothing; otherwise it clones `GitUrl` at `GitRef` and runs a plain `go build` in
+`<clone>/<Path>` (the clone root when `Path` is empty), then records the result.
+Editing a plugin's source — url, ref **or path** — resets it to `NOT_INSTALLED`.
+
+`Path` is what lets **one repository host several plugins**: the build runs from
+the plugin's own directory, so `go build` picks up whichever module encloses it —
+a monorepo with a single `go.mod` at the root and one `main` package per plugin
+works, and so does a repo where each plugin carries its own `go.mod`. The value is
+always relative and is rejected if it escapes the clone
+(`exporter.ValidatePluginPath`).
+
+### Plugin catalog
+
+A repository hosting several plugins can describe them in a **catalog file** at
+`evmi-plugins.json` or `.evmi/plugins.json` (first found wins), so nobody has to
+know its layout:
+
+```json
+{
+  "plugins": [
+    { "name": "erc20-balances", "description": "Track ERC-20 balances", "path": "exporters/erc20" },
+    { "name": "webhook",        "description": "POST every log to a webhook",  "path": "exporters/webhook" }
+  ]
+}
+```
+
+A bare JSON array of the same entries is accepted too. `path` is relative to the
+repo root; `name` is required. This repository is itself an example — see
+[`evmi-plugins.json`](../evmi-plugins.json), which lists the two example plugins.
+
+The catalog is **read-only discovery**, never a source of truth: it is used by
+
+- the **web UI** — the plugin form's *Path in repository* field suggests the
+  catalog's entries (`ListPluginCatalog` RPC → `exporter.FetchPluginCatalog`,
+  which shallow-clones the repo into a temp dir, reads the file and deletes the
+  clone). Nothing is built and no row is created, and a repo without a catalog
+  simply offers no suggestion — the path stays free text;
+- the **server config**, with `"catalog": true` on a `plugins` entry (below).
+
 
 **Config schema.** If the plugin implements the optional `Configurable`
 interface, install also extracts its declared config schema (a JSON array of
@@ -282,10 +318,24 @@ it is **rebuilt** automatically from its `GitUrl` (a malformed row with no
 `GitUrl` is set to **`FAILED`**).
 
 **Config-declared plugins.** The server config may include a `plugins` array,
-each entry `{name, description, gitUrl, gitRef}`. On startup
+each entry `{name, description, gitUrl, gitRef, path}`. On startup
 `exporter.ImportConfigPlugins` creates a `Plugin` row for any that don't exist yet
 (matched by name) and installs them — so git-hosted plugins are available out of
 the box. See `configs/exemple-postgres.config.json`.
+
+An entry may instead name a **whole plugin repo** with `"catalog": true`:
+
+```json
+{ "gitUrl": "https://github.com/your-org/evmi-plugins", "gitRef": "main", "catalog": true }
+```
+
+`exporter.expandConfigPlugins` then reads that repo's catalog file and imports one
+plugin per entry (`name`, `description` and `path` come from the catalog; the
+entry's own `name`/`description`/`path` are ignored). It stays idempotent — an
+existing plugin of the same name is left alone — and a repo whose catalog cannot
+be read is logged and skipped rather than failing the boot. `ExportConfiguration`
+always writes plugins back out **one entry per installed plugin**, never as a
+`catalog` entry, so an exported config describes exactly what is installed.
 
 ## Operational caveats
 

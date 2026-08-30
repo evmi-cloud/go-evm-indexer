@@ -143,15 +143,25 @@ func copyFile(src, dst string) error {
 // rows on startup: each is created if a plugin with the same name does not exist,
 // then installed (built) if not already installed. Intended for git-hosted
 // plugins that should be available out of the box.
+//
+// An entry with `catalog: true` names a repository rather than a single plugin:
+// its catalog file is read and every plugin it declares is imported (see
+// expandConfigPlugins), which is how one shared plugin repo is provisioned in a
+// single config line.
 func ImportConfigPlugins(db *evmi_database.EvmiDatabase, plugins []types.ConfigPlugin, logger zerolog.Logger) {
-	for _, cp := range plugins {
+	for _, cp := range expandConfigPlugins(plugins, logger) {
 		if cp.Name == "" || cp.GitUrl == "" {
 			logger.Warn().Msg("skipping config plugin without a name or gitUrl")
 			continue
 		}
+		subPath, err := ValidatePluginPath(cp.Path)
+		if err != nil {
+			logger.Error().Str("plugin", cp.Name).Msg("config plugin has an invalid path: " + err.Error())
+			continue
+		}
 
 		var existing evmi_database.Plugin
-		err := db.Conn.Where("name = ?", cp.Name).First(&existing).Error
+		err = db.Conn.Where("name = ?", cp.Name).First(&existing).Error
 		if err == nil {
 			if existing.Status != string(evmi_database.InstalledPluginStatus) {
 				installConfigPlugin(db, existing.ID, cp.Name, logger)
@@ -168,6 +178,7 @@ func ImportConfigPlugins(db *evmi_database.EvmiDatabase, plugins []types.ConfigP
 			Description: cp.Description,
 			GitUrl:      cp.GitUrl,
 			GitRef:      cp.GitRef,
+			Path:        subPath,
 			Status:      string(evmi_database.NotInstalledPluginStatus),
 		}
 		if err := db.Conn.Create(&plugin).Error; err != nil {
@@ -177,6 +188,50 @@ func ImportConfigPlugins(db *evmi_database.EvmiDatabase, plugins []types.ConfigP
 		logger.Info().Str("plugin", cp.Name).Msg("imported plugin from config")
 		installConfigPlugin(db, plugin.ID, cp.Name, logger)
 	}
+}
+
+// expandConfigPlugins resolves the `catalog: true` entries of the config plugin
+// list into one entry per plugin the repository's catalog file declares (name,
+// description and path come from the catalog; git url and ref from the config
+// entry). Ordinary entries pass through untouched.
+//
+// A repo whose catalog cannot be read is skipped with an error rather than
+// failing the boot: plugin import is best-effort, and the operator can still add
+// the plugins by hand over the API.
+func expandConfigPlugins(plugins []types.ConfigPlugin, logger zerolog.Logger) []types.ConfigPlugin {
+	out := make([]types.ConfigPlugin, 0, len(plugins))
+	for _, cp := range plugins {
+		if !cp.Catalog {
+			out = append(out, cp)
+			continue
+		}
+		if cp.GitUrl == "" {
+			logger.Warn().Msg("skipping config plugin catalog without a gitUrl")
+			continue
+		}
+
+		entries, file, err := FetchPluginCatalog(cp.GitUrl, cp.GitRef, logger)
+		if err != nil {
+			logger.Error().Str("gitUrl", cp.GitUrl).Msg("reading plugin catalog: " + err.Error())
+			continue
+		}
+		if len(entries) == 0 {
+			logger.Warn().Str("gitUrl", cp.GitUrl).Msg("plugin catalog declares no plugin (is " + strings.Join(pluginCatalogFiles, " or ") + " present?)")
+			continue
+		}
+
+		logger.Info().Str("gitUrl", cp.GitUrl).Str("catalog", file).Msg(fmt.Sprintf("importing %d plugins from catalog", len(entries)))
+		for _, e := range entries {
+			out = append(out, types.ConfigPlugin{
+				Name:        e.Name,
+				Description: e.Description,
+				GitUrl:      cp.GitUrl,
+				GitRef:      cp.GitRef,
+				Path:        e.Path,
+			})
+		}
+	}
+	return out
 }
 
 func installConfigPlugin(db *evmi_database.EvmiDatabase, id uint, name string, logger zerolog.Logger) {
@@ -314,26 +369,44 @@ func extractConfigSchema(binaryPath string, name string, logger zerolog.Logger) 
 	return datatypes.JSON(raw)
 }
 
-// buildPluginBinary clones the plugin's git repository at GitRef, builds the repo
-// root into an executable, and copies it to <installBaseDir>/<pluginName>
-// (returned). Git is the only supported source, and the plugin's main package
-// must live at the repo root.
+// buildPluginBinary clones the plugin's git repository at GitRef, builds the
+// package at Path (the repo root when empty) into an executable, and copies it to
+// <installBaseDir>/<pluginName> (returned). Git is the only supported source.
 func buildPluginBinary(p evmi_database.Plugin, logger zerolog.Logger) (string, error) {
 	if strings.TrimSpace(p.GitUrl) == "" {
 		return "", errors.New("plugin has no source: a git repository (GitUrl) is required")
+	}
+	// Re-validated here (not just at the API edge) because this path also runs for
+	// rows written by the config importer and by older releases.
+	subPath, err := ValidatePluginPath(p.Path)
+	if err != nil {
+		return "", err
 	}
 
 	slug := pluginSlug(p)
 	// Ephemeral per-plugin work dir: /tmp/evmi/<pluginName>.
 	buildDir := filepath.Join(buildBaseDir, slug)
 
-	moduleRoot, err := cloneRepo(p.GitUrl, p.GitRef, buildDir, logger)
+	repoRoot, err := cloneRepo(p.GitUrl, p.GitRef, buildDir, logger)
 	if err != nil {
 		return "", err
 	}
 
+	// The build target is the plugin's own directory inside the clone: `go build`
+	// resolves the enclosing module from there, so this works both for a monorepo
+	// with a single go.mod at the root and for a repo whose plugins each carry
+	// their own go.mod.
+	pluginDir := repoRoot
+	if subPath != "" {
+		pluginDir = filepath.Join(repoRoot, filepath.FromSlash(subPath))
+		info, err := os.Stat(pluginDir)
+		if err != nil || !info.IsDir() {
+			return "", fmt.Errorf("plugin path %q not found in repository %s", subPath, p.GitUrl)
+		}
+	}
+
 	built := filepath.Join(buildDir, "built"+exeSuffix())
-	if err := buildPlugin(moduleRoot, built, logger); err != nil {
+	if err := buildPlugin(pluginDir, built, logger); err != nil {
 		return "", err
 	}
 
@@ -377,6 +450,13 @@ func launchInstalledPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger
 // changed url/ref always takes effect (install is an explicit action, and
 // VerifyPlugins only reaches here when the binary is already missing).
 func cloneRepo(url string, ref string, dest string, logger zerolog.Logger) (string, error) {
+	return cloneRepoContext(context.Background(), url, ref, dest, logger)
+}
+
+// cloneRepoContext is cloneRepo bounded by a context — used by the catalog fetch,
+// which is reachable from the API and so must not let a slow or unreachable
+// remote pin a goroutine forever.
+func cloneRepoContext(ctx context.Context, url string, ref string, dest string, logger zerolog.Logger) (string, error) {
 	if err := os.RemoveAll(dest); err != nil {
 		return "", err
 	}
@@ -389,31 +469,39 @@ func cloneRepo(url string, ref string, dest string, logger zerolog.Logger) (stri
 		// --branch accepts both branch names and tags.
 		args = append(args, "--branch", ref)
 	}
-	args = append(args, url, dest)
+	args = append(args, "--", url, dest)
 
 	logger.Info().Str("url", url).Str("ref", ref).Str("dest", dest).Msg("cloning plugin repo")
-	cmd := exec.Command("git", args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	// There is no terminal to answer git's credential prompt on a server: without
+	// this a private repo hangs instead of failing.
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", errors.New("git clone timed out")
+		}
 		return "", fmt.Errorf("git clone failed: %v: %s", err, string(out))
 	}
 	return dest, nil
 }
 
-// buildPlugin compiles the module at moduleRoot (the plugin repo root, which is
-// the deterministic build target — the plugin's main package must live there)
-// into an ordinary executable at outPath.
+// buildPlugin compiles the package in pluginDir (the clone root, or the
+// subdirectory named by Plugin.Path) into an ordinary executable at outPath. The
+// build runs *in* that directory, so the go tool resolves whichever module
+// encloses it — the plugin's `main` package must live there.
 //
 // A plain `go build`: the plugin runs as a separate process and speaks gRPC, so
 // its Go toolchain and dependency versions are its own business.
-func buildPlugin(moduleRoot string, outPath string, logger zerolog.Logger) error {
+func buildPlugin(pluginDir string, outPath string, logger zerolog.Logger) error {
 	// Ensure the output directory exists (the binary is written here).
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
 
-	logger.Info().Str("moduleRoot", moduleRoot).Str("out", outPath).Msg("building plugin")
+	logger.Info().Str("pluginDir", pluginDir).Str("out", outPath).Msg("building plugin")
 	cmd := exec.Command("go", "build", "-o", outPath, ".")
-	cmd.Dir = moduleRoot
+	cmd.Dir = pluginDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("plugin build failed: %v: %s", err, string(out))
 	}

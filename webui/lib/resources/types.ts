@@ -10,6 +10,10 @@ export type FieldType =
   | "bigint"
   | "checkbox"
   | "select"
+  // Free text with suggestions (a datalist): like "select", but a value outside
+  // the loaded options is allowed — e.g. a plugin's in-repo path, suggested from
+  // the repository's catalog when it declares one, typed by hand when it doesn't.
+  | "combo"
   | "pluginConfig"
   | "keyedConfig"
   | "topicFilters"
@@ -45,7 +49,7 @@ export type Field = {
   help?: string;
   options?: Option[];
   optionsFrom?: () => Promise<Option[]>;
-  // For a "select" whose options depend on other form values (loaded async and
+  // For a "select"/"combo" whose options depend on other form values (loaded async and
   // re-loaded whenever any field named in `depends` changes) — e.g. the events
   // of a selected ABI. Receives the current form values.
   loadOptions?: (values: FormValues) => Promise<Option[]>;

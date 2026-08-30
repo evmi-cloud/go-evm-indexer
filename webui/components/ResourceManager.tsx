@@ -362,7 +362,7 @@ export default function ResourceManager<T>({ resource }: { resource: Resource<T>
                   abiId={String(values.evmJsonAbiId ?? "")}
                   onChange={(val) => setValues((prev) => ({ ...prev, [f.name]: val }))}
                 />
-              ) : f.type === "select" && f.loadOptions ? (
+              ) : (f.type === "select" || f.type === "combo") && f.loadOptions ? (
                 <DynamicSelectInput
                   key={f.name}
                   field={f}
@@ -449,6 +449,23 @@ function FieldInput({
             </option>
           ))}
         </select>
+      ) : field.type === "combo" ? (
+        // Text input with suggestions: the options are a shortcut, not a
+        // restriction, so a value the loader doesn't know is still accepted.
+        <>
+          <input
+            type="text"
+            list={`combo-${field.name}`}
+            value={String(value ?? "")}
+            placeholder={field.placeholder}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <datalist id={`combo-${field.name}`}>
+            {options.map((o) => (
+              <option key={o.value} value={o.value} label={o.label} />
+            ))}
+          </datalist>
+        </>
       ) : (
         <input
           type={
@@ -468,9 +485,10 @@ function FieldInput({
   );
 }
 
-// DynamicSelectInput renders a select whose options are loaded async from the
-// current form values (field.loadOptions), re-loading whenever any field named
-// in field.depends changes — e.g. the events of a selected ABI.
+// DynamicSelectInput renders a select (or a "combo" text input with suggestions)
+// whose options are loaded async from the current form values
+// (field.loadOptions), re-loading whenever any field named in field.depends
+// changes — e.g. the events of a selected ABI, or a plugin repo's catalog.
 function DynamicSelectInput({
   field,
   value,

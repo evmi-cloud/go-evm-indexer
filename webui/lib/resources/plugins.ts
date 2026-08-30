@@ -1,10 +1,11 @@
 import { client } from "@/lib/client";
 import type { Plugin } from "@/gen/evm_indexer/v1/evm_indexer_pb";
 import { PAGE, str, type Resource } from "./types";
-import { gitRefOptions } from "./options";
+import { gitRefOptions, pluginPathOptions } from "./options";
 
 // Plugins install from a git repository only: the server clones it at the chosen
-// branch/tag and builds the RelativePath package.
+// branch/tag and builds the package at `path` (the repo root when empty), so one
+// repository can host several plugins.
 export const plugins: Resource<Plugin> = {
   key: "plugins",
   title: "Plugins",
@@ -21,11 +22,20 @@ export const plugins: Resource<Plugin> = {
       depends: ["gitUrl"],
       help: "Fetched from the repository — empty uses the default branch",
     },
+    {
+      name: "path",
+      label: "Path in repository",
+      type: "combo",
+      loadOptions: pluginPathOptions,
+      depends: ["gitUrl", "gitRef"],
+      placeholder: "exporters/my-plugin",
+      help: "Directory holding the plugin's main package — empty builds the repo root. Suggestions come from the repo's plugin catalog.",
+    },
   ],
   columns: [
     { label: "ID", get: (p) => String(p.id ?? "") },
     { label: "Name", get: (p) => p.name },
-    { label: "Source", get: (p) => (p.gitUrl ? (p.gitRef ? `${p.gitUrl} @ ${p.gitRef}` : p.gitUrl) : "—"), mono: true },
+    { label: "Source", get: (p) => pluginSource(p), mono: true },
     {
       label: "Status",
       get: (p) => p.status || "NOT_INSTALLED",
@@ -55,6 +65,7 @@ export const plugins: Resource<Plugin> = {
     description: p.description,
     gitUrl: p.gitUrl,
     gitRef: p.gitRef,
+    path: p.path,
   }),
   actions: [
     // Build the plugin executable; the row's status reflects the outcome on refresh.
@@ -68,5 +79,13 @@ function pluginFromForm(v: Parameters<Resource<Plugin>["create"]>[0]) {
     description: str(v, "description"),
     gitUrl: str(v, "gitUrl"),
     gitRef: str(v, "gitRef"),
+    path: str(v, "path"),
   };
+}
+
+// "<git url> @ <ref> · <path>" — the full build target of the plugin, skipping
+// the parts that are defaulted (default branch, repo root).
+function pluginSource(p: Plugin): string {
+  if (!p.gitUrl) return "—";
+  return `${p.gitUrl}${p.gitRef ? ` @ ${p.gitRef}` : ""}${p.path ? ` · ${p.path}` : ""}`;
 }

@@ -40,11 +40,21 @@ type PluginStorageConfig struct {
 	InstallDir string `json:"installDir"`
 }
 
+// ConfigPlugin declares a git-hosted exporter plugin to import (and build) on
+// startup. It either names a single plugin, or — with Catalog set — a repository
+// whose catalog file lists several.
 type ConfigPlugin struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	GitUrl      string `json:"gitUrl"`
 	GitRef      string `json:"gitRef"`
+	// Path is the subdirectory of the repository holding the plugin's `main`
+	// package (empty = the repo root), so one repository can host several plugins.
+	Path string `json:"path"`
+	// Catalog imports every plugin declared by the repository's catalog file
+	// (evmi-plugins.json or .evmi/plugins.json) instead of this single entry. Name,
+	// Description and Path are then taken from the catalog and ignored here.
+	Catalog bool `json:"catalog"`
 }
 
 // AutoloadResources declares metadata-DB resources to create on startup with a

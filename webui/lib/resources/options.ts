@@ -28,6 +28,20 @@ export const gitRefOptions = async (values: FormValues): Promise<Option[]> => {
   return opts;
 };
 
+// pluginPathOptions suggests the in-repo paths a plugin repository declares in
+// its catalog file (evmi-plugins.json / .evmi/plugins.json), for the plugin's
+// "path" combo. A repo without a catalog simply yields no suggestion — the field
+// is free text, so the path can always be typed by hand.
+export const pluginPathOptions = async (values: FormValues): Promise<Option[]> => {
+  const gitUrl = String(values.gitUrl ?? "").trim();
+  if (!gitUrl) return [];
+  const r = await client.listPluginCatalog({ gitUrl, gitRef: String(values.gitRef ?? "").trim() });
+  return (r.entries ?? []).map((e) => ({
+    value: e.path,
+    label: e.description ? `${e.name} — ${e.description}` : e.name,
+  }));
+};
+
 // A single ABI entry (function/event/…) as parsed from the stored JSON.
 type AbiParam = { name?: string; type: string; indexed?: boolean; components?: AbiParam[] };
 type AbiItem = { type: string; name?: string; inputs?: AbiParam[] };

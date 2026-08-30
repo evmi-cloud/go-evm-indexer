@@ -14,11 +14,17 @@ var errPluginInUse = errors.New("plugin is referenced by one or more exporters")
 
 // CreatePlugin implements evm_indexerv1connect.EvmIndexerServiceHandler.
 func (e *EvmIndexerServer) CreatePlugin(ctx context.Context, req *connect.Request[evm_indexerv1.CreatePluginRequest]) (*connect.Response[evm_indexerv1.CreatePluginResponse], error) {
+	subPath, err := exporter.ValidatePluginPath(req.Msg.Plugin.Path)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	plugin := evmi_database.Plugin{
 		Name:        req.Msg.Plugin.Name,
 		Description: req.Msg.Plugin.Description,
 		GitUrl:      req.Msg.Plugin.GitUrl,
 		GitRef:      req.Msg.Plugin.GitRef,
+		Path:        subPath,
 		Status:      string(evmi_database.NotInstalledPluginStatus),
 	}
 	if result := e.db.Conn.Create(&plugin); result.Error != nil {
@@ -39,18 +45,27 @@ func (e *EvmIndexerServer) GetPlugin(ctx context.Context, req *connect.Request[e
 // UpdatePlugin implements evm_indexerv1connect.EvmIndexerServiceHandler. Changing
 // the source resets the plugin to NOT_INSTALLED so it must be reinstalled.
 func (e *EvmIndexerServer) UpdatePlugin(ctx context.Context, req *connect.Request[evm_indexerv1.UpdatePluginRequest]) (*connect.Response[evm_indexerv1.UpdatePluginResponse], error) {
+	subPath, err := exporter.ValidatePluginPath(req.Msg.Plugin.Path)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	var plugin evmi_database.Plugin
 	if result := e.db.Conn.First(&plugin, req.Msg.Plugin.Id); result.Error != nil {
 		return nil, dbError(result.Error)
 	}
 
+	// The in-repo path is part of the source: pointing the plugin at another
+	// directory of the same repo builds different code.
 	sourceChanged := plugin.GitUrl != req.Msg.Plugin.GitUrl ||
-		plugin.GitRef != req.Msg.Plugin.GitRef
+		plugin.GitRef != req.Msg.Plugin.GitRef ||
+		plugin.Path != subPath
 
 	plugin.Name = req.Msg.Plugin.Name
 	plugin.Description = req.Msg.Plugin.Description
 	plugin.GitUrl = req.Msg.Plugin.GitUrl
 	plugin.GitRef = req.Msg.Plugin.GitRef
+	plugin.Path = subPath
 	if sourceChanged {
 		plugin.Status = string(evmi_database.NotInstalledPluginStatus)
 		plugin.BinaryPath = ""
@@ -133,6 +148,31 @@ func (e *EvmIndexerServer) ListPluginGitRefs(ctx context.Context, req *connect.R
 	}), nil
 }
 
+// ListPluginCatalog lists the plugins a repository declares in its catalog file
+// (the server shallow-clones it into a temp dir and reads the catalog), so the UI
+// can offer them when a single repo hosts several plugins. A repo without a
+// catalog returns no entries rather than an error — the path is then typed by
+// hand.
+func (e *EvmIndexerServer) ListPluginCatalog(ctx context.Context, req *connect.Request[evm_indexerv1.ListPluginCatalogRequest]) (*connect.Response[evm_indexerv1.ListPluginCatalogResponse], error) {
+	entries, catalogPath, err := exporter.FetchPluginCatalog(req.Msg.GitUrl, req.Msg.GitRef, e.logger)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	out := make([]*evm_indexerv1.PluginCatalogEntry, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, &evm_indexerv1.PluginCatalogEntry{
+			Name:        entry.Name,
+			Description: entry.Description,
+			Path:        entry.Path,
+		})
+	}
+	return connect.NewResponse(&evm_indexerv1.ListPluginCatalogResponse{
+		Entries:     out,
+		CatalogPath: catalogPath,
+	}), nil
+}
+
 func toGrpcPlugin(p evmi_database.Plugin) *evm_indexerv1.Plugin {
 	id := uint32(p.ID)
 	createdAt := uint32(p.CreatedAt.Unix())
@@ -145,6 +185,7 @@ func toGrpcPlugin(p evmi_database.Plugin) *evm_indexerv1.Plugin {
 		Description:      p.Description,
 		GitUrl:           p.GitUrl,
 		GitRef:           p.GitRef,
+		Path:             p.Path,
 		BinaryPath:       p.BinaryPath,
 		Status:           p.Status,
 		Error:            p.Error,

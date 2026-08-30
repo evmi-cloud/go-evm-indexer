@@ -5951,6 +5951,9 @@ type Plugin struct {
 	Status     string `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
 	Error      string `protobuf:"bytes,9,opt,name=error,proto3" json:"error,omitempty"`
 	GitRef     string `protobuf:"bytes,14,opt,name=git_ref,json=gitRef,proto3" json:"git_ref,omitempty"` // optional branch or tag to clone (empty = default branch)
+	// Subdirectory of the repository holding the plugin's `main` package
+	// (empty = the repo root), so one repo can host several plugins.
+	Path string `protobuf:"bytes,15,opt,name=path,proto3" json:"path,omitempty"`
 	// Declared config schema (JSON array of {name,type,required,description,default}),
 	// extracted from the plugin at install time. Read-only.
 	ConfigSchemaJson string  `protobuf:"bytes,13,opt,name=config_schema_json,json=configSchemaJson,proto3" json:"config_schema_json,omitempty"`
@@ -6041,6 +6044,13 @@ func (x *Plugin) GetError() string {
 func (x *Plugin) GetGitRef() string {
 	if x != nil {
 		return x.GitRef
+	}
+	return ""
+}
+
+func (x *Plugin) GetPath() string {
+	if x != nil {
+		return x.Path
 	}
 	return ""
 }
@@ -6711,6 +6721,179 @@ func (x *ListPluginGitRefsResponse) GetTags() []string {
 	return nil
 }
 
+// One plugin declared by a repository's plugin catalog file.
+type PluginCatalogEntry struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Subdirectory of the repository holding this plugin's `main` package.
+	Path string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+}
+
+func (x *PluginCatalogEntry) Reset() {
+	*x = PluginCatalogEntry{}
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PluginCatalogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PluginCatalogEntry) ProtoMessage() {}
+
+func (x *PluginCatalogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PluginCatalogEntry.ProtoReflect.Descriptor instead.
+func (*PluginCatalogEntry) Descriptor() ([]byte, []int) {
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{125}
+}
+
+func (x *PluginCatalogEntry) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PluginCatalogEntry) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *PluginCatalogEntry) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+// Lists the plugins a repository declares in its catalog file (the server
+// shallow-clones it and reads evmi-plugins.json / .evmi/plugins.json), so a repo
+// hosting several plugins can be browsed instead of guessing paths.
+type ListPluginCatalogRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	GitUrl string `protobuf:"bytes,1,opt,name=git_url,json=gitUrl,proto3" json:"git_url,omitempty"`
+	GitRef string `protobuf:"bytes,2,opt,name=git_ref,json=gitRef,proto3" json:"git_ref,omitempty"` // optional branch or tag (empty = default branch)
+}
+
+func (x *ListPluginCatalogRequest) Reset() {
+	*x = ListPluginCatalogRequest{}
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[126]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPluginCatalogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPluginCatalogRequest) ProtoMessage() {}
+
+func (x *ListPluginCatalogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[126]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPluginCatalogRequest.ProtoReflect.Descriptor instead.
+func (*ListPluginCatalogRequest) Descriptor() ([]byte, []int) {
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{126}
+}
+
+func (x *ListPluginCatalogRequest) GetGitUrl() string {
+	if x != nil {
+		return x.GitUrl
+	}
+	return ""
+}
+
+func (x *ListPluginCatalogRequest) GetGitRef() string {
+	if x != nil {
+		return x.GitRef
+	}
+	return ""
+}
+
+type ListPluginCatalogResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Entries []*PluginCatalogEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	// Catalog file that was found, empty when the repository declares none.
+	CatalogPath string `protobuf:"bytes,2,opt,name=catalog_path,json=catalogPath,proto3" json:"catalog_path,omitempty"`
+}
+
+func (x *ListPluginCatalogResponse) Reset() {
+	*x = ListPluginCatalogResponse{}
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPluginCatalogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPluginCatalogResponse) ProtoMessage() {}
+
+func (x *ListPluginCatalogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPluginCatalogResponse.ProtoReflect.Descriptor instead.
+func (*ListPluginCatalogResponse) Descriptor() ([]byte, []int) {
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *ListPluginCatalogResponse) GetEntries() []*PluginCatalogEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+func (x *ListPluginCatalogResponse) GetCatalogPath() string {
+	if x != nil {
+		return x.CatalogPath
+	}
+	return ""
+}
+
 type CreateEvmiExporterRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -6721,7 +6904,7 @@ type CreateEvmiExporterRequest struct {
 
 func (x *CreateEvmiExporterRequest) Reset() {
 	*x = CreateEvmiExporterRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[125]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6733,7 +6916,7 @@ func (x *CreateEvmiExporterRequest) String() string {
 func (*CreateEvmiExporterRequest) ProtoMessage() {}
 
 func (x *CreateEvmiExporterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[125]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6746,7 +6929,7 @@ func (x *CreateEvmiExporterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEvmiExporterRequest.ProtoReflect.Descriptor instead.
 func (*CreateEvmiExporterRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{125}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *CreateEvmiExporterRequest) GetExporter() *EvmiExporter {
@@ -6766,7 +6949,7 @@ type CreateEvmiExporterResponse struct {
 
 func (x *CreateEvmiExporterResponse) Reset() {
 	*x = CreateEvmiExporterResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[126]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6778,7 +6961,7 @@ func (x *CreateEvmiExporterResponse) String() string {
 func (*CreateEvmiExporterResponse) ProtoMessage() {}
 
 func (x *CreateEvmiExporterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[126]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6791,7 +6974,7 @@ func (x *CreateEvmiExporterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEvmiExporterResponse.ProtoReflect.Descriptor instead.
 func (*CreateEvmiExporterResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{126}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *CreateEvmiExporterResponse) GetId() uint32 {
@@ -6811,7 +6994,7 @@ type GetEvmiExporterRequest struct {
 
 func (x *GetEvmiExporterRequest) Reset() {
 	*x = GetEvmiExporterRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[127]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6823,7 +7006,7 @@ func (x *GetEvmiExporterRequest) String() string {
 func (*GetEvmiExporterRequest) ProtoMessage() {}
 
 func (x *GetEvmiExporterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[127]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6836,7 +7019,7 @@ func (x *GetEvmiExporterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEvmiExporterRequest.ProtoReflect.Descriptor instead.
 func (*GetEvmiExporterRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{127}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *GetEvmiExporterRequest) GetId() uint32 {
@@ -6856,7 +7039,7 @@ type GetEvmiExporterResponse struct {
 
 func (x *GetEvmiExporterResponse) Reset() {
 	*x = GetEvmiExporterResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[128]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6868,7 +7051,7 @@ func (x *GetEvmiExporterResponse) String() string {
 func (*GetEvmiExporterResponse) ProtoMessage() {}
 
 func (x *GetEvmiExporterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[128]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6881,7 +7064,7 @@ func (x *GetEvmiExporterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEvmiExporterResponse.ProtoReflect.Descriptor instead.
 func (*GetEvmiExporterResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{128}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *GetEvmiExporterResponse) GetExporter() *EvmiExporter {
@@ -6901,7 +7084,7 @@ type UpdateEvmiExporterRequest struct {
 
 func (x *UpdateEvmiExporterRequest) Reset() {
 	*x = UpdateEvmiExporterRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[129]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6913,7 +7096,7 @@ func (x *UpdateEvmiExporterRequest) String() string {
 func (*UpdateEvmiExporterRequest) ProtoMessage() {}
 
 func (x *UpdateEvmiExporterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[129]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6926,7 +7109,7 @@ func (x *UpdateEvmiExporterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEvmiExporterRequest.ProtoReflect.Descriptor instead.
 func (*UpdateEvmiExporterRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{129}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *UpdateEvmiExporterRequest) GetExporter() *EvmiExporter {
@@ -6944,7 +7127,7 @@ type UpdateEvmiExporterResponse struct {
 
 func (x *UpdateEvmiExporterResponse) Reset() {
 	*x = UpdateEvmiExporterResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[130]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6956,7 +7139,7 @@ func (x *UpdateEvmiExporterResponse) String() string {
 func (*UpdateEvmiExporterResponse) ProtoMessage() {}
 
 func (x *UpdateEvmiExporterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[130]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6969,7 +7152,7 @@ func (x *UpdateEvmiExporterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEvmiExporterResponse.ProtoReflect.Descriptor instead.
 func (*UpdateEvmiExporterResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{130}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{133}
 }
 
 type ListEvmiExportersRequest struct {
@@ -6983,7 +7166,7 @@ type ListEvmiExportersRequest struct {
 
 func (x *ListEvmiExportersRequest) Reset() {
 	*x = ListEvmiExportersRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[131]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6995,7 +7178,7 @@ func (x *ListEvmiExportersRequest) String() string {
 func (*ListEvmiExportersRequest) ProtoMessage() {}
 
 func (x *ListEvmiExportersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[131]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7008,7 +7191,7 @@ func (x *ListEvmiExportersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEvmiExportersRequest.ProtoReflect.Descriptor instead.
 func (*ListEvmiExportersRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{131}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *ListEvmiExportersRequest) GetPagination() *Pagination {
@@ -7035,7 +7218,7 @@ type ListEvmiExportersResponse struct {
 
 func (x *ListEvmiExportersResponse) Reset() {
 	*x = ListEvmiExportersResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[132]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7047,7 +7230,7 @@ func (x *ListEvmiExportersResponse) String() string {
 func (*ListEvmiExportersResponse) ProtoMessage() {}
 
 func (x *ListEvmiExportersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[132]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7060,7 +7243,7 @@ func (x *ListEvmiExportersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEvmiExportersResponse.ProtoReflect.Descriptor instead.
 func (*ListEvmiExportersResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{132}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *ListEvmiExportersResponse) GetExporters() []*EvmiExporter {
@@ -7080,7 +7263,7 @@ type DeleteEvmiExporterRequest struct {
 
 func (x *DeleteEvmiExporterRequest) Reset() {
 	*x = DeleteEvmiExporterRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[133]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7092,7 +7275,7 @@ func (x *DeleteEvmiExporterRequest) String() string {
 func (*DeleteEvmiExporterRequest) ProtoMessage() {}
 
 func (x *DeleteEvmiExporterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[133]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7105,7 +7288,7 @@ func (x *DeleteEvmiExporterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEvmiExporterRequest.ProtoReflect.Descriptor instead.
 func (*DeleteEvmiExporterRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{133}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *DeleteEvmiExporterRequest) GetId() uint32 {
@@ -7123,7 +7306,7 @@ type DeleteEvmiExporterResponse struct {
 
 func (x *DeleteEvmiExporterResponse) Reset() {
 	*x = DeleteEvmiExporterResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[134]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7135,7 +7318,7 @@ func (x *DeleteEvmiExporterResponse) String() string {
 func (*DeleteEvmiExporterResponse) ProtoMessage() {}
 
 func (x *DeleteEvmiExporterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[134]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7148,7 +7331,7 @@ func (x *DeleteEvmiExporterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEvmiExporterResponse.ProtoReflect.Descriptor instead.
 func (*DeleteEvmiExporterResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{134}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{137}
 }
 
 type StartExporterRequest struct {
@@ -7161,7 +7344,7 @@ type StartExporterRequest struct {
 
 func (x *StartExporterRequest) Reset() {
 	*x = StartExporterRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[135]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7173,7 +7356,7 @@ func (x *StartExporterRequest) String() string {
 func (*StartExporterRequest) ProtoMessage() {}
 
 func (x *StartExporterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[135]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7186,7 +7369,7 @@ func (x *StartExporterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartExporterRequest.ProtoReflect.Descriptor instead.
 func (*StartExporterRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{135}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *StartExporterRequest) GetId() uint32 {
@@ -7207,7 +7390,7 @@ type StartExporterResponse struct {
 
 func (x *StartExporterResponse) Reset() {
 	*x = StartExporterResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[136]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7219,7 +7402,7 @@ func (x *StartExporterResponse) String() string {
 func (*StartExporterResponse) ProtoMessage() {}
 
 func (x *StartExporterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[136]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7232,7 +7415,7 @@ func (x *StartExporterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartExporterResponse.ProtoReflect.Descriptor instead.
 func (*StartExporterResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{136}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *StartExporterResponse) GetSuccess() bool {
@@ -7259,7 +7442,7 @@ type StopExporterRequest struct {
 
 func (x *StopExporterRequest) Reset() {
 	*x = StopExporterRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[137]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7271,7 +7454,7 @@ func (x *StopExporterRequest) String() string {
 func (*StopExporterRequest) ProtoMessage() {}
 
 func (x *StopExporterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[137]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7284,7 +7467,7 @@ func (x *StopExporterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopExporterRequest.ProtoReflect.Descriptor instead.
 func (*StopExporterRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{137}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *StopExporterRequest) GetId() uint32 {
@@ -7305,7 +7488,7 @@ type StopExporterResponse struct {
 
 func (x *StopExporterResponse) Reset() {
 	*x = StopExporterResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[138]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7317,7 +7500,7 @@ func (x *StopExporterResponse) String() string {
 func (*StopExporterResponse) ProtoMessage() {}
 
 func (x *StopExporterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[138]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7330,7 +7513,7 @@ func (x *StopExporterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopExporterResponse.ProtoReflect.Descriptor instead.
 func (*StopExporterResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{138}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *StopExporterResponse) GetSuccess() bool {
@@ -7358,7 +7541,7 @@ type StreamEvmiExporterUpdatesRequest struct {
 
 func (x *StreamEvmiExporterUpdatesRequest) Reset() {
 	*x = StreamEvmiExporterUpdatesRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[139]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7370,7 +7553,7 @@ func (x *StreamEvmiExporterUpdatesRequest) String() string {
 func (*StreamEvmiExporterUpdatesRequest) ProtoMessage() {}
 
 func (x *StreamEvmiExporterUpdatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[139]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7383,7 +7566,7 @@ func (x *StreamEvmiExporterUpdatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEvmiExporterUpdatesRequest.ProtoReflect.Descriptor instead.
 func (*StreamEvmiExporterUpdatesRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{139}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *StreamEvmiExporterUpdatesRequest) GetPipelineId() uint32 {
@@ -7426,7 +7609,7 @@ type EvmiExporterSourceCursor struct {
 
 func (x *EvmiExporterSourceCursor) Reset() {
 	*x = EvmiExporterSourceCursor{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[140]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7438,7 +7621,7 @@ func (x *EvmiExporterSourceCursor) String() string {
 func (*EvmiExporterSourceCursor) ProtoMessage() {}
 
 func (x *EvmiExporterSourceCursor) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[140]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7451,7 +7634,7 @@ func (x *EvmiExporterSourceCursor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvmiExporterSourceCursor.ProtoReflect.Descriptor instead.
 func (*EvmiExporterSourceCursor) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{140}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *EvmiExporterSourceCursor) GetExporterId() uint32 {
@@ -7548,7 +7731,7 @@ type ListEvmiExporterSourceCursorsRequest struct {
 
 func (x *ListEvmiExporterSourceCursorsRequest) Reset() {
 	*x = ListEvmiExporterSourceCursorsRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[141]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7560,7 +7743,7 @@ func (x *ListEvmiExporterSourceCursorsRequest) String() string {
 func (*ListEvmiExporterSourceCursorsRequest) ProtoMessage() {}
 
 func (x *ListEvmiExporterSourceCursorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[141]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7573,7 +7756,7 @@ func (x *ListEvmiExporterSourceCursorsRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ListEvmiExporterSourceCursorsRequest.ProtoReflect.Descriptor instead.
 func (*ListEvmiExporterSourceCursorsRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{141}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *ListEvmiExporterSourceCursorsRequest) GetExporterId() uint32 {
@@ -7593,7 +7776,7 @@ type ListEvmiExporterSourceCursorsResponse struct {
 
 func (x *ListEvmiExporterSourceCursorsResponse) Reset() {
 	*x = ListEvmiExporterSourceCursorsResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[142]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7605,7 +7788,7 @@ func (x *ListEvmiExporterSourceCursorsResponse) String() string {
 func (*ListEvmiExporterSourceCursorsResponse) ProtoMessage() {}
 
 func (x *ListEvmiExporterSourceCursorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[142]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7618,7 +7801,7 @@ func (x *ListEvmiExporterSourceCursorsResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ListEvmiExporterSourceCursorsResponse.ProtoReflect.Descriptor instead.
 func (*ListEvmiExporterSourceCursorsResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{142}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *ListEvmiExporterSourceCursorsResponse) GetCursors() []*EvmiExporterSourceCursor {
@@ -7639,7 +7822,7 @@ type StreamEvmiExporterSourceCursorsRequest struct {
 
 func (x *StreamEvmiExporterSourceCursorsRequest) Reset() {
 	*x = StreamEvmiExporterSourceCursorsRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[143]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7651,7 +7834,7 @@ func (x *StreamEvmiExporterSourceCursorsRequest) String() string {
 func (*StreamEvmiExporterSourceCursorsRequest) ProtoMessage() {}
 
 func (x *StreamEvmiExporterSourceCursorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[143]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7664,7 +7847,7 @@ func (x *StreamEvmiExporterSourceCursorsRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use StreamEvmiExporterSourceCursorsRequest.ProtoReflect.Descriptor instead.
 func (*StreamEvmiExporterSourceCursorsRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{143}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *StreamEvmiExporterSourceCursorsRequest) GetExporterId() uint32 {
@@ -7682,7 +7865,7 @@ type ExportConfigurationRequest struct {
 
 func (x *ExportConfigurationRequest) Reset() {
 	*x = ExportConfigurationRequest{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[144]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7694,7 +7877,7 @@ func (x *ExportConfigurationRequest) String() string {
 func (*ExportConfigurationRequest) ProtoMessage() {}
 
 func (x *ExportConfigurationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[144]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7707,7 +7890,7 @@ func (x *ExportConfigurationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportConfigurationRequest.ProtoReflect.Descriptor instead.
 func (*ExportConfigurationRequest) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{144}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{147}
 }
 
 type ExportConfigurationResponse struct {
@@ -7724,7 +7907,7 @@ type ExportConfigurationResponse struct {
 
 func (x *ExportConfigurationResponse) Reset() {
 	*x = ExportConfigurationResponse{}
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[145]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7736,7 +7919,7 @@ func (x *ExportConfigurationResponse) String() string {
 func (*ExportConfigurationResponse) ProtoMessage() {}
 
 func (x *ExportConfigurationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[145]
+	mi := &file_evm_indexer_v1_evm_indexer_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7749,7 +7932,7 @@ func (x *ExportConfigurationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportConfigurationResponse.ProtoReflect.Descriptor instead.
 func (*ExportConfigurationResponse) Descriptor() ([]byte, []int) {
-	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{145}
+	return file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *ExportConfigurationResponse) GetConfigJson() string {
@@ -8466,7 +8649,7 @@ var file_evm_indexer_v1_evm_indexer_proto_rawDesc = []byte{
 	0x0a, 0x03, 0x5f, 0x69, 0x64, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65,
 	0x64, 0x5f, 0x61, 0x74, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x64,
 	0x5f, 0x61, 0x74, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x5f,
-	0x61, 0x74, 0x22, 0xae, 0x03, 0x0a, 0x06, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x12, 0x13, 0x0a,
+	0x61, 0x74, 0x22, 0xc2, 0x03, 0x0a, 0x06, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x12, 0x13, 0x0a,
 	0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x48, 0x00, 0x52, 0x02, 0x69, 0x64, 0x88,
 	0x01, 0x01, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
 	0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69,
@@ -8479,70 +8662,90 @@ var file_evm_indexer_v1_evm_indexer_proto_rawDesc = []byte{
 	0x28, 0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x72,
 	0x72, 0x6f, 0x72, 0x18, 0x09, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72,
 	0x12, 0x17, 0x0a, 0x07, 0x67, 0x69, 0x74, 0x5f, 0x72, 0x65, 0x66, 0x18, 0x0e, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x06, 0x67, 0x69, 0x74, 0x52, 0x65, 0x66, 0x12, 0x2c, 0x0a, 0x12, 0x63, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x5f, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x5f, 0x6a, 0x73, 0x6f, 0x6e, 0x18,
-	0x0d, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x63, 0x68,
-	0x65, 0x6d, 0x61, 0x4a, 0x73, 0x6f, 0x6e, 0x12, 0x22, 0x0a, 0x0a, 0x63, 0x72, 0x65, 0x61, 0x74,
-	0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0d, 0x48, 0x01, 0x52, 0x09, 0x63,
-	0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x41, 0x74, 0x88, 0x01, 0x01, 0x12, 0x22, 0x0a, 0x0a, 0x75,
-	0x70, 0x64, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x0d, 0x48,
-	0x02, 0x52, 0x09, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x64, 0x41, 0x74, 0x88, 0x01, 0x01, 0x12,
-	0x22, 0x0a, 0x0a, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x0c, 0x20,
-	0x01, 0x28, 0x0d, 0x48, 0x03, 0x52, 0x09, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x41, 0x74,
-	0x88, 0x01, 0x01, 0x42, 0x05, 0x0a, 0x03, 0x5f, 0x69, 0x64, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x63,
-	0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x75, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x64, 0x65, 0x6c,
-	0x65, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x4a, 0x04, 0x08, 0x05, 0x10, 0x06, 0x4a, 0x04, 0x08,
-	0x06, 0x10, 0x07, 0x22, 0x45, 0x0a, 0x13, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x50, 0x6c, 0x75,
-	0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2e, 0x0a, 0x06, 0x70, 0x6c,
-	0x75, 0x67, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x65, 0x76, 0x6d,
-	0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6c, 0x75, 0x67,
-	0x69, 0x6e, 0x52, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x22, 0x26, 0x0a, 0x14, 0x43, 0x72,
-	0x65, 0x61, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02,
-	0x69, 0x64, 0x22, 0x22, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0d, 0x52, 0x02, 0x69, 0x64, 0x22, 0x43, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x50, 0x6c, 0x75,
-	0x67, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2e, 0x0a, 0x06, 0x70,
-	0x6c, 0x75, 0x67, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x65, 0x76,
-	0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6c, 0x75,
-	0x67, 0x69, 0x6e, 0x52, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x22, 0x45, 0x0a, 0x13, 0x55,
-	0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x12, 0x2e, 0x0a, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x16, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72,
-	0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x06, 0x70, 0x6c, 0x75, 0x67,
-	0x69, 0x6e, 0x22, 0x16, 0x0a, 0x14, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67,
-	0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x50, 0x0a, 0x12, 0x4c, 0x69,
-	0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x3a, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78,
-	0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x47, 0x0a, 0x13,
-	0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x30, 0x0a, 0x07, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x18, 0x01,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78,
-	0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x07, 0x70, 0x6c,
-	0x75, 0x67, 0x69, 0x6e, 0x73, 0x22, 0x25, 0x0a, 0x13, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x50,
-	0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02,
-	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02, 0x69, 0x64, 0x22, 0x16, 0x0a, 0x14,
-	0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x26, 0x0a, 0x14, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x50,
-	0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02,
-	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02, 0x69, 0x64, 0x22, 0x5f, 0x0a, 0x15,
-	0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x12,
-	0x14, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
-	0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18,
-	0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x33, 0x0a,
-	0x18, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x47, 0x69, 0x74, 0x52, 0x65,
-	0x66, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x69, 0x74,
-	0x5f, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x69, 0x74, 0x55,
-	0x72, 0x6c, 0x22, 0x4b, 0x0a, 0x19, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e,
-	0x47, 0x69, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x1a, 0x0a, 0x08, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x09, 0x52, 0x08, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x12, 0x12, 0x0a, 0x04, 0x74,
-	0x61, 0x67, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x74, 0x61, 0x67, 0x73, 0x22,
+	0x09, 0x52, 0x06, 0x67, 0x69, 0x74, 0x52, 0x65, 0x66, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74,
+	0x68, 0x18, 0x0f, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x12, 0x2c, 0x0a,
+	0x12, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x5f, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x5f, 0x6a,
+	0x73, 0x6f, 0x6e, 0x18, 0x0d, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x63, 0x6f, 0x6e, 0x66, 0x69,
+	0x67, 0x53, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x4a, 0x73, 0x6f, 0x6e, 0x12, 0x22, 0x0a, 0x0a, 0x63,
+	0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0d, 0x48,
+	0x01, 0x52, 0x09, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x41, 0x74, 0x88, 0x01, 0x01, 0x12,
+	0x22, 0x0a, 0x0a, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x0b, 0x20,
+	0x01, 0x28, 0x0d, 0x48, 0x02, 0x52, 0x09, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x64, 0x41, 0x74,
+	0x88, 0x01, 0x01, 0x12, 0x22, 0x0a, 0x0a, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x5f, 0x61,
+	0x74, 0x18, 0x0c, 0x20, 0x01, 0x28, 0x0d, 0x48, 0x03, 0x52, 0x09, 0x64, 0x65, 0x6c, 0x65, 0x74,
+	0x65, 0x64, 0x41, 0x74, 0x88, 0x01, 0x01, 0x42, 0x05, 0x0a, 0x03, 0x5f, 0x69, 0x64, 0x42, 0x0d,
+	0x0a, 0x0b, 0x5f, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x42, 0x0d, 0x0a,
+	0x0b, 0x5f, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x42, 0x0d, 0x0a, 0x0b,
+	0x5f, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x4a, 0x04, 0x08, 0x05, 0x10,
+	0x06, 0x4a, 0x04, 0x08, 0x06, 0x10, 0x07, 0x22, 0x45, 0x0a, 0x13, 0x43, 0x72, 0x65, 0x61, 0x74,
+	0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2e,
+	0x0a, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16,
+	0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e,
+	0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x22, 0x26,
+	0x0a, 0x14, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0d, 0x52, 0x02, 0x69, 0x64, 0x22, 0x22, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x50, 0x6c, 0x75,
+	0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02, 0x69, 0x64, 0x22, 0x43, 0x0a, 0x11, 0x47, 0x65,
+	0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+	0x2e, 0x0a, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x16, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x22,
+	0x45, 0x0a, 0x13, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2e, 0x0a, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64,
+	0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x06,
+	0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x22, 0x16, 0x0a, 0x14, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x50,
+	0x0a, 0x12, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x3a, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69,
+	0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x67, 0x69, 0x6e, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x22, 0x47, 0x0a, 0x13, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x30, 0x0a, 0x07, 0x70, 0x6c, 0x75, 0x67, 0x69,
+	0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69,
+	0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e,
+	0x52, 0x07, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x22, 0x25, 0x0a, 0x13, 0x44, 0x65, 0x6c,
+	0x65, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02, 0x69, 0x64,
+	0x22, 0x16, 0x0a, 0x14, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x26, 0x0a, 0x14, 0x49, 0x6e, 0x73, 0x74,
+	0x61, 0x6c, 0x6c, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02, 0x69, 0x64,
+	0x22, 0x5f, 0x0a, 0x15, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x50, 0x6c, 0x75, 0x67, 0x69,
+	0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x73, 0x75, 0x63,
+	0x63, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x73, 0x75, 0x63, 0x63,
+	0x65, 0x73, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75,
+	0x73, 0x22, 0x33, 0x0a, 0x18, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x47,
+	0x69, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x0a,
+	0x07, 0x67, 0x69, 0x74, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06,
+	0x67, 0x69, 0x74, 0x55, 0x72, 0x6c, 0x22, 0x4b, 0x0a, 0x19, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c,
+	0x75, 0x67, 0x69, 0x6e, 0x47, 0x69, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x12,
+	0x12, 0x0a, 0x04, 0x74, 0x61, 0x67, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x74,
+	0x61, 0x67, 0x73, 0x22, 0x5e, 0x0a, 0x12, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x43, 0x61, 0x74,
+	0x61, 0x6c, 0x6f, 0x67, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d,
+	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x20, 0x0a,
+	0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12,
+	0x12, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70,
+	0x61, 0x74, 0x68, 0x22, 0x4c, 0x0a, 0x18, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69,
+	0x6e, 0x43, 0x61, 0x74, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x17, 0x0a, 0x07, 0x67, 0x69, 0x74, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x06, 0x67, 0x69, 0x74, 0x55, 0x72, 0x6c, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x69, 0x74, 0x5f,
+	0x72, 0x65, 0x66, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x69, 0x74, 0x52, 0x65,
+	0x66, 0x22, 0x7c, 0x0a, 0x19, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x43,
+	0x61, 0x74, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3c,
+	0x0a, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x22, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x43, 0x61, 0x74, 0x61, 0x6c, 0x6f, 0x67, 0x45, 0x6e,
+	0x74, 0x72, 0x79, 0x52, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x12, 0x21, 0x0a, 0x0c,
+	0x63, 0x61, 0x74, 0x61, 0x6c, 0x6f, 0x67, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x0b, 0x63, 0x61, 0x74, 0x61, 0x6c, 0x6f, 0x67, 0x50, 0x61, 0x74, 0x68, 0x22,
 	0x55, 0x0a, 0x19, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x45, 0x76, 0x6d, 0x69, 0x45, 0x78, 0x70,
 	0x6f, 0x72, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x08,
 	0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1c,
@@ -8653,7 +8856,7 @@ var file_evm_indexer_v1_evm_indexer_proto_rawDesc = []byte{
 	0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65,
 	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x5f, 0x6a, 0x73, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x63, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x4a, 0x73, 0x6f, 0x6e, 0x32, 0xc6, 0x34, 0x0a, 0x11, 0x45, 0x76, 0x6d, 0x49,
+	0x66, 0x69, 0x67, 0x4a, 0x73, 0x6f, 0x6e, 0x32, 0xb0, 0x35, 0x0a, 0x11, 0x45, 0x76, 0x6d, 0x49,
 	0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x62, 0x0a,
 	0x0f, 0x47, 0x65, 0x74, 0x45, 0x76, 0x6d, 0x69, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65,
 	0x12, 0x26, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76,
@@ -9067,27 +9270,34 @@ var file_evm_indexer_v1_evm_indexer_proto_rawDesc = []byte{
 	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65,
 	0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69,
 	0x6e, 0x47, 0x69, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x6e, 0x0a, 0x13, 0x45, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2a, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e,
-	0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65,
-	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69,
-	0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x42, 0xd5, 0x01, 0x0a, 0x12, 0x63, 0x6f, 0x6d, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64,
-	0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x0f, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64, 0x65,
-	0x78, 0x65, 0x72, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x59, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x65, 0x76, 0x6d, 0x69, 0x2d, 0x63, 0x6c, 0x6f, 0x75,
-	0x64, 0x2f, 0x67, 0x6f, 0x2d, 0x65, 0x76, 0x6d, 0x2d, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72,
-	0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x67,
-	0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x64, 0x2f, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64,
-	0x65, 0x78, 0x65, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65,
-	0x78, 0x65, 0x72, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x45, 0x58, 0x58, 0xaa, 0x02, 0x0d, 0x45, 0x76,
-	0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0d, 0x45, 0x76,
-	0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x19, 0x45, 0x76,
-	0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d,
-	0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0e, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64,
-	0x65, 0x78, 0x65, 0x72, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x12, 0x68, 0x0a, 0x11, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x43, 0x61,
+	0x74, 0x61, 0x6c, 0x6f, 0x67, 0x12, 0x28, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65,
+	0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69,
+	0x6e, 0x43, 0x61, 0x74, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x29, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x43, 0x61, 0x74, 0x61, 0x6c,
+	0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x6e, 0x0a, 0x13, 0x45, 0x78,
+	0x70, 0x6f, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x2a, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e,
+	0x76, 0x31, 0x2e, 0x45, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e,
+	0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x45,
+	0x78, 0x70, 0x6f, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0xd5, 0x01, 0x0a, 0x12, 0x63,
+	0x6f, 0x6d, 0x2e, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2e, 0x76,
+	0x31, 0x42, 0x0f, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x50, 0x72, 0x6f,
+	0x74, 0x6f, 0x50, 0x01, 0x5a, 0x59, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
+	0x2f, 0x65, 0x76, 0x6d, 0x69, 0x2d, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x2f, 0x67, 0x6f, 0x2d, 0x65,
+	0x76, 0x6d, 0x2d, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72,
+	0x6e, 0x61, 0x6c, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
+	0x65, 0x64, 0x2f, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x2f, 0x76,
+	0x31, 0x3b, 0x65, 0x76, 0x6d, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x76, 0x31, 0xa2,
+	0x02, 0x03, 0x45, 0x58, 0x58, 0xaa, 0x02, 0x0d, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78,
+	0x65, 0x72, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x0d, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78,
+	0x65, 0x72, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x19, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78,
+	0x65, 0x72, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74,
+	0x61, 0xea, 0x02, 0x0e, 0x45, 0x76, 0x6d, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x65, 0x72, 0x3a, 0x3a,
+	0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -9102,7 +9312,7 @@ func file_evm_indexer_v1_evm_indexer_proto_rawDescGZIP() []byte {
 	return file_evm_indexer_v1_evm_indexer_proto_rawDescData
 }
 
-var file_evm_indexer_v1_evm_indexer_proto_msgTypes = make([]protoimpl.MessageInfo, 147)
+var file_evm_indexer_v1_evm_indexer_proto_msgTypes = make([]protoimpl.MessageInfo, 150)
 var file_evm_indexer_v1_evm_indexer_proto_goTypes = []any{
 	(*EvmiInstance)(nil),                           // 0: evm_indexer.v1.EvmiInstance
 	(*EvmBlockchain)(nil),                          // 1: evm_indexer.v1.EvmBlockchain
@@ -9229,34 +9439,37 @@ var file_evm_indexer_v1_evm_indexer_proto_goTypes = []any{
 	(*InstallPluginResponse)(nil),                  // 122: evm_indexer.v1.InstallPluginResponse
 	(*ListPluginGitRefsRequest)(nil),               // 123: evm_indexer.v1.ListPluginGitRefsRequest
 	(*ListPluginGitRefsResponse)(nil),              // 124: evm_indexer.v1.ListPluginGitRefsResponse
-	(*CreateEvmiExporterRequest)(nil),              // 125: evm_indexer.v1.CreateEvmiExporterRequest
-	(*CreateEvmiExporterResponse)(nil),             // 126: evm_indexer.v1.CreateEvmiExporterResponse
-	(*GetEvmiExporterRequest)(nil),                 // 127: evm_indexer.v1.GetEvmiExporterRequest
-	(*GetEvmiExporterResponse)(nil),                // 128: evm_indexer.v1.GetEvmiExporterResponse
-	(*UpdateEvmiExporterRequest)(nil),              // 129: evm_indexer.v1.UpdateEvmiExporterRequest
-	(*UpdateEvmiExporterResponse)(nil),             // 130: evm_indexer.v1.UpdateEvmiExporterResponse
-	(*ListEvmiExportersRequest)(nil),               // 131: evm_indexer.v1.ListEvmiExportersRequest
-	(*ListEvmiExportersResponse)(nil),              // 132: evm_indexer.v1.ListEvmiExportersResponse
-	(*DeleteEvmiExporterRequest)(nil),              // 133: evm_indexer.v1.DeleteEvmiExporterRequest
-	(*DeleteEvmiExporterResponse)(nil),             // 134: evm_indexer.v1.DeleteEvmiExporterResponse
-	(*StartExporterRequest)(nil),                   // 135: evm_indexer.v1.StartExporterRequest
-	(*StartExporterResponse)(nil),                  // 136: evm_indexer.v1.StartExporterResponse
-	(*StopExporterRequest)(nil),                    // 137: evm_indexer.v1.StopExporterRequest
-	(*StopExporterResponse)(nil),                   // 138: evm_indexer.v1.StopExporterResponse
-	(*StreamEvmiExporterUpdatesRequest)(nil),       // 139: evm_indexer.v1.StreamEvmiExporterUpdatesRequest
-	(*EvmiExporterSourceCursor)(nil),               // 140: evm_indexer.v1.EvmiExporterSourceCursor
-	(*ListEvmiExporterSourceCursorsRequest)(nil),   // 141: evm_indexer.v1.ListEvmiExporterSourceCursorsRequest
-	(*ListEvmiExporterSourceCursorsResponse)(nil),  // 142: evm_indexer.v1.ListEvmiExporterSourceCursorsResponse
-	(*StreamEvmiExporterSourceCursorsRequest)(nil), // 143: evm_indexer.v1.StreamEvmiExporterSourceCursorsRequest
-	(*ExportConfigurationRequest)(nil),             // 144: evm_indexer.v1.ExportConfigurationRequest
-	(*ExportConfigurationResponse)(nil),            // 145: evm_indexer.v1.ExportConfigurationResponse
-	nil,                                            // 146: evm_indexer.v1.EvmMetadata.DataEntry
+	(*PluginCatalogEntry)(nil),                     // 125: evm_indexer.v1.PluginCatalogEntry
+	(*ListPluginCatalogRequest)(nil),               // 126: evm_indexer.v1.ListPluginCatalogRequest
+	(*ListPluginCatalogResponse)(nil),              // 127: evm_indexer.v1.ListPluginCatalogResponse
+	(*CreateEvmiExporterRequest)(nil),              // 128: evm_indexer.v1.CreateEvmiExporterRequest
+	(*CreateEvmiExporterResponse)(nil),             // 129: evm_indexer.v1.CreateEvmiExporterResponse
+	(*GetEvmiExporterRequest)(nil),                 // 130: evm_indexer.v1.GetEvmiExporterRequest
+	(*GetEvmiExporterResponse)(nil),                // 131: evm_indexer.v1.GetEvmiExporterResponse
+	(*UpdateEvmiExporterRequest)(nil),              // 132: evm_indexer.v1.UpdateEvmiExporterRequest
+	(*UpdateEvmiExporterResponse)(nil),             // 133: evm_indexer.v1.UpdateEvmiExporterResponse
+	(*ListEvmiExportersRequest)(nil),               // 134: evm_indexer.v1.ListEvmiExportersRequest
+	(*ListEvmiExportersResponse)(nil),              // 135: evm_indexer.v1.ListEvmiExportersResponse
+	(*DeleteEvmiExporterRequest)(nil),              // 136: evm_indexer.v1.DeleteEvmiExporterRequest
+	(*DeleteEvmiExporterResponse)(nil),             // 137: evm_indexer.v1.DeleteEvmiExporterResponse
+	(*StartExporterRequest)(nil),                   // 138: evm_indexer.v1.StartExporterRequest
+	(*StartExporterResponse)(nil),                  // 139: evm_indexer.v1.StartExporterResponse
+	(*StopExporterRequest)(nil),                    // 140: evm_indexer.v1.StopExporterRequest
+	(*StopExporterResponse)(nil),                   // 141: evm_indexer.v1.StopExporterResponse
+	(*StreamEvmiExporterUpdatesRequest)(nil),       // 142: evm_indexer.v1.StreamEvmiExporterUpdatesRequest
+	(*EvmiExporterSourceCursor)(nil),               // 143: evm_indexer.v1.EvmiExporterSourceCursor
+	(*ListEvmiExporterSourceCursorsRequest)(nil),   // 144: evm_indexer.v1.ListEvmiExporterSourceCursorsRequest
+	(*ListEvmiExporterSourceCursorsResponse)(nil),  // 145: evm_indexer.v1.ListEvmiExporterSourceCursorsResponse
+	(*StreamEvmiExporterSourceCursorsRequest)(nil), // 146: evm_indexer.v1.StreamEvmiExporterSourceCursorsRequest
+	(*ExportConfigurationRequest)(nil),             // 147: evm_indexer.v1.ExportConfigurationRequest
+	(*ExportConfigurationResponse)(nil),            // 148: evm_indexer.v1.ExportConfigurationResponse
+	nil,                                            // 149: evm_indexer.v1.EvmMetadata.DataEntry
 }
 var file_evm_indexer_v1_evm_indexer_proto_depIdxs = []int32{
 	6,   // 0: evm_indexer.v1.FactoryRule.child_rules:type_name -> evm_indexer.v1.FactoryRule
 	5,   // 1: evm_indexer.v1.FactoryRule.conditions:type_name -> evm_indexer.v1.FactoryRuleCondition
 	6,   // 2: evm_indexer.v1.EvmLogSource.factory_rules:type_name -> evm_indexer.v1.FactoryRule
-	146, // 3: evm_indexer.v1.EvmMetadata.data:type_name -> evm_indexer.v1.EvmMetadata.DataEntry
+	149, // 3: evm_indexer.v1.EvmMetadata.data:type_name -> evm_indexer.v1.EvmMetadata.DataEntry
 	8,   // 4: evm_indexer.v1.EvmLog.metadata:type_name -> evm_indexer.v1.EvmMetadata
 	8,   // 5: evm_indexer.v1.EvmTransaction.metadata:type_name -> evm_indexer.v1.EvmMetadata
 	0,   // 6: evm_indexer.v1.GetEvmiInstanceResponse.instance:type_name -> evm_indexer.v1.EvmiInstance
@@ -9302,147 +9515,150 @@ var file_evm_indexer_v1_evm_indexer_proto_depIdxs = []int32{
 	110, // 46: evm_indexer.v1.UpdatePluginRequest.plugin:type_name -> evm_indexer.v1.Plugin
 	11,  // 47: evm_indexer.v1.ListPluginsRequest.pagination:type_name -> evm_indexer.v1.Pagination
 	110, // 48: evm_indexer.v1.ListPluginsResponse.plugins:type_name -> evm_indexer.v1.Plugin
-	109, // 49: evm_indexer.v1.CreateEvmiExporterRequest.exporter:type_name -> evm_indexer.v1.EvmiExporter
-	109, // 50: evm_indexer.v1.GetEvmiExporterResponse.exporter:type_name -> evm_indexer.v1.EvmiExporter
-	109, // 51: evm_indexer.v1.UpdateEvmiExporterRequest.exporter:type_name -> evm_indexer.v1.EvmiExporter
-	11,  // 52: evm_indexer.v1.ListEvmiExportersRequest.pagination:type_name -> evm_indexer.v1.Pagination
-	109, // 53: evm_indexer.v1.ListEvmiExportersResponse.exporters:type_name -> evm_indexer.v1.EvmiExporter
-	140, // 54: evm_indexer.v1.ListEvmiExporterSourceCursorsResponse.cursors:type_name -> evm_indexer.v1.EvmiExporterSourceCursor
-	12,  // 55: evm_indexer.v1.EvmIndexerService.GetEvmiInstance:input_type -> evm_indexer.v1.GetEvmiInstanceRequest
-	14,  // 56: evm_indexer.v1.EvmIndexerService.ListEvmiInstances:input_type -> evm_indexer.v1.ListEvmiInstancesRequest
-	16,  // 57: evm_indexer.v1.EvmIndexerService.CreateEvmBlockchain:input_type -> evm_indexer.v1.CreateEvmBlockchainRequest
-	18,  // 58: evm_indexer.v1.EvmIndexerService.GetEvmBlockchain:input_type -> evm_indexer.v1.GetEvmBlockchainRequest
-	20,  // 59: evm_indexer.v1.EvmIndexerService.UpdateEvmBlockchain:input_type -> evm_indexer.v1.UpdateEvmBlockchainRequest
-	22,  // 60: evm_indexer.v1.EvmIndexerService.ListEvmBlockchains:input_type -> evm_indexer.v1.ListEvmBlockchainsRequest
-	24,  // 61: evm_indexer.v1.EvmIndexerService.DeleteEvmBlockchain:input_type -> evm_indexer.v1.DeleteEvmBlockchainRequest
-	26,  // 62: evm_indexer.v1.EvmIndexerService.CreateEvmJsonAbi:input_type -> evm_indexer.v1.CreateEvmJsonAbiRequest
-	28,  // 63: evm_indexer.v1.EvmIndexerService.GetEvmJsonAbi:input_type -> evm_indexer.v1.GetEvmJsonAbiRequest
-	30,  // 64: evm_indexer.v1.EvmIndexerService.UpdateEvmJsonAbi:input_type -> evm_indexer.v1.UpdateEvmJsonAbiRequest
-	32,  // 65: evm_indexer.v1.EvmIndexerService.ListEvmJsonAbis:input_type -> evm_indexer.v1.ListEvmJsonAbisRequest
-	34,  // 66: evm_indexer.v1.EvmIndexerService.DeleteEvmJsonAbi:input_type -> evm_indexer.v1.DeleteEvmJsonAbiRequest
-	36,  // 67: evm_indexer.v1.EvmIndexerService.CreateEvmLogStore:input_type -> evm_indexer.v1.CreateEvmLogStoreRequest
-	38,  // 68: evm_indexer.v1.EvmIndexerService.GetEvmLogStore:input_type -> evm_indexer.v1.GetEvmLogStoreRequest
-	40,  // 69: evm_indexer.v1.EvmIndexerService.UpdateEvmLogStore:input_type -> evm_indexer.v1.UpdateEvmLogStoreRequest
-	42,  // 70: evm_indexer.v1.EvmIndexerService.ListEvmLogStores:input_type -> evm_indexer.v1.ListEvmLogStoresRequest
-	44,  // 71: evm_indexer.v1.EvmIndexerService.DeleteEvmLogStore:input_type -> evm_indexer.v1.DeleteEvmLogStoreRequest
-	46,  // 72: evm_indexer.v1.EvmIndexerService.CreateEvmLogPipeline:input_type -> evm_indexer.v1.CreateEvmLogPipelineRequest
-	48,  // 73: evm_indexer.v1.EvmIndexerService.GetEvmLogPipeline:input_type -> evm_indexer.v1.GetEvmLogPipelineRequest
-	50,  // 74: evm_indexer.v1.EvmIndexerService.UpdateEvmLogPipeline:input_type -> evm_indexer.v1.UpdateEvmLogPipelineRequest
-	52,  // 75: evm_indexer.v1.EvmIndexerService.ListEvmLogPipelines:input_type -> evm_indexer.v1.ListEvmLogPipelinesRequest
-	54,  // 76: evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline:input_type -> evm_indexer.v1.DeleteEvmLogPipelineRequest
-	67,  // 77: evm_indexer.v1.EvmIndexerService.StartSourceIndexer:input_type -> evm_indexer.v1.StartSourceIndexerRequest
-	69,  // 78: evm_indexer.v1.EvmIndexerService.StopSourceIndexer:input_type -> evm_indexer.v1.StopSourceIndexerRequest
-	56,  // 79: evm_indexer.v1.EvmIndexerService.CreateEvmLogSource:input_type -> evm_indexer.v1.CreateEvmLogSourceRequest
-	58,  // 80: evm_indexer.v1.EvmIndexerService.GetEvmLogSource:input_type -> evm_indexer.v1.GetEvmLogSourceRequest
-	60,  // 81: evm_indexer.v1.EvmIndexerService.UpdateEvmLogSource:input_type -> evm_indexer.v1.UpdateEvmLogSourceRequest
-	62,  // 82: evm_indexer.v1.EvmIndexerService.ListEvmLogSources:input_type -> evm_indexer.v1.ListEvmLogSourcesRequest
-	64,  // 83: evm_indexer.v1.EvmIndexerService.DeleteEvmLogSource:input_type -> evm_indexer.v1.DeleteEvmLogSourceRequest
-	66,  // 84: evm_indexer.v1.EvmIndexerService.StreamEvmLogSourceUpdates:input_type -> evm_indexer.v1.StreamEvmLogSourceUpdatesRequest
-	71,  // 85: evm_indexer.v1.EvmIndexerService.ListEvmLogs:input_type -> evm_indexer.v1.ListEvmLogsRequest
-	73,  // 86: evm_indexer.v1.EvmIndexerService.ListLatestEvmLogs:input_type -> evm_indexer.v1.ListLatestEvmLogsRequest
-	75,  // 87: evm_indexer.v1.EvmIndexerService.ListEvmTransactions:input_type -> evm_indexer.v1.ListEvmTransactionsRequest
-	79,  // 88: evm_indexer.v1.EvmIndexerService.Login:input_type -> evm_indexer.v1.LoginRequest
-	99,  // 89: evm_indexer.v1.EvmIndexerService.ListOAuthLoginUrls:input_type -> evm_indexer.v1.ListOAuthLoginUrlsRequest
-	81,  // 90: evm_indexer.v1.EvmIndexerService.Me:input_type -> evm_indexer.v1.MeRequest
-	83,  // 91: evm_indexer.v1.EvmIndexerService.CreateAccessToken:input_type -> evm_indexer.v1.CreateAccessTokenRequest
-	85,  // 92: evm_indexer.v1.EvmIndexerService.ListAccessTokens:input_type -> evm_indexer.v1.ListAccessTokensRequest
-	87,  // 93: evm_indexer.v1.EvmIndexerService.RevokeAccessToken:input_type -> evm_indexer.v1.RevokeAccessTokenRequest
-	94,  // 94: evm_indexer.v1.EvmIndexerService.ListOAuthProviders:input_type -> evm_indexer.v1.ListOAuthProvidersRequest
-	90,  // 95: evm_indexer.v1.EvmIndexerService.CreateOAuthProvider:input_type -> evm_indexer.v1.CreateOAuthProviderRequest
-	92,  // 96: evm_indexer.v1.EvmIndexerService.UpdateOAuthProvider:input_type -> evm_indexer.v1.UpdateOAuthProviderRequest
-	96,  // 97: evm_indexer.v1.EvmIndexerService.DeleteOAuthProvider:input_type -> evm_indexer.v1.DeleteOAuthProviderRequest
-	101, // 98: evm_indexer.v1.EvmIndexerService.ListUsers:input_type -> evm_indexer.v1.ListUsersRequest
-	103, // 99: evm_indexer.v1.EvmIndexerService.CreateUser:input_type -> evm_indexer.v1.CreateUserRequest
-	105, // 100: evm_indexer.v1.EvmIndexerService.UpdateUser:input_type -> evm_indexer.v1.UpdateUserRequest
-	107, // 101: evm_indexer.v1.EvmIndexerService.DeleteUser:input_type -> evm_indexer.v1.DeleteUserRequest
-	125, // 102: evm_indexer.v1.EvmIndexerService.CreateEvmiExporter:input_type -> evm_indexer.v1.CreateEvmiExporterRequest
-	127, // 103: evm_indexer.v1.EvmIndexerService.GetEvmiExporter:input_type -> evm_indexer.v1.GetEvmiExporterRequest
-	129, // 104: evm_indexer.v1.EvmIndexerService.UpdateEvmiExporter:input_type -> evm_indexer.v1.UpdateEvmiExporterRequest
-	131, // 105: evm_indexer.v1.EvmIndexerService.ListEvmiExporters:input_type -> evm_indexer.v1.ListEvmiExportersRequest
-	133, // 106: evm_indexer.v1.EvmIndexerService.DeleteEvmiExporter:input_type -> evm_indexer.v1.DeleteEvmiExporterRequest
-	135, // 107: evm_indexer.v1.EvmIndexerService.StartExporter:input_type -> evm_indexer.v1.StartExporterRequest
-	137, // 108: evm_indexer.v1.EvmIndexerService.StopExporter:input_type -> evm_indexer.v1.StopExporterRequest
-	139, // 109: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterUpdates:input_type -> evm_indexer.v1.StreamEvmiExporterUpdatesRequest
-	141, // 110: evm_indexer.v1.EvmIndexerService.ListEvmiExporterSourceCursors:input_type -> evm_indexer.v1.ListEvmiExporterSourceCursorsRequest
-	143, // 111: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterSourceCursors:input_type -> evm_indexer.v1.StreamEvmiExporterSourceCursorsRequest
-	111, // 112: evm_indexer.v1.EvmIndexerService.CreatePlugin:input_type -> evm_indexer.v1.CreatePluginRequest
-	113, // 113: evm_indexer.v1.EvmIndexerService.GetPlugin:input_type -> evm_indexer.v1.GetPluginRequest
-	115, // 114: evm_indexer.v1.EvmIndexerService.UpdatePlugin:input_type -> evm_indexer.v1.UpdatePluginRequest
-	117, // 115: evm_indexer.v1.EvmIndexerService.ListPlugins:input_type -> evm_indexer.v1.ListPluginsRequest
-	119, // 116: evm_indexer.v1.EvmIndexerService.DeletePlugin:input_type -> evm_indexer.v1.DeletePluginRequest
-	121, // 117: evm_indexer.v1.EvmIndexerService.InstallPlugin:input_type -> evm_indexer.v1.InstallPluginRequest
-	123, // 118: evm_indexer.v1.EvmIndexerService.ListPluginGitRefs:input_type -> evm_indexer.v1.ListPluginGitRefsRequest
-	144, // 119: evm_indexer.v1.EvmIndexerService.ExportConfiguration:input_type -> evm_indexer.v1.ExportConfigurationRequest
-	13,  // 120: evm_indexer.v1.EvmIndexerService.GetEvmiInstance:output_type -> evm_indexer.v1.GetEvmiInstanceResponse
-	15,  // 121: evm_indexer.v1.EvmIndexerService.ListEvmiInstances:output_type -> evm_indexer.v1.ListEvmiInstancesResponse
-	17,  // 122: evm_indexer.v1.EvmIndexerService.CreateEvmBlockchain:output_type -> evm_indexer.v1.CreateEvmBlockchainResponse
-	19,  // 123: evm_indexer.v1.EvmIndexerService.GetEvmBlockchain:output_type -> evm_indexer.v1.GetEvmBlockchainResponse
-	21,  // 124: evm_indexer.v1.EvmIndexerService.UpdateEvmBlockchain:output_type -> evm_indexer.v1.UpdateEvmBlockchainResponse
-	23,  // 125: evm_indexer.v1.EvmIndexerService.ListEvmBlockchains:output_type -> evm_indexer.v1.ListEvmBlockchainsResponse
-	25,  // 126: evm_indexer.v1.EvmIndexerService.DeleteEvmBlockchain:output_type -> evm_indexer.v1.DeleteEvmBlockchainResponse
-	27,  // 127: evm_indexer.v1.EvmIndexerService.CreateEvmJsonAbi:output_type -> evm_indexer.v1.CreateEvmJsonAbiResponse
-	29,  // 128: evm_indexer.v1.EvmIndexerService.GetEvmJsonAbi:output_type -> evm_indexer.v1.GetEvmJsonAbiResponse
-	31,  // 129: evm_indexer.v1.EvmIndexerService.UpdateEvmJsonAbi:output_type -> evm_indexer.v1.UpdateEvmJsonAbiResponse
-	33,  // 130: evm_indexer.v1.EvmIndexerService.ListEvmJsonAbis:output_type -> evm_indexer.v1.ListEvmJsonAbisResponse
-	35,  // 131: evm_indexer.v1.EvmIndexerService.DeleteEvmJsonAbi:output_type -> evm_indexer.v1.DeleteEvmJsonAbiResponse
-	37,  // 132: evm_indexer.v1.EvmIndexerService.CreateEvmLogStore:output_type -> evm_indexer.v1.CreateEvmLogStoreResponse
-	39,  // 133: evm_indexer.v1.EvmIndexerService.GetEvmLogStore:output_type -> evm_indexer.v1.GetEvmLogStoreResponse
-	41,  // 134: evm_indexer.v1.EvmIndexerService.UpdateEvmLogStore:output_type -> evm_indexer.v1.UpdateEvmLogStoreResponse
-	43,  // 135: evm_indexer.v1.EvmIndexerService.ListEvmLogStores:output_type -> evm_indexer.v1.ListEvmLogStoresResponse
-	45,  // 136: evm_indexer.v1.EvmIndexerService.DeleteEvmLogStore:output_type -> evm_indexer.v1.DeleteEvmLogStoreResponse
-	47,  // 137: evm_indexer.v1.EvmIndexerService.CreateEvmLogPipeline:output_type -> evm_indexer.v1.CreateEvmLogPipelineResponse
-	49,  // 138: evm_indexer.v1.EvmIndexerService.GetEvmLogPipeline:output_type -> evm_indexer.v1.GetEvmLogPipelineResponse
-	51,  // 139: evm_indexer.v1.EvmIndexerService.UpdateEvmLogPipeline:output_type -> evm_indexer.v1.UpdateEvmLogPipelineResponse
-	53,  // 140: evm_indexer.v1.EvmIndexerService.ListEvmLogPipelines:output_type -> evm_indexer.v1.ListEvmLogPipelinesResponse
-	55,  // 141: evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline:output_type -> evm_indexer.v1.DeleteEvmLogPipelineResponse
-	68,  // 142: evm_indexer.v1.EvmIndexerService.StartSourceIndexer:output_type -> evm_indexer.v1.StartSourceIndexerResponse
-	70,  // 143: evm_indexer.v1.EvmIndexerService.StopSourceIndexer:output_type -> evm_indexer.v1.StopSourceIndexerResponse
-	57,  // 144: evm_indexer.v1.EvmIndexerService.CreateEvmLogSource:output_type -> evm_indexer.v1.CreateEvmLogSourceResponse
-	59,  // 145: evm_indexer.v1.EvmIndexerService.GetEvmLogSource:output_type -> evm_indexer.v1.GetEvmLogSourceResponse
-	61,  // 146: evm_indexer.v1.EvmIndexerService.UpdateEvmLogSource:output_type -> evm_indexer.v1.UpdateEvmLogSourceResponse
-	63,  // 147: evm_indexer.v1.EvmIndexerService.ListEvmLogSources:output_type -> evm_indexer.v1.ListEvmLogSourcesResponse
-	65,  // 148: evm_indexer.v1.EvmIndexerService.DeleteEvmLogSource:output_type -> evm_indexer.v1.DeleteEvmLogSourceResponse
-	7,   // 149: evm_indexer.v1.EvmIndexerService.StreamEvmLogSourceUpdates:output_type -> evm_indexer.v1.EvmLogSource
-	72,  // 150: evm_indexer.v1.EvmIndexerService.ListEvmLogs:output_type -> evm_indexer.v1.ListEvmLogsResponse
-	74,  // 151: evm_indexer.v1.EvmIndexerService.ListLatestEvmLogs:output_type -> evm_indexer.v1.ListLatestEvmLogsResponse
-	76,  // 152: evm_indexer.v1.EvmIndexerService.ListEvmTransactions:output_type -> evm_indexer.v1.ListEvmTransactionsResponse
-	80,  // 153: evm_indexer.v1.EvmIndexerService.Login:output_type -> evm_indexer.v1.LoginResponse
-	100, // 154: evm_indexer.v1.EvmIndexerService.ListOAuthLoginUrls:output_type -> evm_indexer.v1.ListOAuthLoginUrlsResponse
-	82,  // 155: evm_indexer.v1.EvmIndexerService.Me:output_type -> evm_indexer.v1.MeResponse
-	84,  // 156: evm_indexer.v1.EvmIndexerService.CreateAccessToken:output_type -> evm_indexer.v1.CreateAccessTokenResponse
-	86,  // 157: evm_indexer.v1.EvmIndexerService.ListAccessTokens:output_type -> evm_indexer.v1.ListAccessTokensResponse
-	88,  // 158: evm_indexer.v1.EvmIndexerService.RevokeAccessToken:output_type -> evm_indexer.v1.RevokeAccessTokenResponse
-	95,  // 159: evm_indexer.v1.EvmIndexerService.ListOAuthProviders:output_type -> evm_indexer.v1.ListOAuthProvidersResponse
-	91,  // 160: evm_indexer.v1.EvmIndexerService.CreateOAuthProvider:output_type -> evm_indexer.v1.CreateOAuthProviderResponse
-	93,  // 161: evm_indexer.v1.EvmIndexerService.UpdateOAuthProvider:output_type -> evm_indexer.v1.UpdateOAuthProviderResponse
-	97,  // 162: evm_indexer.v1.EvmIndexerService.DeleteOAuthProvider:output_type -> evm_indexer.v1.DeleteOAuthProviderResponse
-	102, // 163: evm_indexer.v1.EvmIndexerService.ListUsers:output_type -> evm_indexer.v1.ListUsersResponse
-	104, // 164: evm_indexer.v1.EvmIndexerService.CreateUser:output_type -> evm_indexer.v1.CreateUserResponse
-	106, // 165: evm_indexer.v1.EvmIndexerService.UpdateUser:output_type -> evm_indexer.v1.UpdateUserResponse
-	108, // 166: evm_indexer.v1.EvmIndexerService.DeleteUser:output_type -> evm_indexer.v1.DeleteUserResponse
-	126, // 167: evm_indexer.v1.EvmIndexerService.CreateEvmiExporter:output_type -> evm_indexer.v1.CreateEvmiExporterResponse
-	128, // 168: evm_indexer.v1.EvmIndexerService.GetEvmiExporter:output_type -> evm_indexer.v1.GetEvmiExporterResponse
-	130, // 169: evm_indexer.v1.EvmIndexerService.UpdateEvmiExporter:output_type -> evm_indexer.v1.UpdateEvmiExporterResponse
-	132, // 170: evm_indexer.v1.EvmIndexerService.ListEvmiExporters:output_type -> evm_indexer.v1.ListEvmiExportersResponse
-	134, // 171: evm_indexer.v1.EvmIndexerService.DeleteEvmiExporter:output_type -> evm_indexer.v1.DeleteEvmiExporterResponse
-	136, // 172: evm_indexer.v1.EvmIndexerService.StartExporter:output_type -> evm_indexer.v1.StartExporterResponse
-	138, // 173: evm_indexer.v1.EvmIndexerService.StopExporter:output_type -> evm_indexer.v1.StopExporterResponse
-	109, // 174: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterUpdates:output_type -> evm_indexer.v1.EvmiExporter
-	142, // 175: evm_indexer.v1.EvmIndexerService.ListEvmiExporterSourceCursors:output_type -> evm_indexer.v1.ListEvmiExporterSourceCursorsResponse
-	140, // 176: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterSourceCursors:output_type -> evm_indexer.v1.EvmiExporterSourceCursor
-	112, // 177: evm_indexer.v1.EvmIndexerService.CreatePlugin:output_type -> evm_indexer.v1.CreatePluginResponse
-	114, // 178: evm_indexer.v1.EvmIndexerService.GetPlugin:output_type -> evm_indexer.v1.GetPluginResponse
-	116, // 179: evm_indexer.v1.EvmIndexerService.UpdatePlugin:output_type -> evm_indexer.v1.UpdatePluginResponse
-	118, // 180: evm_indexer.v1.EvmIndexerService.ListPlugins:output_type -> evm_indexer.v1.ListPluginsResponse
-	120, // 181: evm_indexer.v1.EvmIndexerService.DeletePlugin:output_type -> evm_indexer.v1.DeletePluginResponse
-	122, // 182: evm_indexer.v1.EvmIndexerService.InstallPlugin:output_type -> evm_indexer.v1.InstallPluginResponse
-	124, // 183: evm_indexer.v1.EvmIndexerService.ListPluginGitRefs:output_type -> evm_indexer.v1.ListPluginGitRefsResponse
-	145, // 184: evm_indexer.v1.EvmIndexerService.ExportConfiguration:output_type -> evm_indexer.v1.ExportConfigurationResponse
-	120, // [120:185] is the sub-list for method output_type
-	55,  // [55:120] is the sub-list for method input_type
-	55,  // [55:55] is the sub-list for extension type_name
-	55,  // [55:55] is the sub-list for extension extendee
-	0,   // [0:55] is the sub-list for field type_name
+	125, // 49: evm_indexer.v1.ListPluginCatalogResponse.entries:type_name -> evm_indexer.v1.PluginCatalogEntry
+	109, // 50: evm_indexer.v1.CreateEvmiExporterRequest.exporter:type_name -> evm_indexer.v1.EvmiExporter
+	109, // 51: evm_indexer.v1.GetEvmiExporterResponse.exporter:type_name -> evm_indexer.v1.EvmiExporter
+	109, // 52: evm_indexer.v1.UpdateEvmiExporterRequest.exporter:type_name -> evm_indexer.v1.EvmiExporter
+	11,  // 53: evm_indexer.v1.ListEvmiExportersRequest.pagination:type_name -> evm_indexer.v1.Pagination
+	109, // 54: evm_indexer.v1.ListEvmiExportersResponse.exporters:type_name -> evm_indexer.v1.EvmiExporter
+	143, // 55: evm_indexer.v1.ListEvmiExporterSourceCursorsResponse.cursors:type_name -> evm_indexer.v1.EvmiExporterSourceCursor
+	12,  // 56: evm_indexer.v1.EvmIndexerService.GetEvmiInstance:input_type -> evm_indexer.v1.GetEvmiInstanceRequest
+	14,  // 57: evm_indexer.v1.EvmIndexerService.ListEvmiInstances:input_type -> evm_indexer.v1.ListEvmiInstancesRequest
+	16,  // 58: evm_indexer.v1.EvmIndexerService.CreateEvmBlockchain:input_type -> evm_indexer.v1.CreateEvmBlockchainRequest
+	18,  // 59: evm_indexer.v1.EvmIndexerService.GetEvmBlockchain:input_type -> evm_indexer.v1.GetEvmBlockchainRequest
+	20,  // 60: evm_indexer.v1.EvmIndexerService.UpdateEvmBlockchain:input_type -> evm_indexer.v1.UpdateEvmBlockchainRequest
+	22,  // 61: evm_indexer.v1.EvmIndexerService.ListEvmBlockchains:input_type -> evm_indexer.v1.ListEvmBlockchainsRequest
+	24,  // 62: evm_indexer.v1.EvmIndexerService.DeleteEvmBlockchain:input_type -> evm_indexer.v1.DeleteEvmBlockchainRequest
+	26,  // 63: evm_indexer.v1.EvmIndexerService.CreateEvmJsonAbi:input_type -> evm_indexer.v1.CreateEvmJsonAbiRequest
+	28,  // 64: evm_indexer.v1.EvmIndexerService.GetEvmJsonAbi:input_type -> evm_indexer.v1.GetEvmJsonAbiRequest
+	30,  // 65: evm_indexer.v1.EvmIndexerService.UpdateEvmJsonAbi:input_type -> evm_indexer.v1.UpdateEvmJsonAbiRequest
+	32,  // 66: evm_indexer.v1.EvmIndexerService.ListEvmJsonAbis:input_type -> evm_indexer.v1.ListEvmJsonAbisRequest
+	34,  // 67: evm_indexer.v1.EvmIndexerService.DeleteEvmJsonAbi:input_type -> evm_indexer.v1.DeleteEvmJsonAbiRequest
+	36,  // 68: evm_indexer.v1.EvmIndexerService.CreateEvmLogStore:input_type -> evm_indexer.v1.CreateEvmLogStoreRequest
+	38,  // 69: evm_indexer.v1.EvmIndexerService.GetEvmLogStore:input_type -> evm_indexer.v1.GetEvmLogStoreRequest
+	40,  // 70: evm_indexer.v1.EvmIndexerService.UpdateEvmLogStore:input_type -> evm_indexer.v1.UpdateEvmLogStoreRequest
+	42,  // 71: evm_indexer.v1.EvmIndexerService.ListEvmLogStores:input_type -> evm_indexer.v1.ListEvmLogStoresRequest
+	44,  // 72: evm_indexer.v1.EvmIndexerService.DeleteEvmLogStore:input_type -> evm_indexer.v1.DeleteEvmLogStoreRequest
+	46,  // 73: evm_indexer.v1.EvmIndexerService.CreateEvmLogPipeline:input_type -> evm_indexer.v1.CreateEvmLogPipelineRequest
+	48,  // 74: evm_indexer.v1.EvmIndexerService.GetEvmLogPipeline:input_type -> evm_indexer.v1.GetEvmLogPipelineRequest
+	50,  // 75: evm_indexer.v1.EvmIndexerService.UpdateEvmLogPipeline:input_type -> evm_indexer.v1.UpdateEvmLogPipelineRequest
+	52,  // 76: evm_indexer.v1.EvmIndexerService.ListEvmLogPipelines:input_type -> evm_indexer.v1.ListEvmLogPipelinesRequest
+	54,  // 77: evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline:input_type -> evm_indexer.v1.DeleteEvmLogPipelineRequest
+	67,  // 78: evm_indexer.v1.EvmIndexerService.StartSourceIndexer:input_type -> evm_indexer.v1.StartSourceIndexerRequest
+	69,  // 79: evm_indexer.v1.EvmIndexerService.StopSourceIndexer:input_type -> evm_indexer.v1.StopSourceIndexerRequest
+	56,  // 80: evm_indexer.v1.EvmIndexerService.CreateEvmLogSource:input_type -> evm_indexer.v1.CreateEvmLogSourceRequest
+	58,  // 81: evm_indexer.v1.EvmIndexerService.GetEvmLogSource:input_type -> evm_indexer.v1.GetEvmLogSourceRequest
+	60,  // 82: evm_indexer.v1.EvmIndexerService.UpdateEvmLogSource:input_type -> evm_indexer.v1.UpdateEvmLogSourceRequest
+	62,  // 83: evm_indexer.v1.EvmIndexerService.ListEvmLogSources:input_type -> evm_indexer.v1.ListEvmLogSourcesRequest
+	64,  // 84: evm_indexer.v1.EvmIndexerService.DeleteEvmLogSource:input_type -> evm_indexer.v1.DeleteEvmLogSourceRequest
+	66,  // 85: evm_indexer.v1.EvmIndexerService.StreamEvmLogSourceUpdates:input_type -> evm_indexer.v1.StreamEvmLogSourceUpdatesRequest
+	71,  // 86: evm_indexer.v1.EvmIndexerService.ListEvmLogs:input_type -> evm_indexer.v1.ListEvmLogsRequest
+	73,  // 87: evm_indexer.v1.EvmIndexerService.ListLatestEvmLogs:input_type -> evm_indexer.v1.ListLatestEvmLogsRequest
+	75,  // 88: evm_indexer.v1.EvmIndexerService.ListEvmTransactions:input_type -> evm_indexer.v1.ListEvmTransactionsRequest
+	79,  // 89: evm_indexer.v1.EvmIndexerService.Login:input_type -> evm_indexer.v1.LoginRequest
+	99,  // 90: evm_indexer.v1.EvmIndexerService.ListOAuthLoginUrls:input_type -> evm_indexer.v1.ListOAuthLoginUrlsRequest
+	81,  // 91: evm_indexer.v1.EvmIndexerService.Me:input_type -> evm_indexer.v1.MeRequest
+	83,  // 92: evm_indexer.v1.EvmIndexerService.CreateAccessToken:input_type -> evm_indexer.v1.CreateAccessTokenRequest
+	85,  // 93: evm_indexer.v1.EvmIndexerService.ListAccessTokens:input_type -> evm_indexer.v1.ListAccessTokensRequest
+	87,  // 94: evm_indexer.v1.EvmIndexerService.RevokeAccessToken:input_type -> evm_indexer.v1.RevokeAccessTokenRequest
+	94,  // 95: evm_indexer.v1.EvmIndexerService.ListOAuthProviders:input_type -> evm_indexer.v1.ListOAuthProvidersRequest
+	90,  // 96: evm_indexer.v1.EvmIndexerService.CreateOAuthProvider:input_type -> evm_indexer.v1.CreateOAuthProviderRequest
+	92,  // 97: evm_indexer.v1.EvmIndexerService.UpdateOAuthProvider:input_type -> evm_indexer.v1.UpdateOAuthProviderRequest
+	96,  // 98: evm_indexer.v1.EvmIndexerService.DeleteOAuthProvider:input_type -> evm_indexer.v1.DeleteOAuthProviderRequest
+	101, // 99: evm_indexer.v1.EvmIndexerService.ListUsers:input_type -> evm_indexer.v1.ListUsersRequest
+	103, // 100: evm_indexer.v1.EvmIndexerService.CreateUser:input_type -> evm_indexer.v1.CreateUserRequest
+	105, // 101: evm_indexer.v1.EvmIndexerService.UpdateUser:input_type -> evm_indexer.v1.UpdateUserRequest
+	107, // 102: evm_indexer.v1.EvmIndexerService.DeleteUser:input_type -> evm_indexer.v1.DeleteUserRequest
+	128, // 103: evm_indexer.v1.EvmIndexerService.CreateEvmiExporter:input_type -> evm_indexer.v1.CreateEvmiExporterRequest
+	130, // 104: evm_indexer.v1.EvmIndexerService.GetEvmiExporter:input_type -> evm_indexer.v1.GetEvmiExporterRequest
+	132, // 105: evm_indexer.v1.EvmIndexerService.UpdateEvmiExporter:input_type -> evm_indexer.v1.UpdateEvmiExporterRequest
+	134, // 106: evm_indexer.v1.EvmIndexerService.ListEvmiExporters:input_type -> evm_indexer.v1.ListEvmiExportersRequest
+	136, // 107: evm_indexer.v1.EvmIndexerService.DeleteEvmiExporter:input_type -> evm_indexer.v1.DeleteEvmiExporterRequest
+	138, // 108: evm_indexer.v1.EvmIndexerService.StartExporter:input_type -> evm_indexer.v1.StartExporterRequest
+	140, // 109: evm_indexer.v1.EvmIndexerService.StopExporter:input_type -> evm_indexer.v1.StopExporterRequest
+	142, // 110: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterUpdates:input_type -> evm_indexer.v1.StreamEvmiExporterUpdatesRequest
+	144, // 111: evm_indexer.v1.EvmIndexerService.ListEvmiExporterSourceCursors:input_type -> evm_indexer.v1.ListEvmiExporterSourceCursorsRequest
+	146, // 112: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterSourceCursors:input_type -> evm_indexer.v1.StreamEvmiExporterSourceCursorsRequest
+	111, // 113: evm_indexer.v1.EvmIndexerService.CreatePlugin:input_type -> evm_indexer.v1.CreatePluginRequest
+	113, // 114: evm_indexer.v1.EvmIndexerService.GetPlugin:input_type -> evm_indexer.v1.GetPluginRequest
+	115, // 115: evm_indexer.v1.EvmIndexerService.UpdatePlugin:input_type -> evm_indexer.v1.UpdatePluginRequest
+	117, // 116: evm_indexer.v1.EvmIndexerService.ListPlugins:input_type -> evm_indexer.v1.ListPluginsRequest
+	119, // 117: evm_indexer.v1.EvmIndexerService.DeletePlugin:input_type -> evm_indexer.v1.DeletePluginRequest
+	121, // 118: evm_indexer.v1.EvmIndexerService.InstallPlugin:input_type -> evm_indexer.v1.InstallPluginRequest
+	123, // 119: evm_indexer.v1.EvmIndexerService.ListPluginGitRefs:input_type -> evm_indexer.v1.ListPluginGitRefsRequest
+	126, // 120: evm_indexer.v1.EvmIndexerService.ListPluginCatalog:input_type -> evm_indexer.v1.ListPluginCatalogRequest
+	147, // 121: evm_indexer.v1.EvmIndexerService.ExportConfiguration:input_type -> evm_indexer.v1.ExportConfigurationRequest
+	13,  // 122: evm_indexer.v1.EvmIndexerService.GetEvmiInstance:output_type -> evm_indexer.v1.GetEvmiInstanceResponse
+	15,  // 123: evm_indexer.v1.EvmIndexerService.ListEvmiInstances:output_type -> evm_indexer.v1.ListEvmiInstancesResponse
+	17,  // 124: evm_indexer.v1.EvmIndexerService.CreateEvmBlockchain:output_type -> evm_indexer.v1.CreateEvmBlockchainResponse
+	19,  // 125: evm_indexer.v1.EvmIndexerService.GetEvmBlockchain:output_type -> evm_indexer.v1.GetEvmBlockchainResponse
+	21,  // 126: evm_indexer.v1.EvmIndexerService.UpdateEvmBlockchain:output_type -> evm_indexer.v1.UpdateEvmBlockchainResponse
+	23,  // 127: evm_indexer.v1.EvmIndexerService.ListEvmBlockchains:output_type -> evm_indexer.v1.ListEvmBlockchainsResponse
+	25,  // 128: evm_indexer.v1.EvmIndexerService.DeleteEvmBlockchain:output_type -> evm_indexer.v1.DeleteEvmBlockchainResponse
+	27,  // 129: evm_indexer.v1.EvmIndexerService.CreateEvmJsonAbi:output_type -> evm_indexer.v1.CreateEvmJsonAbiResponse
+	29,  // 130: evm_indexer.v1.EvmIndexerService.GetEvmJsonAbi:output_type -> evm_indexer.v1.GetEvmJsonAbiResponse
+	31,  // 131: evm_indexer.v1.EvmIndexerService.UpdateEvmJsonAbi:output_type -> evm_indexer.v1.UpdateEvmJsonAbiResponse
+	33,  // 132: evm_indexer.v1.EvmIndexerService.ListEvmJsonAbis:output_type -> evm_indexer.v1.ListEvmJsonAbisResponse
+	35,  // 133: evm_indexer.v1.EvmIndexerService.DeleteEvmJsonAbi:output_type -> evm_indexer.v1.DeleteEvmJsonAbiResponse
+	37,  // 134: evm_indexer.v1.EvmIndexerService.CreateEvmLogStore:output_type -> evm_indexer.v1.CreateEvmLogStoreResponse
+	39,  // 135: evm_indexer.v1.EvmIndexerService.GetEvmLogStore:output_type -> evm_indexer.v1.GetEvmLogStoreResponse
+	41,  // 136: evm_indexer.v1.EvmIndexerService.UpdateEvmLogStore:output_type -> evm_indexer.v1.UpdateEvmLogStoreResponse
+	43,  // 137: evm_indexer.v1.EvmIndexerService.ListEvmLogStores:output_type -> evm_indexer.v1.ListEvmLogStoresResponse
+	45,  // 138: evm_indexer.v1.EvmIndexerService.DeleteEvmLogStore:output_type -> evm_indexer.v1.DeleteEvmLogStoreResponse
+	47,  // 139: evm_indexer.v1.EvmIndexerService.CreateEvmLogPipeline:output_type -> evm_indexer.v1.CreateEvmLogPipelineResponse
+	49,  // 140: evm_indexer.v1.EvmIndexerService.GetEvmLogPipeline:output_type -> evm_indexer.v1.GetEvmLogPipelineResponse
+	51,  // 141: evm_indexer.v1.EvmIndexerService.UpdateEvmLogPipeline:output_type -> evm_indexer.v1.UpdateEvmLogPipelineResponse
+	53,  // 142: evm_indexer.v1.EvmIndexerService.ListEvmLogPipelines:output_type -> evm_indexer.v1.ListEvmLogPipelinesResponse
+	55,  // 143: evm_indexer.v1.EvmIndexerService.DeleteEvmLogPipeline:output_type -> evm_indexer.v1.DeleteEvmLogPipelineResponse
+	68,  // 144: evm_indexer.v1.EvmIndexerService.StartSourceIndexer:output_type -> evm_indexer.v1.StartSourceIndexerResponse
+	70,  // 145: evm_indexer.v1.EvmIndexerService.StopSourceIndexer:output_type -> evm_indexer.v1.StopSourceIndexerResponse
+	57,  // 146: evm_indexer.v1.EvmIndexerService.CreateEvmLogSource:output_type -> evm_indexer.v1.CreateEvmLogSourceResponse
+	59,  // 147: evm_indexer.v1.EvmIndexerService.GetEvmLogSource:output_type -> evm_indexer.v1.GetEvmLogSourceResponse
+	61,  // 148: evm_indexer.v1.EvmIndexerService.UpdateEvmLogSource:output_type -> evm_indexer.v1.UpdateEvmLogSourceResponse
+	63,  // 149: evm_indexer.v1.EvmIndexerService.ListEvmLogSources:output_type -> evm_indexer.v1.ListEvmLogSourcesResponse
+	65,  // 150: evm_indexer.v1.EvmIndexerService.DeleteEvmLogSource:output_type -> evm_indexer.v1.DeleteEvmLogSourceResponse
+	7,   // 151: evm_indexer.v1.EvmIndexerService.StreamEvmLogSourceUpdates:output_type -> evm_indexer.v1.EvmLogSource
+	72,  // 152: evm_indexer.v1.EvmIndexerService.ListEvmLogs:output_type -> evm_indexer.v1.ListEvmLogsResponse
+	74,  // 153: evm_indexer.v1.EvmIndexerService.ListLatestEvmLogs:output_type -> evm_indexer.v1.ListLatestEvmLogsResponse
+	76,  // 154: evm_indexer.v1.EvmIndexerService.ListEvmTransactions:output_type -> evm_indexer.v1.ListEvmTransactionsResponse
+	80,  // 155: evm_indexer.v1.EvmIndexerService.Login:output_type -> evm_indexer.v1.LoginResponse
+	100, // 156: evm_indexer.v1.EvmIndexerService.ListOAuthLoginUrls:output_type -> evm_indexer.v1.ListOAuthLoginUrlsResponse
+	82,  // 157: evm_indexer.v1.EvmIndexerService.Me:output_type -> evm_indexer.v1.MeResponse
+	84,  // 158: evm_indexer.v1.EvmIndexerService.CreateAccessToken:output_type -> evm_indexer.v1.CreateAccessTokenResponse
+	86,  // 159: evm_indexer.v1.EvmIndexerService.ListAccessTokens:output_type -> evm_indexer.v1.ListAccessTokensResponse
+	88,  // 160: evm_indexer.v1.EvmIndexerService.RevokeAccessToken:output_type -> evm_indexer.v1.RevokeAccessTokenResponse
+	95,  // 161: evm_indexer.v1.EvmIndexerService.ListOAuthProviders:output_type -> evm_indexer.v1.ListOAuthProvidersResponse
+	91,  // 162: evm_indexer.v1.EvmIndexerService.CreateOAuthProvider:output_type -> evm_indexer.v1.CreateOAuthProviderResponse
+	93,  // 163: evm_indexer.v1.EvmIndexerService.UpdateOAuthProvider:output_type -> evm_indexer.v1.UpdateOAuthProviderResponse
+	97,  // 164: evm_indexer.v1.EvmIndexerService.DeleteOAuthProvider:output_type -> evm_indexer.v1.DeleteOAuthProviderResponse
+	102, // 165: evm_indexer.v1.EvmIndexerService.ListUsers:output_type -> evm_indexer.v1.ListUsersResponse
+	104, // 166: evm_indexer.v1.EvmIndexerService.CreateUser:output_type -> evm_indexer.v1.CreateUserResponse
+	106, // 167: evm_indexer.v1.EvmIndexerService.UpdateUser:output_type -> evm_indexer.v1.UpdateUserResponse
+	108, // 168: evm_indexer.v1.EvmIndexerService.DeleteUser:output_type -> evm_indexer.v1.DeleteUserResponse
+	129, // 169: evm_indexer.v1.EvmIndexerService.CreateEvmiExporter:output_type -> evm_indexer.v1.CreateEvmiExporterResponse
+	131, // 170: evm_indexer.v1.EvmIndexerService.GetEvmiExporter:output_type -> evm_indexer.v1.GetEvmiExporterResponse
+	133, // 171: evm_indexer.v1.EvmIndexerService.UpdateEvmiExporter:output_type -> evm_indexer.v1.UpdateEvmiExporterResponse
+	135, // 172: evm_indexer.v1.EvmIndexerService.ListEvmiExporters:output_type -> evm_indexer.v1.ListEvmiExportersResponse
+	137, // 173: evm_indexer.v1.EvmIndexerService.DeleteEvmiExporter:output_type -> evm_indexer.v1.DeleteEvmiExporterResponse
+	139, // 174: evm_indexer.v1.EvmIndexerService.StartExporter:output_type -> evm_indexer.v1.StartExporterResponse
+	141, // 175: evm_indexer.v1.EvmIndexerService.StopExporter:output_type -> evm_indexer.v1.StopExporterResponse
+	109, // 176: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterUpdates:output_type -> evm_indexer.v1.EvmiExporter
+	145, // 177: evm_indexer.v1.EvmIndexerService.ListEvmiExporterSourceCursors:output_type -> evm_indexer.v1.ListEvmiExporterSourceCursorsResponse
+	143, // 178: evm_indexer.v1.EvmIndexerService.StreamEvmiExporterSourceCursors:output_type -> evm_indexer.v1.EvmiExporterSourceCursor
+	112, // 179: evm_indexer.v1.EvmIndexerService.CreatePlugin:output_type -> evm_indexer.v1.CreatePluginResponse
+	114, // 180: evm_indexer.v1.EvmIndexerService.GetPlugin:output_type -> evm_indexer.v1.GetPluginResponse
+	116, // 181: evm_indexer.v1.EvmIndexerService.UpdatePlugin:output_type -> evm_indexer.v1.UpdatePluginResponse
+	118, // 182: evm_indexer.v1.EvmIndexerService.ListPlugins:output_type -> evm_indexer.v1.ListPluginsResponse
+	120, // 183: evm_indexer.v1.EvmIndexerService.DeletePlugin:output_type -> evm_indexer.v1.DeletePluginResponse
+	122, // 184: evm_indexer.v1.EvmIndexerService.InstallPlugin:output_type -> evm_indexer.v1.InstallPluginResponse
+	124, // 185: evm_indexer.v1.EvmIndexerService.ListPluginGitRefs:output_type -> evm_indexer.v1.ListPluginGitRefsResponse
+	127, // 186: evm_indexer.v1.EvmIndexerService.ListPluginCatalog:output_type -> evm_indexer.v1.ListPluginCatalogResponse
+	148, // 187: evm_indexer.v1.EvmIndexerService.ExportConfiguration:output_type -> evm_indexer.v1.ExportConfigurationResponse
+	122, // [122:188] is the sub-list for method output_type
+	56,  // [56:122] is the sub-list for method input_type
+	56,  // [56:56] is the sub-list for extension type_name
+	56,  // [56:56] is the sub-list for extension extendee
+	0,   // [0:56] is the sub-list for field type_name
 }
 
 func init() { file_evm_indexer_v1_evm_indexer_proto_init() }
@@ -9470,7 +9686,7 @@ func file_evm_indexer_v1_evm_indexer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_evm_indexer_v1_evm_indexer_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   147,
+			NumMessages:   150,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

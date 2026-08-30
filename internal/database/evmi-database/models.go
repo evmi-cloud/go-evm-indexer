@@ -116,12 +116,17 @@ type Plugin struct {
 	Description string
 
 	// Source: the server clones GitUrl (any git repository) at GitRef and compiles
-	// the repo root into a plugin. Git is the only supported source, and the
-	// plugin's `main` package must live at the repo root.
+	// the package at Path into a plugin. Git is the only supported source.
 	GitUrl string
 	// GitRef is an optional branch or tag to clone (empty = the repo's default
 	// branch).
 	GitRef string
+	// Path is the slash-separated subdirectory of the clone holding the plugin's
+	// `main` package (empty = the repo root). It lets one repository host several
+	// plugins side by side; such a repo may also declare a catalog file listing
+	// them (see exporter.FetchPluginCatalog). Always relative, and validated so it
+	// cannot escape the clone.
+	Path string
 
 	// BinaryPath is the installed plugin executable; Status is one of
 	// PluginStatus and Error holds the last install failure.

@@ -1,0 +1,15 @@
+{
+  "$comment": "EVMI plugin catalog: the exporter plugins this repository hosts, each with the path of its `main` package. EVMI reads it (evmi-plugins.json or .evmi/plugins.json) when a plugin repo is browsed from the UI, and imports every entry when the server config declares this repo with \"catalog\": true. See docs/exporters.md.",
+  "plugins": [
+    {
+      "name": "logcount",
+      "description": "Example plugin: counts exported logs and prints a running total",
+      "path": "examples/exporters/logcount"
+    },
+    {
+      "name": "hostapi",
+      "description": "Example plugin: uses the host API to read the chain, register an ABI and create log sources",
+      "path": "examples/exporters/hostapi"
+    }
+  ]
+}

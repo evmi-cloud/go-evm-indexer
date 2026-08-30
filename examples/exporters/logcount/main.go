@@ -6,8 +6,11 @@
 //	go build -o logcount ./examples/exporters/logcount
 //
 // In practice you don't build it by hand: create a Plugin pointing at the git
-// repository holding the plugin's `main` package at its root, and EVMI clones and
-// builds it on install. Then point an EvmiExporter at that plugin.
+// repository, with Path set to the directory holding the plugin's `main` package
+// (empty for a repo that holds a single plugin at its root), and EVMI clones and
+// builds it on install. Then point an EvmiExporter at that plugin. A repo hosting
+// several plugins can list them in an evmi-plugins.json catalog — as this one
+// does at its root.
 package main
 
 import (

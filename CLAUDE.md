@@ -261,7 +261,19 @@ keeping a plugin inside its own topology. Example: `examples/exporters/hostapi`.
 `BinaryPath`/`Status` on the `Plugin` row; an exporter references it by `PluginID` and
 `loader.go:launchInstalledPlugin` → `plugin_process.go:startPlugin` runs the binary (an exporter
 only starts if its plugin is `INSTALLED`). The subprocess is killed when `ExporterService.Serve`
-returns. A plugin is cloned+built in an ephemeral `<buildDir>/<pluginName>` and the executable is
+returns. **`Plugin.Path`** is the subdirectory of the clone holding the plugin's `main` package
+(empty = the repo root): the build runs `go build .` from that directory, so one **plugin repo**
+can host many plugins whether they share one root `go.mod` or each carry their own. The value is
+validated by `exporter.ValidatePluginPath` (relative, cannot escape the clone) at the API edge and
+again at build time, and it is part of the "source changed" test in `UpdatePlugin` (changing it
+resets the row to `NOT_INSTALLED`). Such a repo may also ship a **catalog** — `evmi-plugins.json`
+or `.evmi/plugins.json`, a list of `{name, description, path}` (`internal/exporter/catalog.go`) —
+read by `exporter.FetchPluginCatalog` (shallow clone into a temp dir, parse, delete). It is pure
+discovery: the `ListPluginCatalog` RPC feeds the web UI's *Path in repository* suggestions (a new
+`combo` field type — free text with a datalist, so an uncatalogued repo still works), and a config
+`plugins` entry with `"catalog": true` imports every plugin the repo declares in one line
+(`expandConfigPlugins`). This repo is itself a catalogued plugin repo (`evmi-plugins.json` at the
+root, listing `examples/exporters/*`). A plugin is cloned+built in an ephemeral `<buildDir>/<pluginName>` and the executable is
 copied to a persistent `<installDir>/<pluginName>` (= `BinaryPath`); both bases come from
 `config.pluginStorage` (`buildDir` default `<tmp>/evmi`, `installDir` default `/evmi/plugins`)
 via `exporter.Configure`. Mount a volume at `installDir` to avoid rebuilds across restarts. A plugin may
@@ -345,9 +357,11 @@ unmarshals these keys:
 - `database` — `type` = `SQLITE`/`POSTGRES`/`MYSQL`, plus a `config` string map. SQLite reads
   `config.filename`; Postgres/MySQL read `config.dsn`.
 - `metrics` — `enabled` / `path` / `port`.
-- `plugins` — a list of `{name, description, gitUrl, gitRef}` git-hosted exporter
+- `plugins` — a list of `{name, description, gitUrl, gitRef, path}` git-hosted exporter
   plugins imported (created if absent, matched by name) and installed on startup by
-  `exporter.ImportConfigPlugins`. `gitRef` is an optional branch or tag (empty = default branch).
+  `exporter.ImportConfigPlugins`. `gitRef` is an optional branch or tag (empty = default branch);
+  `path` is the plugin's directory inside the repo (empty = repo root). An entry may instead set
+  `"catalog": true` to import **every** plugin listed in that repo's catalog file.
 - `resources` — an **optional autoloader** (`internal/autoloader`) that creates metadata-DB rows
   on startup with a **create-if-not-exists** policy (see below).
 

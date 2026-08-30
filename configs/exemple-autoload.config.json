@@ -16,6 +16,20 @@
             "description": "Track ERC20 balances",
             "gitUrl": "https://github.com/example/evmi-erc20-plugin",
             "gitRef": "v1.0.0"
+        },
+        {
+            "name": "webhook",
+            "description": "One plugin of a repository holding several: path is the directory of its main package",
+            "gitUrl": "https://github.com/example/evmi-plugins",
+            "gitRef": "main",
+            "path": "exporters/webhook"
+        },
+        {
+            "name": "all-of-the-shared-repo",
+            "description": "catalog: import every plugin the repo's evmi-plugins.json declares (name/description/path come from it, so the fields above are ignored)",
+            "gitUrl": "https://github.com/example/evmi-plugins",
+            "gitRef": "main",
+            "catalog": true
         }
     ],
     "resources": {

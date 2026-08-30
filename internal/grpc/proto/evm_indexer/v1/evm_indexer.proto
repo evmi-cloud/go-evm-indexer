@@ -542,6 +542,9 @@ message Plugin {
   string status = 8;
   string error = 9;
   string git_ref = 14; // optional branch or tag to clone (empty = default branch)
+  // Subdirectory of the repository holding the plugin's `main` package
+  // (empty = the repo root), so one repo can host several plugins.
+  string path = 15;
   // Declared config schema (JSON array of {name,type,required,description,default}),
   // extracted from the plugin at install time. Read-only.
   string config_schema_json = 13;
@@ -593,6 +596,27 @@ message ListPluginGitRefsRequest {
 message ListPluginGitRefsResponse {
   repeated string branches = 1;
   repeated string tags = 2;
+}
+
+// One plugin declared by a repository's plugin catalog file.
+message PluginCatalogEntry {
+  string name = 1;
+  string description = 2;
+  // Subdirectory of the repository holding this plugin's `main` package.
+  string path = 3;
+}
+
+// Lists the plugins a repository declares in its catalog file (the server
+// shallow-clones it and reads evmi-plugins.json / .evmi/plugins.json), so a repo
+// hosting several plugins can be browsed instead of guessing paths.
+message ListPluginCatalogRequest {
+  string git_url = 1;
+  string git_ref = 2; // optional branch or tag (empty = default branch)
+}
+message ListPluginCatalogResponse {
+  repeated PluginCatalogEntry entries = 1;
+  // Catalog file that was found, empty when the repository declares none.
+  string catalog_path = 2;
 }
 
 message CreateEvmiExporterRequest {
@@ -789,6 +813,7 @@ service EvmIndexerService {
   rpc DeletePlugin(DeletePluginRequest) returns (DeletePluginResponse);
   rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);
   rpc ListPluginGitRefs(ListPluginGitRefsRequest) returns (ListPluginGitRefsResponse);
+  rpc ListPluginCatalog(ListPluginCatalogRequest) returns (ListPluginCatalogResponse);
 
   // Configuration export: dump all resources as autoloader-compatible JSON.
   rpc ExportConfiguration(ExportConfigurationRequest) returns (ExportConfigurationResponse);

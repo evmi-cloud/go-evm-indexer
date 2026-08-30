@@ -15,7 +15,8 @@
             "name": "erc20-balances",
             "description": "Track ERC-20 balances",
             "gitUrl": "https://github.com/your-org/your-plugin.git",
-            "gitRef": "v1.0.0"
+            "gitRef": "v1.0.0",
+            "path": "exporters/erc20-balances"
         }
     ]
 }

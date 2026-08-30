@@ -214,6 +214,16 @@ func (g *Gateway) ListPluginGitRefs(ctx context.Context, req *connect.Request[v1
 	return forward(ctx, req, c.ListPluginGitRefs)
 }
 
+// ListPluginCatalog is stateless (any instance clones the repo and reads its
+// catalog file), so it routes to any RUNNING instance.
+func (g *Gateway) ListPluginCatalog(ctx context.Context, req *connect.Request[v1.ListPluginCatalogRequest]) (*connect.Response[v1.ListPluginCatalogResponse], error) {
+	c, err := g.anyClient()
+	if err != nil {
+		return nil, err
+	}
+	return forward(ctx, req, c.ListPluginCatalog)
+}
+
 // ExportConfiguration reads the shared metadata DB, so it routes to any RUNNING
 // instance.
 func (g *Gateway) ExportConfiguration(ctx context.Context, req *connect.Request[v1.ExportConfigurationRequest]) (*connect.Response[v1.ExportConfigurationResponse], error) {

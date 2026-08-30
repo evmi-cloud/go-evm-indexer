@@ -167,12 +167,16 @@ func (e *EvmIndexerServer) buildExportedConfig() (types.Config, error) {
 		}
 		out.Resources.Exporters = append(out.Resources.Exporters, exp)
 	}
+	// Plugins are always emitted one row per entry (never as a `catalog: true`
+	// repo entry), so the export describes exactly what is installed even if some
+	// plugins of a catalogued repo were removed since.
 	for _, p := range plugins {
 		out.Plugins = append(out.Plugins, types.ConfigPlugin{
 			Name:        p.Name,
 			Description: p.Description,
 			GitUrl:      p.GitUrl,
 			GitRef:      p.GitRef,
+			Path:        p.Path,
 		})
 	}
 
