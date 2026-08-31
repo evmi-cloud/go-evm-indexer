@@ -445,8 +445,9 @@ func launchInstalledPlugin(db *evmi_database.EvmiDatabase, pluginID uint, logger
 	return startPlugin(p.BinaryPath, p.Name, logger)
 }
 
-// cloneRepo shallow-clones url into dest, at the given ref (branch or tag; empty
-// = the repo's default branch). Any existing clone at dest is removed first so a
+// cloneRepo clones url into dest, at the given ref (branch, tag or full commit
+// id; empty = the repo's default branch). Branches and tags are shallow-cloned;
+// a commit id costs the full history (see the clone args below). Any existing clone at dest is removed first so a
 // changed url/ref always takes effect (install is an explicit action, and
 // VerifyPlugins only reaches here when the binary is already missing).
 func cloneRepo(url string, ref string, dest string, logger zerolog.Logger) (string, error) {
@@ -465,7 +466,14 @@ func cloneRepoContext(ctx context.Context, url string, ref string, dest string, 
 	}
 
 	args := []string{"clone", "--depth", "1"}
-	if ref != "" {
+	switch {
+	case isCommitID(ref):
+		// A commit id cannot go through --branch (git resolves only branches and
+		// tags there) and cannot be fetched shallowly from every server: clone the
+		// history and check the commit out afterwards. Plugin repos are small, and
+		// a commit is the only truly immutable pin — a tag can be moved.
+		args = []string{"clone"}
+	case ref != "":
 		// --branch accepts both branch names and tags.
 		args = append(args, "--branch", ref)
 	}
@@ -483,7 +491,30 @@ func cloneRepoContext(ctx context.Context, url string, ref string, dest string, 
 		}
 		return "", fmt.Errorf("git clone failed: %v: %s", err, string(out))
 	}
+
+	if isCommitID(ref) {
+		checkout := exec.CommandContext(ctx, "git", "-C", dest, "checkout", "--quiet", ref)
+		checkout.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+		if out, err := checkout.CombinedOutput(); err != nil {
+			return "", fmt.Errorf("git checkout %s failed: %v: %s", ref, err, string(out))
+		}
+	}
 	return dest, nil
+}
+
+// isCommitID reports whether ref is a full 40-hex-character commit id. Only the
+// full form is treated as a commit — a short prefix could collide with a branch
+// or tag name, and a pin should not be ambiguous anyway.
+func isCommitID(ref string) bool {
+	if len(ref) != 40 {
+		return false
+	}
+	for _, r := range ref {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // buildPlugin compiles the package in pluginDir (the clone root, or the
