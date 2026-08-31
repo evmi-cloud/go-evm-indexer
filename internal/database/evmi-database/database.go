@@ -3,6 +3,8 @@ package evmi_database
 import (
 	"errors"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
@@ -72,6 +74,15 @@ func LoadDatabase(dbType DatabaseType, config map[string]string, logger zerolog.
 
 	if db == nil {
 		return nil, errors.New("unknown database type")
+	}
+
+	// The metadata pool competes with every store pool for the database's
+	// connection cap (managed Postgres tiers can allow as few as 25 total), so
+	// it is bounded too. Overridable via the database config.
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(intDBConfig(config, "maxOpenConns", 10))
+		sqlDB.SetMaxIdleConns(intDBConfig(config, "maxIdleConns", 2))
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 	}
 
 	// Migrate the schema
@@ -226,4 +237,15 @@ func backfillExporterSourceCursors(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+// intDBConfig reads an optional integer config key, falling back on a default
+// when the key is absent or not a number.
+func intDBConfig(config map[string]string, key string, fallback int) int {
+	if v, ok := config[key]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
 }
