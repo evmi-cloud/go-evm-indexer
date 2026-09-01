@@ -8,6 +8,8 @@ package sql_store
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/evmi-cloud/go-evm-indexer/internal/types"
 	"github.com/rs/zerolog"
@@ -29,6 +31,17 @@ type SQLStore struct {
 // "sqlite".
 func NewSQLStore(dialect string, logger zerolog.Logger) (*SQLStore, error) {
 	return &SQLStore{dialect: dialect, logger: logger}, nil
+}
+
+// intConfig reads an optional integer config key, falling back on a default
+// when the key is absent or not a number.
+func intConfig(config map[string]string, key string, fallback int) int {
+	if v, ok := config[key]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
 }
 
 func (s *SQLStore) Init(config map[string]string) error {
@@ -53,6 +66,18 @@ func (s *SQLStore) Init(config map[string]string) error {
 	if err != nil {
 		return err
 	}
+
+	// Every store instance carries its own pool, and stores are instantiated per
+	// indexer source, per exporter and per API request — with database/sql's
+	// unbounded default, the instances together can exhaust a managed database's
+	// connection cap on startup (Cloud SQL's smallest Postgres tiers allow 25
+	// total). Bound each pool; both knobs are overridable per store config.
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(intConfig(config, "maxOpenConns", 10))
+		sqlDB.SetMaxIdleConns(intConfig(config, "maxIdleConns", 2))
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+	}
+
 	if err := db.AutoMigrate(&sqlLog{}, &sqlTx{}); err != nil {
 		return err
 	}
