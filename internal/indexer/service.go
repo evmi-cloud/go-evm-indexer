@@ -28,6 +28,10 @@ type IndexerService struct {
 	mu                  sync.Mutex
 	sourceIdToServiceId map[uint]suture.ServiceToken
 	sourceIndexers      map[uint]*SourceIndexerService
+	// One head watcher per blockchain, shared by that chain's sources and
+	// retired with its last source. Keyed by EvmBlockchain ID.
+	heads      map[uint]*HeadWatcher
+	headTokens map[uint]suture.ServiceToken
 
 	logger zerolog.Logger
 }
@@ -96,6 +100,7 @@ func (s *IndexerService) startSource(source evmi_database.EvmLogSource) {
 	}
 	s.logger.Info().Msg("starting source id " + fmt.Sprint(source.ID))
 	service := NewSourceIndexerService(s.db, s.bus, s.metrics, source)
+	service.head = s.acquireHead(source.EvmBlockchainID)
 	s.sourceIndexers[source.ID] = service
 	s.sourceIdToServiceId[source.ID] = s.supervisor.Add(service)
 }
@@ -142,7 +147,9 @@ func (s *IndexerService) DisableSource(sourceId uint) error {
 
 	s.mu.Lock()
 	token, ok := s.sourceIdToServiceId[sourceId]
+	var chainID uint
 	if ok {
+		chainID = s.sourceIndexers[sourceId].source.EvmBlockchainID
 		delete(s.sourceIdToServiceId, sourceId)
 		delete(s.sourceIndexers, sourceId)
 	}
@@ -153,6 +160,7 @@ func (s *IndexerService) DisableSource(sourceId uint) error {
 
 	s.logger.Info().Msg("disable source id " + fmt.Sprint(source.ID))
 	s.supervisor.RemoveAndWait(token, time.Minute)
+	s.releaseHead(chainID)
 
 	source.Status = string(evmi_database.StoppedLogSourceStatus)
 	if result := s.db.Conn.Model(&source).Update("status", source.Status); result.Error != nil {
@@ -182,6 +190,46 @@ func NewIndexerService(
 		supervisor:          supervisor,
 		sourceIndexers:      make(map[uint]*SourceIndexerService),
 		sourceIdToServiceId: make(map[uint]suture.ServiceToken),
+		heads:               make(map[uint]*HeadWatcher),
+		headTokens:          make(map[uint]suture.ServiceToken),
 		logger:              logger,
 	}
+}
+
+// acquireHead returns the chain's shared head watcher, starting it under the
+// supervisor on first use. Caller holds s.mu. A chain that cannot be loaded
+// yields nil: the source then polls the head itself, as before.
+func (s *IndexerService) acquireHead(chainID uint) *HeadWatcher {
+	if w, ok := s.heads[chainID]; ok {
+		w.refs.Add(1)
+		return w
+	}
+	var chain evmi_database.EvmBlockchain
+	if result := s.db.Conn.First(&chain, chainID); result.Error != nil {
+		s.logger.Warn().Err(result.Error).Msg("head watcher: blockchain not loaded, source will poll on its own")
+		return nil
+	}
+	w := NewHeadWatcher(chain, s.metrics, s.logger)
+	w.refs.Store(1)
+	s.heads[chainID] = w
+	s.headTokens[chainID] = s.supervisor.Add(w)
+	s.logger.Info().Msg("head watcher started for blockchain id " + fmt.Sprint(chainID))
+	return w
+}
+
+// releaseHead drops one source's reference and retires the watcher with the
+// last one. Caller must NOT hold s.mu.
+func (s *IndexerService) releaseHead(chainID uint) {
+	s.mu.Lock()
+	w, ok := s.heads[chainID]
+	if !ok || w.refs.Add(-1) > 0 {
+		s.mu.Unlock()
+		return
+	}
+	token := s.headTokens[chainID]
+	delete(s.heads, chainID)
+	delete(s.headTokens, chainID)
+	s.mu.Unlock()
+	s.supervisor.RemoveAndWait(token, time.Minute)
+	s.logger.Info().Msg("head watcher stopped for blockchain id " + fmt.Sprint(chainID))
 }
