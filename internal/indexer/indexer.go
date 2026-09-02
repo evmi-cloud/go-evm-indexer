@@ -41,6 +41,10 @@ type SourceIndexerService struct {
 	storeInfo    evmi_database.EvmLogStore
 	source       evmi_database.EvmLogSource
 	contractName string
+	// head is the per-chain watcher shared with the other sources of the
+	// same blockchain (set by the IndexerService); nil means this service
+	// polls the head itself, the pre-watcher behaviour.
+	head *HeadWatcher
 	abi          abi.ABI
 
 	logger zerolog.Logger
@@ -408,17 +412,15 @@ func (p *SourceIndexerService) serveIndexation(ctx context.Context, filter func(
 			return p.markStopped()
 		}
 
-		var block *big.Int
-		if err := p.timedRPC("eth_blockNumber", func() error {
-			return client.Call(eth.BlockNumber().Returns(&block))
-		}); err != nil {
+		currentBlock, known, err := p.chainHead(client)
+		if err != nil {
 			return err
 		}
+		if !known {
+			continue // the shared watcher has no answer yet
+		}
 
-		p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
-		p.metrics.SetSourceProgress(p.sourceLabels(), block.Uint64(), p.source.SyncBlock)
-
-		currentBlock := block.Uint64()
+		p.metrics.SetSourceProgress(p.sourceLabels(), currentBlock, p.source.SyncBlock)
 
 		// The head must be at least BlockSlice ahead of the cursor. Compared
 		// without subtracting first: a lagging RPC node can report a head below
@@ -526,6 +528,24 @@ func (p *SourceIndexerService) indexRange(client *w3.Client, filter func(fromBlo
 	p.metrics.SetSourceProgress(p.sourceLabels(), head, p.source.SyncBlock)
 	p.metrics.ObserveBatchDuration(p.sourceLabels(), time.Since(rangeStart))
 	return nil
+}
+
+// chainHead is the latest block number: read from the shared per-chain watcher
+// when the service was given one (one eth_blockNumber per chain per interval,
+// however many sources), else fetched with the source's own client.
+func (p *SourceIndexerService) chainHead(client *w3.Client) (uint64, bool, error) {
+	if p.head != nil {
+		n, ok := p.head.Head()
+		return n, ok, nil
+	}
+	var block *big.Int
+	if err := p.timedRPC("eth_blockNumber", func() error {
+		return client.Call(eth.BlockNumber().Returns(&block))
+	}); err != nil {
+		return 0, false, err
+	}
+	p.metrics.SetChainHead(p.chain.ChainId, block.Uint64())
+	return block.Uint64(), true, nil
 }
 
 // waitPullInterval sleeps one PullInterval, returning early with the context
