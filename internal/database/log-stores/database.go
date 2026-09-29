@@ -19,6 +19,14 @@ func (store *IndexerStore) GetStorage() EvmIndexerStorage {
 	return store.storage
 }
 
+// Close releases the underlying storage's connections. Safe on a nil store.
+func (store *IndexerStore) Close() error {
+	if store == nil || store.storage == nil {
+		return nil
+	}
+	return store.storage.Close()
+}
+
 // NewIndexerStore wraps an existing storage backend. Useful for tests that inject
 // a fake EvmIndexerStorage without going through LoadStore.
 func NewIndexerStore(storage EvmIndexerStorage) *IndexerStore {

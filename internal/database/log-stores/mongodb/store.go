@@ -255,3 +255,13 @@ func orDefault(v, d string) string {
 	}
 	return v
 }
+
+// Close disconnects the client.
+func (s *MongoStore) Close() error {
+	if s.client == nil {
+		return nil
+	}
+	client := s.client
+	s.client, s.logs, s.txs = nil, nil, nil
+	return client.Disconnect(context.Background())
+}

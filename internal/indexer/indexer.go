@@ -327,6 +327,14 @@ func (p *SourceIndexerService) Serve(ctx context.Context) error {
 		p.logger.Error().Msg(err.Error())
 		return err
 	}
+	// The store lives exactly as long as this Serve call: its pool is
+	// released on every exit path, so a supervisor restart never stacks a
+	// fresh pool on top of an idling one.
+	defer func() {
+		if closeErr := p.store.Close(); closeErr != nil {
+			p.logger.Error().Fields(logParams).Msg("store close error: " + closeErr.Error())
+		}
+	}()
 
 	p.logger.Info().Fields(logParams).Msg("update source")
 	// Only update the columns this worker owns (status, sync_block): the row is

@@ -85,6 +85,20 @@ func (s *SQLStore) Init(config map[string]string) error {
 	return nil
 }
 
+// Close releases the pool. Idempotent: a closed or never-opened store is a
+// no-op, so a service may close on every exit path.
+func (s *SQLStore) Close() error {
+	if s.db == nil {
+		return nil
+	}
+	sqlDB, err := s.db.DB()
+	if err != nil {
+		return err
+	}
+	s.db = nil
+	return sqlDB.Close()
+}
+
 // --- models ---------------------------------------------------------------
 
 type sqlLog struct {

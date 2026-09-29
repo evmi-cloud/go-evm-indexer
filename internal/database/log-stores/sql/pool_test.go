@@ -41,3 +41,31 @@ func TestInitBoundsThePool(t *testing.T) {
 		})
 	}
 }
+
+// A closed store holds no connection, and closing again is harmless: a
+// service may close on every exit path without checking how it exited.
+func TestCloseReleasesThePool(t *testing.T) {
+	s, err := NewSQLStore("sqlite", zerolog.Nop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Init(map[string]string{"dsn": filepath.Join(t.TempDir(), "store.db")}); err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := s.db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got := sqlDB.Stats().OpenConnections; got != 0 {
+		t.Fatalf("OpenConnections after Close = %d, want 0", got)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("second Close must be a no-op, got %v", err)
+	}
+	if err := (&SQLStore{}).Close(); err != nil {
+		t.Fatalf("Close on a store that never connected must be a no-op, got %v", err)
+	}
+}

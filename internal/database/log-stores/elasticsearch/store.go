@@ -463,3 +463,10 @@ func orDefault(v, d string) string {
 	}
 	return v
 }
+
+// Close is a no-op: the Elasticsearch client holds no persistent connection
+// of its own beyond the HTTP transport's idle pool.
+func (s *ElasticsearchStore) Close() error {
+	s.client = nil
+	return nil
+}

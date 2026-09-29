@@ -165,14 +165,12 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 		return err
 	}
 
-	p.logger.Info().Fields(logParams).Msg("connecting store")
-	store, err := log_stores.LoadStore(p.storeInfo.StoreType, storeConfig, p.logger)
-	if err != nil {
-		p.fail(err)
-		return err
-	}
-	p.store = store
-
+	// The plugin first: while it is still being installed at boot, every
+	// attempt fails here and costs nothing. Connecting the store before it
+	// would open a pool per attempt — the supervisor retries in a tight
+	// loop, and the pools of the failed attempts idled on until the
+	// database's connection cap was hit (2026-09-12, 102 backends on a
+	// 100-connection instance).
 	p.logger.Info().Fields(logParams).Msg("starting plugin process")
 	process, err := launchInstalledPlugin(p.db, p.exporter.PluginID, p.logger)
 	if err != nil {
@@ -184,6 +182,21 @@ func (p *ExporterService) Serve(ctx context.Context) error {
 	defer process.Kill()
 	p.pluginProcess = process
 	p.plugin = process.Exporter()
+
+	p.logger.Info().Fields(logParams).Msg("connecting store")
+	store, err := log_stores.LoadStore(p.storeInfo.StoreType, storeConfig, p.logger)
+	if err != nil {
+		p.fail(err)
+		return err
+	}
+	p.store = store
+	// The store lives exactly as long as this Serve call too: whatever the
+	// exit path, its pool is released before the supervisor restarts us.
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			p.logger.Error().Fields(logParams).Msg("store close error: " + closeErr.Error())
+		}
+	}()
 
 	// Expose the host API before Init: a plugin is expected to register the ABIs
 	// and look up the chain it needs from inside Init.

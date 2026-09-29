@@ -152,6 +152,7 @@ func (f *fakeStore) GetLogsAfter(sourceIds []uint64, afterBlock uint64, afterLog
 	return out, nil
 }
 func (f *fakeStore) GetLogStream(uint64, uint64, uint64, chan types.EvmLog) error { return nil }
+func (f *fakeStore) Close() error                                                 { return nil }
 func (f *fakeStore) GetLatestLogs(uint64, uint64) ([]types.EvmLog, error)         { return nil, nil }
 func (f *fakeStore) GetTransactions(uint64, uint64, uint64) ([]types.EvmTransaction, error) {
 	return nil, nil
