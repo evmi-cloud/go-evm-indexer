@@ -341,3 +341,13 @@ func NewClickHouseStore(logger zerolog.Logger) (*ClickHouseStore, error) {
 		logger: logger,
 	}, nil
 }
+
+// Close releases the ClickHouse connection.
+func (s *ClickHouseStore) Close() error {
+	if s.store == nil {
+		return nil
+	}
+	conn := s.store
+	s.store = nil
+	return conn.Close()
+}

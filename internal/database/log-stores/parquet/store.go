@@ -390,3 +390,6 @@ func sortLogs(logs []types.EvmLog) {
 		return logs[i].LogIndex < logs[j].LogIndex
 	})
 }
+
+// Close is a no-op: files are opened and closed per write.
+func (s *ParquetStore) Close() error { return nil }
